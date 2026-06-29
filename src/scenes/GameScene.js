@@ -71,10 +71,11 @@ export default class GameScene extends Phaser.Scene {
         // --- Collisions ---
         this.physics.add.overlap(this.player, this.crickets, this.collectCricket, null, this);
         this.physics.add.overlap(this.player, this.enemies,  this.enemyHitPlayer, null, this);
+        this.physics.add.collider(this.enemies, this.enemies);
 
         // --- Timers ---
-        this.spawnDelay    = 300;  // initial delay between each enemy spawn (ms)
-        this.spawnMinDelay = 60;   // fastest it can ever get (ms)
+        this.spawnDelay    = 2500; // initial delay between each enemy spawn (ms)
+        this.spawnMinDelay = 400;  // fastest it can ever get (ms)
         this.spawnTimer    = this.time.addEvent({ delay: this.spawnDelay, callback: this.spawnEnemy, callbackScope: this, loop: true });
 
         // Gradually increase spawn rate every 10 seconds, capped at spawnMinDelay
