@@ -56,6 +56,18 @@ export default class GameScene extends Phaser.Scene {
         this.biteRange  = 80;
         this.biteRate   = 1000;
 
+        // --- Other weapon stats (initialised when unlocked) ---
+        this.tailSlapDamage   = 25;
+        this.tailSlapRange    = 100;
+        this.tailSlapUpgraded = false;
+        this.poopDamage       = 30;
+        this.pebbleDamage     = 15;
+        this.pebbleCount      = 3;
+        this.pebblePierce     = 1;
+
+        // Track which weapons the player owns
+        this.ownedWeapons = new Set(['bite']);
+
         // --- Collisions ---
         this.physics.add.overlap(this.player, this.crickets, this.collectCricket, null, this);
         this.physics.add.overlap(this.player, this.enemies,  this.enemyHitPlayer, null, this);
@@ -189,21 +201,102 @@ export default class GameScene extends Phaser.Scene {
         const px = this.player.x;
         const py = this.player.y;
 
-        let hit = false;
         this.enemies.getChildren().forEach(enemy => {
             const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
             if (dist <= this.biteRange) {
-                hit = true;
                 enemy.health -= this.biteDamage;
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 if (enemy.health <= 0) this.killEnemy(enemy);
             }
         });
 
-        // Show bite circle briefly
-        if (hit) {
-            const circle = this.add.circle(px, py, this.biteRange, 0xffffff, 0.12).setDepth(20);
-            this.tweens.add({ targets: circle, alpha: 0, duration: 200, onComplete: () => circle.destroy() });
+        // Always show bite circle so player can see the attack range
+        const circle = this.add.circle(px, py, this.biteRange, 0xffffff, 0.12).setDepth(20);
+        this.tweens.add({ targets: circle, alpha: 0, duration: 200, onComplete: () => circle.destroy() });
+    }
+
+    doTailSlap() {
+        const angle = this.player.flipX ? Math.PI : 0;
+        const arc   = this.tailSlapUpgraded ? Math.PI : (Math.PI / 3);
+
+        this.enemies.getChildren().forEach(enemy => {
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
+            if (dist > this.tailSlapRange) return;
+            const toEnemy = Math.atan2(enemy.y - this.player.y, enemy.x - this.player.x);
+            let diff = Phaser.Math.Angle.Wrap(toEnemy - angle);
+            if (Math.abs(diff) <= arc / 2) {
+                enemy.health -= this.tailSlapDamage;
+                this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
+                if (enemy.health <= 0) this.killEnemy(enemy);
+            }
+        });
+
+        // Arc visual
+        const g = this.add.graphics().setDepth(20);
+        g.lineStyle(2, 0xff8800, 0.6);
+        g.beginPath();
+        g.arc(this.player.x, this.player.y, this.tailSlapRange, angle - arc / 2, angle + arc / 2);
+        g.strokePath();
+        this.tweens.add({ targets: g, alpha: 0, duration: 250, onComplete: () => g.destroy() });
+    }
+
+    doPoop() {
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const speed = 220;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+
+        const poop = this.physics.add.image(this.player.x, this.player.y, 'cricket'); // reuse placeholder
+        poop.setTint(0x885500);
+        poop.setScale(0.3);
+        poop.setDepth(8);
+        poop.setVelocity(vx, vy);
+        poop.damage = this.poopDamage;
+
+        this.physics.add.overlap(poop, this.enemies, (p, enemy) => {
+            enemy.health -= p.damage;
+            this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
+            if (enemy.health <= 0) this.killEnemy(enemy);
+            p.destroy();
+        });
+
+        this.time.delayedCall(2000, () => { if (poop.active) poop.destroy(); });
+    }
+
+    doPebbleFlick() {
+        // Fire toward nearest enemy; if none, fire right
+        let targetAngle = 0;
+        let nearest = null;
+        let nearestDist = Infinity;
+        this.enemies.getChildren().forEach(e => {
+            const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
+            if (d < nearestDist) { nearestDist = d; nearest = e; }
+        });
+        if (nearest) targetAngle = Math.atan2(nearest.y - this.player.y, nearest.x - this.player.x);
+
+        const count  = this.pebbleCount;
+        const spread = 0.25;
+
+        for (let i = 0; i < count; i++) {
+            const offset = (i - Math.floor(count / 2)) * spread;
+            const a      = targetAngle + offset;
+            const pebble = this.physics.add.image(this.player.x, this.player.y, 'cricket');
+            pebble.setTint(0xaaaaaa);
+            pebble.setScale(0.2);
+            pebble.setDepth(8);
+            pebble.setVelocity(Math.cos(a) * 300, Math.sin(a) * 300);
+            pebble.damage = this.pebbleDamage;
+            pebble.hits   = 0;
+
+            this.physics.add.overlap(pebble, this.enemies, (p, enemy) => {
+                enemy.health -= p.damage;
+                this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
+                if (enemy.health <= 0) this.killEnemy(enemy);
+                p.hits++;
+                if (p.hits >= this.pebblePierce) p.destroy();
+            });
+
+            this.time.delayedCall(1800, () => { if (pebble.active) pebble.destroy(); });
         }
     }
 
@@ -297,16 +390,59 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '15px', fontFamily: 'Arial', color: '#cccccc',
         }).setScrollFactor(0).setDepth(201).setOrigin(0.5));
 
-        const allUpgrades = [
-            { name: 'Angry',           desc: 'Move faster',                  effect: () => { this.playerSpeed += 30; } },
-            { name: 'Aura Farming',    desc: 'Bite does more damage',        effect: () => { this.biteDamage += 10; } },
-            { name: 'Hunter Instinct', desc: 'Bigger bite range',            effect: () => { this.biteRange  += 25; } },
-            { name: 'Basking',         desc: 'Bite attacks faster',          effect: () => { this.biteRate = Math.max(300, this.biteRate - 150); } },
-            { name: 'Bug Bucket',      desc: 'Increase max health by 25',    effect: () => { this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
-            { name: 'Well Fed',        desc: 'Regenerate 5 HP every 3 sec', effect: () => { this.startRegen(); } },
-            { name: 'Hungry Forager',  desc: 'Crickets attract from further',effect: () => { this.magnetRange += 80; } },
-            { name: 'Hard Scales',     desc: 'Enemies deal less damage',     effect: () => { this.enemies.getChildren().forEach(e => { e.damage = Math.max(1, e.damage - 2); }); } },
+        // Weapons — only offered if not yet owned; upgrades offered if already owned
+        const weaponUpgrades = [
+            {
+                name: 'Tail Slap', desc: 'Sweeping arc attack in front of you', type: 'weapon',
+                available: () => !this.ownedWeapons.has('tailslap'),
+                effect: () => {
+                    this.ownedWeapons.add('tailslap');
+                    this.tailSlapTimer = this.time.addEvent({ delay: 1200, callback: this.doTailSlap, callbackScope: this, loop: true });
+                },
+            },
+            {
+                name: 'Tail Slap+', desc: 'Widen arc to 180°', type: 'weapon',
+                available: () => this.ownedWeapons.has('tailslap') && !this.tailSlapUpgraded,
+                effect: () => { this.tailSlapUpgraded = true; },
+            },
+            {
+                name: 'Poop', desc: 'Fires a projectile in a random direction', type: 'weapon',
+                available: () => !this.ownedWeapons.has('poop'),
+                effect: () => {
+                    this.ownedWeapons.add('poop');
+                    this.poopTimer = this.time.addEvent({ delay: 1500, callback: this.doPoop, callbackScope: this, loop: true });
+                },
+            },
+            {
+                name: 'Pebble Flick', desc: 'Fires 3 piercing pebbles toward the nearest enemy', type: 'weapon',
+                available: () => !this.ownedWeapons.has('pebble'),
+                effect: () => {
+                    this.ownedWeapons.add('pebble');
+                    this.pebbleTimer = this.time.addEvent({ delay: 1300, callback: this.doPebbleFlick, callbackScope: this, loop: true });
+                },
+            },
+            {
+                name: 'Pebble Flick+', desc: 'Fire 9 pebbles that pierce 3 enemies', type: 'weapon',
+                available: () => this.ownedWeapons.has('pebble') && this.pebbleCount < 9,
+                effect: () => { this.pebbleCount = 9; this.pebblePierce = 3; },
+            },
         ];
+
+        // Passives — always available
+        const passiveUpgrades = [
+            { name: 'Angry',           desc: 'Move faster',                   effect: () => { this.playerSpeed += 30; } },
+            { name: 'Aura Farming',    desc: 'Bite does more damage',         effect: () => { this.biteDamage += 10; } },
+            { name: 'Hunter Instinct', desc: 'Bigger bite range',             effect: () => { this.biteRange  += 25; } },
+            { name: 'Basking',         desc: 'Bite attacks faster',           effect: () => { this.biteRate = Math.max(300, this.biteRate - 150); } },
+            { name: 'Bug Bucket',      desc: 'Increase max health by 25',     effect: () => { this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
+            { name: 'Well Fed',        desc: 'Regenerate 5 HP every 3 sec',  effect: () => { this.startRegen(); } },
+            { name: 'Hungry Forager',  desc: 'Crickets attract from further', effect: () => { this.magnetRange += 80; } },
+            { name: 'Hard Scales',     desc: 'Enemies deal less damage',      effect: () => { this.enemies.getChildren().forEach(e => { e.damage = Math.max(1, e.damage - 2); }); } },
+        ];
+
+        // Build the pool: all available weapons first, then passives
+        const availableWeapons  = weaponUpgrades.filter(w => w.available());
+        const allUpgrades = [...availableWeapons, ...passiveUpgrades];
 
         const choices = Phaser.Utils.Array.Shuffle([...allUpgrades]).slice(0, 3);
 
@@ -319,12 +455,17 @@ export default class GameScene extends Phaser.Scene {
             const cx = startX + i * (cardW + gap) + cardW / 2;
             const cy = H / 2 + 30;
 
-            const card = this.add.rectangle(cx, cy, cardW, cardH, 0x1a1a44)
+            const isWeapon  = upgrade.type === 'weapon';
+            const cardColor = isWeapon ? 0x2a1a00 : 0x1a1a44;
+            const hoverColor= isWeapon ? 0x7a4400 : 0x3333aa;
+            const titleColor= isWeapon ? '#ffaa00' : '#ffff00';
+
+            const card = this.add.rectangle(cx, cy, cardW, cardH, cardColor)
                 .setScrollFactor(0).setDepth(201).setInteractive({ useHandCursor: true });
 
             const title = this.add.text(cx, cy - 32, upgrade.name, {
                 fontSize: '15px', fontFamily: 'Arial Black, Arial',
-                color: '#ffff00', align: 'center', wordWrap: { width: cardW - 20 },
+                color: titleColor, align: 'center', wordWrap: { width: cardW - 20 },
             }).setScrollFactor(0).setDepth(202).setOrigin(0.5);
 
             const desc = this.add.text(cx, cy + 10, upgrade.desc, {
@@ -334,8 +475,8 @@ export default class GameScene extends Phaser.Scene {
 
             ui.push(card, title, desc);
 
-            card.on('pointerover', () => card.setFillStyle(0x3333aa));
-            card.on('pointerout',  () => card.setFillStyle(0x1a1a44));
+            card.on('pointerover', () => card.setFillStyle(hoverColor));
+            card.on('pointerout',  () => card.setFillStyle(cardColor));
             card.on('pointerdown', () => {
                 upgrade.effect();
                 ui.forEach(el => el.destroy());
