@@ -742,8 +742,14 @@ export default class GameScene extends Phaser.Scene {
         const passiveUpgrades = [
             { name: 'Angry',           desc: 'Move faster',                   effect: () => { this.playerSpeed += 30; } },
             { name: 'Aura Farming',    desc: 'All attacks do more damage',     effect: () => { this.biteDamage += 10; this.tailSlapDamage += 10; this.poopDamage += 10; this.pebbleDamage += 10; } },
-            { name: 'Hunter Instinct', desc: 'Bigger bite range',             effect: () => { this.biteRange  += 25; } },
-            { name: 'Basking',         desc: 'Bite attacks faster',           effect: () => { this.biteRate = Math.max(300, this.biteRate - 150); } },
+            { name: 'Hunter Instinct', desc: 'Bigger attack range',            effect: () => { this.biteRange += 25; this.tailSlapRange += 25; } },
+            { name: 'Basking',         desc: 'All attacks fire faster',       effect: () => {
+                this.biteRate = Math.max(300, this.biteRate - 150);
+                this.biteTimer.reset({ delay: this.biteRate, callback: this.doBite, callbackScope: this, loop: true });
+                if (this.tailSlapTimer) this.tailSlapTimer.reset({ delay: Math.max(300, this.tailSlapTimer.delay - 150), callback: this.doTailSlap, callbackScope: this, loop: true });
+                if (this.poopTimer)     this.poopTimer.reset({     delay: Math.max(300, this.poopTimer.delay     - 150), callback: this.doPoop,     callbackScope: this, loop: true });
+                if (this.pebbleTimer)   this.pebbleTimer.reset({   delay: Math.max(300, this.pebbleTimer.delay   - 150), callback: this.doPebbleFlick, callbackScope: this, loop: true });
+            } },
             { name: 'Bug Bucket',      desc: 'Increase max health by 25',     effect: () => { this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
             { name: 'Well Fed',        desc: 'Regenerate 5 HP every 3 sec',  effect: () => { this.startRegen(); } },
             { name: 'Hungry Forager',  desc: 'Crickets attract from further', effect: () => { this.magnetRange += 80; } },
