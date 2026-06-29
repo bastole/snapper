@@ -17,6 +17,7 @@ export default class GameScene extends Phaser.Scene {
 
         // --- Player ---
         this.player = this.physics.add.sprite(WORLD_W / 2, WORLD_H / 2, 'snapper');
+        this.player.setScale(0.25);
         this.player.setCollideWorldBounds(true);
         this.player.setDepth(10);
         this.anims.create({
@@ -154,6 +155,7 @@ export default class GameScene extends Phaser.Scene {
         const type  = Phaser.Utils.Array.GetRandom(types);
 
         const enemy = this.physics.add.sprite(x, y, type);
+        enemy.setScale(0.25);
         enemy.setDepth(5);
         enemy.health        = 40;
         enemy.maxHealth     = 40;
@@ -207,6 +209,7 @@ export default class GameScene extends Phaser.Scene {
 
     killEnemy(enemy) {
         const cricket = this.physics.add.image(enemy.x, enemy.y, 'cricket');
+        cricket.setScale(0.25);
         cricket.setDepth(3);
         cricket.xpValue = 1;
         this.crickets.add(cricket);
