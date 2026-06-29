@@ -146,6 +146,10 @@ export default class GameScene extends Phaser.Scene {
         if (this.isLevelingUp) return;
         this.handleMovement();
         this.attractCrickets();
+        if (this.boss?.active && !this.boss.isCharging) {
+            this.physics.moveToObject(this.boss, this.player, 80);
+        }
+        this.updateBossHealthBar();
     }
 
     // ─── Step 1: Player movement ─────────────────────────────────────────────────
@@ -265,6 +269,9 @@ export default class GameScene extends Phaser.Scene {
                 if (enemy.health <= 0) this.killEnemy(enemy);
             }
         });
+        if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= this.biteRange) {
+            this.damageBoss(this.biteDamage);
+        }
 
         // Always show bite circle so player can see the attack range
         const circle = this.add.circle(px, py, this.biteRange, 0xffffff, 0.12).setDepth(20);
@@ -286,6 +293,13 @@ export default class GameScene extends Phaser.Scene {
                 if (enemy.health <= 0) this.killEnemy(enemy);
             }
         });
+        if (this.boss?.active) {
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
+            if (dist <= this.tailSlapRange) {
+                const toEnemy = Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x);
+                if (Math.abs(Phaser.Math.Angle.Wrap(toEnemy - angle)) <= arc / 2) this.damageBoss(this.tailSlapDamage);
+            }
+        }
 
         // Arc visual
         const g = this.add.graphics().setDepth(20);
@@ -315,6 +329,9 @@ export default class GameScene extends Phaser.Scene {
             if (enemy.health <= 0) this.killEnemy(enemy);
             p.destroy();
         });
+        if (this.boss?.active) {
+            this.physics.add.overlap(poop, this.boss, (p) => { this.damageBoss(p.damage); p.destroy(); });
+        }
 
         this.time.delayedCall(2000, () => { if (poop.active) poop.destroy(); });
     }
@@ -351,6 +368,9 @@ export default class GameScene extends Phaser.Scene {
                 p.hits++;
                 if (p.hits >= this.pebblePierce) p.destroy();
             });
+            if (this.boss?.active) {
+                this.physics.add.overlap(pebble, this.boss, (p) => { this.damageBoss(p.damage); p.hits++; if (p.hits >= this.pebblePierce) p.destroy(); });
+            }
 
             this.time.delayedCall(1800, () => { if (pebble.active) pebble.destroy(); });
         }
@@ -441,7 +461,161 @@ export default class GameScene extends Phaser.Scene {
         const mins = Math.floor(this.gameTime / 60);
         const secs = this.gameTime % 60;
         this.timerText.setText(`${mins}:${secs.toString().padStart(2, '0')}`);
-        if (this.gameTime <= 0) this.scene.start('GameOverScene', { level: this.level });
+        if (this.gameTime <= 0) {
+            this.gameTimerEvent.remove();
+            this.spawnBoss();
+        }
+    }
+
+    // ─── Boss ────────────────────────────────────────────────────────────────────
+    spawnBoss() {
+        // Stop all regular spawning
+        this.spawnTimer.paused     = true;
+        this.spawnRampTimer.paused = true;
+
+        const W = this.cameras.main.width;
+        const H = this.cameras.main.height;
+
+        // Warning banner
+        const warn = this.add.text(W / 2, H / 2 - 60, '⚠  LETTUCE BEETLE APPROACHES  ⚠', {
+            fontSize: '22px', fontFamily: 'Arial Black, Arial',
+            color: '#ff3333', stroke: '#000', strokeThickness: 5,
+        }).setScrollFactor(0).setDepth(300).setOrigin(0.5);
+        this.tweens.add({ targets: warn, alpha: 0, delay: 2500, duration: 600, onComplete: () => warn.destroy() });
+
+        // Spawn boss after warning
+        this.time.delayedCall(2800, () => {
+            const bossX = this.player.x + 450;
+            const bossY = this.player.y;
+
+            this.boss = this.physics.add.sprite(bossX, bossY, 'lettuce_beetle');
+            this.boss.setScale(0.6);
+            this.boss.setDepth(8);
+            this.boss.health    = 8000;
+            this.boss.maxHealth = 8000;
+            this.boss.damage    = 20;
+            this.boss.lastHitTime = 0;
+            this.boss.isCharging  = false;
+
+            if (!this.anims.exists('lettuce_beetle_walk')) {
+                this.anims.create({ key: 'lettuce_beetle_walk', frames: this.anims.generateFrameNumbers('lettuce_beetle', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+            }
+            this.boss.play('lettuce_beetle_walk');
+
+            // Boss health bar (world-space, below boss)
+            this.bossHpBarBg  = this.add.rectangle(bossX, bossY + 30, 80, 10, 0x222222).setDepth(9);
+            this.bossHpBar    = this.add.rectangle(bossX - 40, bossY + 30, 80, 8, 0xff2222).setDepth(10).setOrigin(0, 0.5);
+            this.bossHpLabel  = this.add.text(bossX, bossY - 48, 'LETTUCE BEETLE', {
+                fontSize: '11px', fontFamily: 'Arial Black, Arial', color: '#ff4444',
+            }).setDepth(10).setOrigin(0.5);
+
+            // Damage + overlap
+            this.physics.add.overlap(this.player, this.boss, this.bossHitPlayer, null, this);
+
+            // Charge every 3.5 seconds
+            this.bossChargeTimer = this.time.addEvent({ delay: 3500, callback: this.bossCharge, callbackScope: this, loop: true });
+
+            this.timerText.setText('BOSS');
+        });
+    }
+
+    updateBossHealthBar() {
+        if (!this.boss || !this.bossHpBar) return;
+        const pct = Math.max(0, this.boss.health / this.boss.maxHealth);
+        this.bossHpBar.width    = 80 * pct;
+        this.bossHpBarBg.x      = this.boss.x;
+        this.bossHpBarBg.y      = this.boss.y + 30;
+        this.bossHpBar.x        = this.boss.x - 40;
+        this.bossHpBar.y        = this.boss.y + 30;
+        this.bossHpLabel.x      = this.boss.x;
+        this.bossHpLabel.y      = this.boss.y - 48;
+    }
+
+    bossHitPlayer(player, boss) {
+        const now = this.time.now;
+        if (now - boss.lastHitTime < 1000) return;
+        boss.lastHitTime = now;
+        this.playerHealth -= boss.damage;
+        this.updateHPBar();
+        this.tweens.add({ targets: player, alpha: 0.3, duration: 100, yoyo: true });
+        if (this.playerHealth <= 0) {
+            this.playerHealth = 0;
+            this.updateHPBar();
+            this.time.delayedCall(500, () => this.scene.start('GameOverScene', { level: this.level }));
+        }
+    }
+
+    bossCharge() {
+        if (!this.boss || !this.boss.active || this.boss.isCharging) return;
+        this.boss.isCharging = true;
+
+        // Warning flash on boss
+        this.tweens.add({ targets: this.boss, alpha: 0.2, duration: 150, yoyo: true, repeat: 3,
+            onComplete: () => {
+                if (!this.boss?.active) return;
+                // Charge toward player's current position
+                this.physics.moveToObject(this.boss, this.player, 320);
+                this.time.delayedCall(800, () => {
+                    if (!this.boss?.active) return;
+                    this.boss.setVelocity(0, 0);
+                    this.boss.isCharging = false;
+                });
+            },
+        });
+    }
+
+    damageBoss(amount) {
+        if (!this.boss || !this.boss.active) return;
+        this.boss.health -= amount;
+        this.tweens.add({ targets: this.boss, alpha: 0.2, duration: 80, yoyo: true });
+        this.updateBossHealthBar();
+        if (this.boss.health <= 0) this.killBoss();
+    }
+
+    killBoss() {
+        if (this.bossChargeTimer) this.bossChargeTimer.remove();
+        this.bossHpBar?.destroy();
+        this.bossHpBarBg?.destroy();
+        this.bossHpLabel?.destroy();
+        this.boss.destroy();
+        this.boss = null;
+        this.showLevelClear();
+    }
+
+    showLevelClear() {
+        this.physics.pause();
+        this.biteTimer.paused = true;
+        this.regenTimer.paused = true;
+
+        const W = this.cameras.main.width;
+        const H = this.cameras.main.height;
+
+        this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.8).setScrollFactor(0).setDepth(300);
+
+        this.add.text(W / 2, H / 2 - 80, 'LEVEL CLEAR!', {
+            fontSize: '52px', fontFamily: 'Arial Black, Arial',
+            color: '#00ff88', stroke: '#000000', strokeThickness: 8,
+        }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
+
+        this.add.text(W / 2, H / 2 - 10, `Level ${this.level} Complete`, {
+            fontSize: '18px', fontFamily: 'Arial', color: '#ffffff',
+        }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
+
+        const next = this.add.text(W / 2, H / 2 + 70, '[ CONTINUE ]', {
+            fontSize: '22px', fontFamily: 'Arial', color: '#ffffff',
+            backgroundColor: '#226622', padding: { x: 24, y: 12 },
+        }).setScrollFactor(0).setDepth(301).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        next.on('pointerover', () => next.setColor('#00ff88'));
+        next.on('pointerout',  () => next.setColor('#ffffff'));
+        next.on('pointerdown', () => this.scene.start('LevelSelectScene'));
+
+        const menu = this.add.text(W / 2, H / 2 + 140, '[ MAIN MENU ]', {
+            fontSize: '16px', fontFamily: 'Arial', color: '#aaaaaa',
+            backgroundColor: '#333333', padding: { x: 20, y: 10 },
+        }).setScrollFactor(0).setDepth(301).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        menu.on('pointerover', () => menu.setColor('#ffffff'));
+        menu.on('pointerout',  () => menu.setColor('#aaaaaa'));
+        menu.on('pointerdown', () => this.scene.start('LevelSelectScene'));
     }
 
     // ─── Step 5: Level-up screen ─────────────────────────────────────────────────
