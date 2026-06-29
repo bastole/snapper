@@ -54,7 +54,7 @@ export default class GameScene extends Phaser.Scene {
         // --- Bite weapon stats ---
         this.biteDamage = 20;
         this.biteRange  = 80;
-        this.biteRate   = 1000;
+        this.biteRate   = 3000;
 
         // --- Other weapon stats (initialised when unlocked) ---
         this.tailSlapDamage   = 25;
@@ -402,7 +402,7 @@ export default class GameScene extends Phaser.Scene {
                 available: () => !this.ownedWeapons.has('tailslap'),
                 effect: () => {
                     this.ownedWeapons.add('tailslap');
-                    this.tailSlapTimer = this.time.addEvent({ delay: 1200, callback: this.doTailSlap, callbackScope: this, loop: true });
+                    this.tailSlapTimer = this.time.addEvent({ delay: 3000, callback: this.doTailSlap, callbackScope: this, loop: true });
                 },
             },
             {
@@ -415,7 +415,7 @@ export default class GameScene extends Phaser.Scene {
                 available: () => !this.ownedWeapons.has('poop'),
                 effect: () => {
                     this.ownedWeapons.add('poop');
-                    this.poopTimer = this.time.addEvent({ delay: 1500, callback: this.doPoop, callbackScope: this, loop: true });
+                    this.poopTimer = this.time.addEvent({ delay: 3500, callback: this.doPoop, callbackScope: this, loop: true });
                 },
             },
             {
@@ -423,7 +423,7 @@ export default class GameScene extends Phaser.Scene {
                 available: () => !this.ownedWeapons.has('pebble'),
                 effect: () => {
                     this.ownedWeapons.add('pebble');
-                    this.pebbleTimer = this.time.addEvent({ delay: 1300, callback: this.doPebbleFlick, callbackScope: this, loop: true });
+                    this.pebbleTimer = this.time.addEvent({ delay: 3000, callback: this.doPebbleFlick, callbackScope: this, loop: true });
                 },
             },
             {
