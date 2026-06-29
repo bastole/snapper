@@ -185,13 +185,17 @@ export default class GameScene extends Phaser.Scene {
         x = Phaser.Math.Clamp(x, 64, 3136);
         y = Phaser.Math.Clamp(y, 64, 3136);
 
+        // elapsed = seconds since level started
+        const elapsed = 600 - this.gameTime;
+
         const typePool = [
-            { key: 'iceberg_lettuce', health: 40,  damage: 5,  speed: 60,  scale: 0.25 },
-            { key: 'basil',           health: 70,  damage: 5,  speed: 60,  scale: 0.25 },
-            { key: 'lettuce_hopper',  health: 120, damage: 8,  speed: 45,  scale: 0.35, splits: true },
-            { key: 'lettuce_shooter', health: 180, damage: 6,  speed: 0,   scale: 0.25, shoots: true },
-            { key: 'basil_propeller', health: 250, damage: 10, speed: 180, scale: 0.25 },
-        ];
+            { key: 'iceberg_lettuce', health: 40,  damage: 5,  speed: 60,  scale: 0.25, minTime: 0   },
+            { key: 'basil',           health: 70,  damage: 5,  speed: 60,  scale: 0.25, minTime: 0   },
+            { key: 'lettuce_hopper',  health: 120, damage: 8,  speed: 45,  scale: 0.35, minTime: 120, splits: true  },
+            { key: 'lettuce_shooter', health: 180, damage: 6,  speed: 0,   scale: 0.25, minTime: 300, shoots: true  },
+            { key: 'basil_propeller', health: 250, damage: 10, speed: 180, scale: 0.25, minTime: 480 },
+        ].filter(t => elapsed >= t.minTime);
+
         const def  = Phaser.Utils.Array.GetRandom(typePool);
         const type = def.key;
 
