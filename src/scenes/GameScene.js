@@ -183,10 +183,10 @@ export default class GameScene extends Phaser.Scene {
 
         const typePool = [
             { key: 'iceberg_lettuce', health: 40,  damage: 5,  speed: 60,  scale: 0.25 },
-            { key: 'basil',           health: 40,  damage: 5,  speed: 60,  scale: 0.25 },
+            { key: 'basil',           health: 70,  damage: 5,  speed: 60,  scale: 0.25 },
             { key: 'lettuce_hopper',  health: 120, damage: 8,  speed: 45,  scale: 0.35, splits: true },
-            { key: 'lettuce_shooter', health: 60,  damage: 6,  speed: 0,   scale: 0.25, shoots: true },
-            { key: 'basil_propeller', health: 20,  damage: 10, speed: 180, scale: 0.25 },
+            { key: 'lettuce_shooter', health: 180, damage: 6,  speed: 0,   scale: 0.25, shoots: true },
+            { key: 'basil_propeller', health: 250, damage: 10, speed: 180, scale: 0.25 },
         ];
         const def  = Phaser.Utils.Array.GetRandom(typePool);
         const type = def.key;
