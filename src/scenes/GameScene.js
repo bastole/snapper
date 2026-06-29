@@ -129,6 +129,57 @@ export default class GameScene extends Phaser.Scene {
         this.timerText = this.add.text(W / 2, 5, '10:00', {
             fontSize: '13px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
         }).setScrollFactor(0).setDepth(102).setOrigin(0.5, 0);
+
+        // Pause button
+        this.isPaused = false;
+        const pauseBtn = this.add.text(W - 10, 44, '⏸ PAUSE', {
+            fontSize: '11px', fontFamily: 'Arial', color: '#ffffff',
+            backgroundColor: '#333333', padding: { x: 6, y: 4 },
+        }).setScrollFactor(0).setDepth(102).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+
+        pauseBtn.on('pointerover', () => pauseBtn.setColor('#ffff00'));
+        pauseBtn.on('pointerout',  () => pauseBtn.setColor('#ffffff'));
+        pauseBtn.on('pointerdown', () => this.togglePause(pauseBtn));
+
+        // ESC key also toggles pause
+        this.input.keyboard.on('keydown-ESC', () => this.togglePause(pauseBtn));
+
+        this.pauseBtn = pauseBtn;
+    }
+
+    togglePause(btn) {
+        if (this.isLevelingUp) return;
+        this.isPaused = !this.isPaused;
+
+        if (this.isPaused) {
+            this.physics.pause();
+            this.spawnTimer.paused      = true;
+            this.spawnRampTimer.paused  = true;
+            this.biteTimer.paused       = true;
+            this.gameTimerEvent.paused  = true;
+            this.regenTimer.paused      = true;
+            if (this.bossChargeTimer)   this.bossChargeTimer.paused = true;
+            btn.setText('▶ RESUME');
+
+            const W = this.cameras.main.width;
+            const H = this.cameras.main.height;
+            this.pauseOverlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.5).setScrollFactor(0).setDepth(150);
+            this.pauseLabel   = this.add.text(W / 2, H / 2, 'PAUSED', {
+                fontSize: '48px', fontFamily: 'Arial Black, Arial',
+                color: '#ffffff', stroke: '#000000', strokeThickness: 6,
+            }).setScrollFactor(0).setDepth(151).setOrigin(0.5);
+        } else {
+            this.physics.resume();
+            this.spawnTimer.paused      = false;
+            this.spawnRampTimer.paused  = false;
+            this.biteTimer.paused       = false;
+            this.gameTimerEvent.paused  = false;
+            this.regenTimer.paused      = false;
+            if (this.bossChargeTimer)   this.bossChargeTimer.paused = false;
+            btn.setText('⏸ PAUSE');
+            this.pauseOverlay?.destroy();
+            this.pauseLabel?.destroy();
+        }
     }
 
     updateXPBar() {
