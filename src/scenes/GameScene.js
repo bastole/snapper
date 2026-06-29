@@ -77,6 +77,10 @@ export default class GameScene extends Phaser.Scene {
         this.biteTimer     = this.time.addEvent({ delay: this.biteRate, callback: this.doBite, callbackScope: this, loop: true });
         this.gameTimerEvent = this.time.addEvent({ delay: 1000, callback: this.tickTimer,  callbackScope: this, loop: true });
 
+        // Passive regen — always on, 1 HP every 20 seconds
+        this.regenDelay = 20000;
+        this.regenTimer = this.time.addEvent({ delay: this.regenDelay, callback: this.doRegen, callbackScope: this, loop: true });
+
         // --- UI ---
         this.createUI();
     }
@@ -370,9 +374,10 @@ export default class GameScene extends Phaser.Scene {
     showLevelUp() {
         this.isLevelingUp = true;
         this.physics.pause();
-        this.spawnTimer.paused    = true;
-        this.biteTimer.paused     = true;
+        this.spawnTimer.paused     = true;
+        this.biteTimer.paused      = true;
         this.gameTimerEvent.paused = true;
+        this.regenTimer.paused     = true;
 
         const W = this.cameras.main.width;
         const H = this.cameras.main.height;
@@ -484,22 +489,23 @@ export default class GameScene extends Phaser.Scene {
                 this.spawnTimer.paused     = false;
                 this.biteTimer.paused      = false;
                 this.gameTimerEvent.paused = false;
+                this.regenTimer.paused     = false;
                 this.isLevelingUp          = false;
             });
         });
     }
 
+    doRegen() {
+        if (this.playerHealth < this.playerMaxHealth) {
+            this.playerHealth = Math.min(this.playerMaxHealth, this.playerHealth + 1);
+            this.updateHPBar();
+        }
+    }
+
+    // Well Fed upgrade — speeds regen up to 1 HP every 10 seconds
     startRegen() {
-        if (this.regenTimer) return; // only one regen timer
-        this.regenTimer = this.time.addEvent({
-            delay: 3000,
-            loop: true,
-            callback: () => {
-                if (this.playerHealth < this.playerMaxHealth) {
-                    this.playerHealth = Math.min(this.playerMaxHealth, this.playerHealth + 5);
-                    this.updateHPBar();
-                }
-            },
-        });
+        this.regenDelay = 10000;
+        this.regenTimer.remove();
+        this.regenTimer = this.time.addEvent({ delay: this.regenDelay, callback: this.doRegen, callbackScope: this, loop: true });
     }
 }
