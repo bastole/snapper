@@ -741,7 +741,7 @@ export default class GameScene extends Phaser.Scene {
         // Passives — always available
         const passiveUpgrades = [
             { name: 'Angry',           desc: 'Move faster',                   effect: () => { this.playerSpeed += 30; } },
-            { name: 'Aura Farming',    desc: 'Bite does more damage',         effect: () => { this.biteDamage += 10; } },
+            { name: 'Aura Farming',    desc: 'All attacks do more damage',     effect: () => { this.biteDamage += 10; this.tailSlapDamage += 10; this.poopDamage += 10; this.pebbleDamage += 10; } },
             { name: 'Hunter Instinct', desc: 'Bigger bite range',             effect: () => { this.biteRange  += 25; } },
             { name: 'Basking',         desc: 'Bite attacks faster',           effect: () => { this.biteRate = Math.max(300, this.biteRate - 150); } },
             { name: 'Bug Bucket',      desc: 'Increase max health by 25',     effect: () => { this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
