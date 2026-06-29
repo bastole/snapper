@@ -47,7 +47,7 @@ export default class GameScene extends Phaser.Scene {
         this.xp             = 0;
         this.xpToNext       = 10;
         this.playerLevel    = 1;
-        this.magnetRange    = 120;
+        this.magnetRange    = 32;
         this.isLevelingUp   = false;
         this.gameTime       = 600;
 
