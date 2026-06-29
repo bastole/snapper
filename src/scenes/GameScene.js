@@ -272,7 +272,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     doTailSlap() {
-        const angle = this.player.flipX ? Math.PI : 0;
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
         const arc   = this.tailSlapUpgraded ? Math.PI : (Math.PI / 3);
 
         this.enemies.getChildren().forEach(enemy => {
