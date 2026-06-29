@@ -181,17 +181,55 @@ export default class GameScene extends Phaser.Scene {
         x = Phaser.Math.Clamp(x, 64, 3136);
         y = Phaser.Math.Clamp(y, 64, 3136);
 
-        const types = ['iceberg_lettuce', 'basil'];
-        const type  = Phaser.Utils.Array.GetRandom(types);
+        const typePool = [
+            { key: 'iceberg_lettuce', health: 40,  damage: 5,  speed: 60,  scale: 0.25 },
+            { key: 'basil',           health: 40,  damage: 5,  speed: 60,  scale: 0.25 },
+            { key: 'lettuce_hopper',  health: 120, damage: 8,  speed: 45,  scale: 0.35, splits: true },
+            { key: 'lettuce_shooter', health: 60,  damage: 6,  speed: 0,   scale: 0.25, shoots: true },
+            { key: 'basil_propeller', health: 20,  damage: 10, speed: 180, scale: 0.25 },
+        ];
+        const def  = Phaser.Utils.Array.GetRandom(typePool);
+        const type = def.key;
 
         const enemy = this.physics.add.sprite(x, y, type);
-        enemy.setScale(0.25);
+        enemy.setScale(def.scale);
         enemy.setDepth(5);
-        enemy.health        = 40;
-        enemy.maxHealth     = 40;
-        enemy.damage        = 5;
-        enemy.speed         = 60;
+        enemy.health        = def.health;
+        enemy.maxHealth     = def.health;
+        enemy.damage        = def.damage;
+        enemy.speed         = def.speed;
         enemy.lastHitTime   = 0;
+        enemy.splits        = def.splits  ?? false;
+        enemy.shoots        = def.shoots  ?? false;
+
+        // Lettuce Shooter fires a projectile toward the player every 3 seconds
+        if (enemy.shoots) {
+            enemy.shootTimer = this.time.addEvent({
+                delay: 3000,
+                loop: true,
+                callback: () => {
+                    if (!enemy.active) return;
+                    const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+                    const proj  = this.physics.add.image(enemy.x, enemy.y, 'iceberg_lettuce');
+                    proj.setScale(0.12);
+                    proj.setDepth(7);
+                    proj.setVelocity(Math.cos(angle) * 160, Math.sin(angle) * 160);
+                    proj.damage = enemy.damage;
+                    this.physics.add.overlap(proj, this.player, () => {
+                        if (!proj.active) return;
+                        this.playerHealth -= proj.damage;
+                        this.updateHPBar();
+                        this.tweens.add({ targets: this.player, alpha: 0.3, duration: 100, yoyo: true });
+                        if (this.playerHealth <= 0) {
+                            this.playerHealth = 0;
+                            this.time.delayedCall(500, () => this.scene.start('GameOverScene', { level: this.level }));
+                        }
+                        proj.destroy();
+                    });
+                    this.time.delayedCall(4000, () => { if (proj.active) proj.destroy(); });
+                },
+            });
+        }
 
         const animKey = `${type}_walk`;
         if (!this.anims.exists(animKey)) {
@@ -324,6 +362,28 @@ export default class GameScene extends Phaser.Scene {
         cricket.setDepth(3);
         cricket.xpValue = 1;
         this.crickets.add(cricket);
+
+        // Lettuce Hopper splits into 2 Iceberg Lettuces
+        if (enemy.splits) {
+            for (let i = 0; i < 2; i++) {
+                const ox = enemy.x + Phaser.Math.Between(-20, 20);
+                const oy = enemy.y + Phaser.Math.Between(-20, 20);
+                const split = this.physics.add.sprite(ox, oy, 'iceberg_lettuce');
+                split.setScale(0.25);
+                split.setDepth(5);
+                split.health = 40; split.maxHealth = 40;
+                split.damage = 5;  split.speed = 60;
+                split.lastHitTime = 0;
+                split.splits = false; split.shoots = false;
+                if (!this.anims.exists('iceberg_lettuce_walk')) {
+                    this.anims.create({ key: 'iceberg_lettuce_walk', frames: this.anims.generateFrameNumbers('iceberg_lettuce', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+                }
+                split.play('iceberg_lettuce_walk');
+                this.enemies.add(split);
+            }
+        }
+
+        if (enemy.shootTimer) enemy.shootTimer.remove();
         enemy.destroy();
     }
 
