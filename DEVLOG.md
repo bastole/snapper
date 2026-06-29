@@ -80,9 +80,9 @@ All weapons fire automatically on timers. Visual effect always shows even if no 
 | Boost | Effect |
 |---|---|
 | Angry | +30 movement speed |
-| Aura Farming | +10 to ALL weapon damage |
-| Hunter Instinct | +25 bite range |
-| Basking | Bite fires 150ms faster (min 300ms) |
+| Aura Farming | +10 damage to Bite, Tail Slap, Poop, Pebble Flick |
+| Hunter Instinct | +25 range to Bite and Tail Slap (Poop/Pebble have no range) |
+| Basking | −150ms delay on all active weapons (min 300ms each) |
 | Bug Bucket | +25 max HP |
 | Well Fed | Speeds passive regen from 1HP/20s → 1HP/10s |
 | Hungry Forager | +80 cricket magnet range |
