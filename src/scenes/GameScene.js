@@ -73,7 +73,21 @@ export default class GameScene extends Phaser.Scene {
         this.physics.add.overlap(this.player, this.enemies,  this.enemyHitPlayer, null, this);
 
         // --- Timers ---
-        this.spawnTimer    = this.time.addEvent({ delay: 1500, callback: this.spawnEnemy,  callbackScope: this, loop: true });
+        this.spawnDelay    = 300;  // initial delay between each enemy spawn (ms)
+        this.spawnMinDelay = 60;   // fastest it can ever get (ms)
+        this.spawnTimer    = this.time.addEvent({ delay: this.spawnDelay, callback: this.spawnEnemy, callbackScope: this, loop: true });
+
+        // Gradually increase spawn rate every 10 seconds, capped at spawnMinDelay
+        this.spawnRampTimer = this.time.addEvent({
+            delay: 10000,
+            loop: true,
+            callback: () => {
+                if (this.spawnDelay > this.spawnMinDelay) {
+                    this.spawnDelay = Math.max(this.spawnMinDelay, Math.floor(this.spawnDelay * 0.85));
+                    this.spawnTimer.reset({ delay: this.spawnDelay, callback: this.spawnEnemy, callbackScope: this, loop: true });
+                }
+            },
+        });
         this.biteTimer     = this.time.addEvent({ delay: this.biteRate, callback: this.doBite, callbackScope: this, loop: true });
         this.gameTimerEvent = this.time.addEvent({ delay: 1000, callback: this.tickTimer,  callbackScope: this, loop: true });
 
@@ -374,10 +388,11 @@ export default class GameScene extends Phaser.Scene {
     showLevelUp() {
         this.isLevelingUp = true;
         this.physics.pause();
-        this.spawnTimer.paused     = true;
-        this.biteTimer.paused      = true;
-        this.gameTimerEvent.paused = true;
-        this.regenTimer.paused     = true;
+        this.spawnTimer.paused      = true;
+        this.spawnRampTimer.paused  = true;
+        this.biteTimer.paused       = true;
+        this.gameTimerEvent.paused  = true;
+        this.regenTimer.paused      = true;
 
         const W = this.cameras.main.width;
         const H = this.cameras.main.height;
@@ -402,7 +417,7 @@ export default class GameScene extends Phaser.Scene {
                 available: () => !this.ownedWeapons.has('tailslap'),
                 effect: () => {
                     this.ownedWeapons.add('tailslap');
-                    this.tailSlapTimer = this.time.addEvent({ delay: 3000, callback: this.doTailSlap, callbackScope: this, loop: true });
+                    this.tailSlapTimer = this.time.addEvent({ delay: 4000, callback: this.doTailSlap, callbackScope: this, loop: true });
                 },
             },
             {
@@ -415,7 +430,7 @@ export default class GameScene extends Phaser.Scene {
                 available: () => !this.ownedWeapons.has('poop'),
                 effect: () => {
                     this.ownedWeapons.add('poop');
-                    this.poopTimer = this.time.addEvent({ delay: 3500, callback: this.doPoop, callbackScope: this, loop: true });
+                    this.poopTimer = this.time.addEvent({ delay: 4000, callback: this.doPoop, callbackScope: this, loop: true });
                 },
             },
             {
@@ -423,7 +438,7 @@ export default class GameScene extends Phaser.Scene {
                 available: () => !this.ownedWeapons.has('pebble'),
                 effect: () => {
                     this.ownedWeapons.add('pebble');
-                    this.pebbleTimer = this.time.addEvent({ delay: 3000, callback: this.doPebbleFlick, callbackScope: this, loop: true });
+                    this.pebbleTimer = this.time.addEvent({ delay: 8000, callback: this.doPebbleFlick, callbackScope: this, loop: true });
                 },
             },
             {
@@ -486,10 +501,11 @@ export default class GameScene extends Phaser.Scene {
                 upgrade.effect();
                 ui.forEach(el => el.destroy());
                 this.physics.resume();
-                this.spawnTimer.paused     = false;
-                this.biteTimer.paused      = false;
-                this.gameTimerEvent.paused = false;
-                this.regenTimer.paused     = false;
+                this.spawnTimer.paused      = false;
+                this.spawnRampTimer.paused  = false;
+                this.biteTimer.paused       = false;
+                this.gameTimerEvent.paused  = false;
+                this.regenTimer.paused      = false;
                 this.isLevelingUp          = false;
             });
         });
