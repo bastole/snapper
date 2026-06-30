@@ -11,7 +11,7 @@ export default class BootScene extends Phaser.Scene {
         const enemies = [
             'iceberg_lettuce', 'basil', 'lettuce_hopper', 'lettuce_shooter', 'basil_propeller',
             'rocket', 'rocket_knife', 'oregano_skunk', 'oregano_ghost', 'oregano_fan', 'rocket_sword',
-            'coriander', 'coriander_whip', 'carrot_mole', 'coriander_hydra', 'carrot_dart', 'carrot_wheel',
+            'coriander', 'coriander_whip', 'carrot_mole', 'coriander_hydra', 'carrot_dart', 'carrot_wheel', 'carrot_thug',
             'spinach', 'small_spinach', 'mulberry_bat', 'mulberry_snake', 'spinach_cyclone',
             'lettuce_trap', 'basil_bomb', 'rocket_great_sword', 'oregano_phantom',
             'coriander_carrot', 'spinach_tempest', 'mulberry_monstrosity',

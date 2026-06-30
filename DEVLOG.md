@@ -126,3 +126,67 @@ All weapons fire automatically on timers. Visual effect always shows even if no 
 - **GitHub**: https://github.com/bastole/snapper
 - **Branch**: master
 - **Last commit**: Aura Farming now boosts all weapon damage
+
+---
+
+## Session 2 — 2026-06-30
+
+### New weapon — Dubia Shields
+- Big amber circles orbit the player, damaging anything they touch (20 dmg base, 800ms cooldown per enemy)
+- **Level 1**: 2 shields, single ring at 90px radius, 1.2 rad/s
+- **Level 2**: 3 shields, 1.6 rad/s
+- **Level 3**: 4 shields, 2.0 rad/s
+- **Level 4 (final)**: two layers — 4 inner shields at 70px + 5 outer shields at 120px, rotating in opposite directions
+- Boosted by Aura Farming (+10 dmg per pick)
+
+### Level 3 — Coriander & Carrot (completed previous session, documented here)
+Full enemy set implemented with all special behaviours:
+| Enemy | HP | Dmg | Speed | Intro | Special |
+|---|---|---|---|---|---|
+| Coriander | 30 | 10 | 72 | 0:00 | — |
+| Coriander Whip | 60 | 14 | 55 | 2:30 | Lash attack within 56px every 1–2s |
+| Carrot Mole | 75 | 12 | 60 | 4:00 | Burrows 3–10s surfaced / 3–5s underground (invulnerable) |
+| Coriander Hydra | 220 | 13 | 38 | 7:00 | Loses head at 2/3 and 1/3 HP |
+| Carrot Dart | 40 | 17 | 145 | 8:00 | Random scale 0.18–0.35; telegraphed charge; splits into 2 Carrot Wheels |
+| Carrot Wheel | 22 | 9 | 130 | 8:00 | Inherits 60% of dart's scale |
+| Carrot Thug | 300 | 15 | 180 | Scorpion only | Spawned by boss stinger bury |
+
+Boss — **Carrot Scorpion** (18000 HP):
+- Two-phase AI: **chase** (3–8s at 220px/s) → **pathfinding** (15–25s, wanders to random points near player)
+- Claw swipe every 4s
+- Stinger bury every 10–15s: spawns 20 Carrot Moles + 10 Carrot Thugs shuffled over 6s
+
+### Level 4 — Spinach & Mulberry
+Full enemy set implemented:
+| Enemy | HP | Dmg | Speed | Intro | Special |
+|---|---|---|---|---|---|
+| Spinach | 35 | 11 | 68 | 0:00 | — |
+| Small Spinach | 18 | 5 | 110 | 0:00 | Fast |
+| Mulberry Bat | 50 | 13 | 200 | 2:30 | Very fast |
+| Mulberry Snake | 95 | 15 | 48 | 5:00 | Spits mulberry projectiles every 5–15s; tail whip within 65px every 2–4s |
+| Spinach Cyclone | 200 | 20 | 35 | 7:00 | Rare (20% chance per spawn tick); pathfinds to random on-screen points; spawns Small Spinach every 6–12s |
+
+Drop table: Spinach/Small Spinach → Cricket, Mulberry Bat → Vitaworm, Mulberry Snake → Mealworm, Spinach Cyclone → Dragonfly
+
+### Poop weapon rebalance
+- Damage halved: 30 → 15
+- Cooldown doubled: 4s → 8s
+- Only appears in upgrade pool from player level 20 onwards
+
+### Boss UI improvements
+- When boss spawns: XP bar replaced by a full-width red boss health bar at the top of screen with boss name
+- Purple off-screen arrow points to boss location when boss is off-screen (same style as Treasure/Foodbox arrows)
+- When boss is defeated: bar empties and shows **BOSS DEFEATED** text (XP bar does not return)
+
+### Debug keys
+- **U** — trigger an upgrade screen immediately
+- **N** — skip 60s of game time (spawn rate ramps accordingly)
+- **F** — spawn boss immediately + scatter 20 Foodboxes across the map + open 29 consecutive upgrade screens with no countdown between picks
+
+### What's still not built
+- Level 5 — The Garden (enemies + The Hand boss)
+- Mulberry Mantis boss (Level 4 boss — AI not yet implemented)
+- Mobile virtual joystick
+- Sound effects and music
+- Real sprite art (placeholder PNGs only)
+- Netlify deployment

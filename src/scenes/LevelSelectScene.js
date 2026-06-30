@@ -5,6 +5,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     create() {
         const cx = this.cameras.main.width / 2;
+        const cy = this.cameras.main.height;
 
         this.add.text(cx, 50, 'SELECT LEVEL', {
             fontSize: '28px',
@@ -14,35 +15,69 @@ export default class LevelSelectScene extends Phaser.Scene {
             strokeThickness: 5,
         }).setOrigin(0.5);
 
-        const levels = [
-            { number: 1, name: 'Iceberg Lettuce & Basil',  unlocked: true  },
-            { number: 2, name: 'Rocket & Oregano',         unlocked: false },
-            { number: 3, name: 'Coriander & Carrot',       unlocked: false },
-            { number: 4, name: 'Spinach & Mulberry',       unlocked: false },
-            { number: 5, name: 'The Garden',               unlocked: false },
+        const maxUnlocked = parseInt(localStorage.getItem('snapper_unlocked') ?? '1');
+        let allUnlocked = false;
+
+        const levelDefs = [
+            { number: 1, name: 'Iceberg Lettuce & Basil'  },
+            { number: 2, name: 'Rocket & Oregano'         },
+            { number: 3, name: 'Coriander & Carrot'       },
+            { number: 4, name: 'Spinach & Mulberry'       },
+            { number: 5, name: 'The Garden'               },
         ];
 
-        levels.forEach((level, i) => {
-            const y = 130 + i * 60;
-            const colour = level.unlocked ? '#ffffff' : '#666666';
-            const label = level.unlocked
-                ? `Level ${level.number} – ${level.name}`
-                : `Level ${level.number} – ${level.name}  🔒`;
+        // Build level buttons — rebuilt when ALL LEVELS is toggled
+        const buildButtons = () => {
+            // Destroy existing level buttons
+            levelBtns.forEach(b => b.destroy());
+            levelBtns.length = 0;
 
-            const btn = this.add.text(cx, y, label, {
-                fontSize: '16px',
-                fontFamily: 'Arial',
-                color: colour,
-                backgroundColor: level.unlocked ? '#333333' : '#1a1a1a',
-                padding: { x: 20, y: 10 },
-            }).setOrigin(0.5);
+            levelDefs.forEach((def, i) => {
+                const unlocked = allUnlocked || def.number <= maxUnlocked;
+                const y = 130 + i * 60;
+                const colour = unlocked ? '#ffffff' : '#666666';
+                const label  = unlocked
+                    ? `Level ${def.number} – ${def.name}`
+                    : `Level ${def.number} – ${def.name}  🔒`;
 
-            if (level.unlocked) {
-                btn.setInteractive({ useHandCursor: true });
-                btn.on('pointerover', () => btn.setColor('#ffff00'));
-                btn.on('pointerout',  () => btn.setColor('#ffffff'));
-                btn.on('pointerdown', () => this.scene.start('GameScene', { level: level.number }));
-            }
+                const btn = this.add.text(cx, y, label, {
+                    fontSize: '16px',
+                    fontFamily: 'Arial',
+                    color: colour,
+                    backgroundColor: unlocked ? '#333333' : '#1a1a1a',
+                    padding: { x: 20, y: 10 },
+                }).setOrigin(0.5);
+
+                if (unlocked) {
+                    btn.setInteractive({ useHandCursor: true });
+                    btn.on('pointerover', () => btn.setColor('#ffff00'));
+                    btn.on('pointerout',  () => btn.setColor(colour));
+                    btn.on('pointerdown', () => this.scene.start('GameScene', { level: def.number }));
+                }
+
+                levelBtns.push(btn);
+            });
+        };
+
+        const levelBtns = [];
+        buildButtons();
+
+        // ALL LEVELS toggle — experimental testing button
+        const allBtn = this.add.text(cx, cy - 20, '🧪 ALL LEVELS', {
+            fontSize: '12px',
+            fontFamily: 'Arial',
+            color: '#888888',
+            backgroundColor: '#1a1a1a',
+            padding: { x: 14, y: 8 },
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+        allBtn.on('pointerover', () => allBtn.setColor('#ffff00'));
+        allBtn.on('pointerout',  () => allBtn.setColor(allUnlocked ? '#ffaa00' : '#888888'));
+        allBtn.on('pointerdown', () => {
+            allUnlocked = !allUnlocked;
+            allBtn.setColor(allUnlocked ? '#ffaa00' : '#888888');
+            allBtn.setBackgroundColor(allUnlocked ? '#332200' : '#1a1a1a');
+            buildButtons();
         });
     }
 }
