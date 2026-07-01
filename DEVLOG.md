@@ -266,3 +266,44 @@ In-game death now shows an overlay instead of switching scenes, keeping all upgr
 - Sound effects and music
 - Real sprite art (placeholder PNGs only)
 - Netlify deployment
+
+---
+
+## Session 5 — 2026-07-01
+
+### Weapon evolutions — all 16 implemented
+
+Both the weapon AND the matching boost must be fully maxed to unlock an evolution. Evolutions are applied via the EVOLUTIONS button in the pause menu (glows yellow when one is available).
+
+| Evolution | Replaces | Requires boost |
+|---|---|---|
+| **Starved Chomp** | Bite ×4 | Hungry Forager ×4 |
+| **Steel Slam** | Tail Slap ×2 | Hard Scales ×4 |
+| **Toxic Ocean** | Poop ×2 | Well Fed ×3 |
+| **Sunbaked Ambers** | Pebble Flick ×2 | Basking ×5 |
+| **Raging Roar** | Hiss ×2 | Angry ×5 |
+| **Sticky Shot** | Lick ×3 | Vitamin Supplements ×4 |
+| **Acid Snake** | Worm Whip ×2 | Venom ×3 |
+| **Bug Buster** | Pupa Mines ×3 | Bug Catcher ×3 |
+| **Spike Shedder** | Skin Shed ×2 | Big Fangs ×4 |
+| **Shining Shells** | Woodie Bounce ×3 | Shiny Scales ×2 |
+| **Dubia Defenders** | Dubia Shields ×4 | Bug Bucket ×5 |
+| **Flashclaw** | Poison Claw ×4 | Hunter Instinct ×5 |
+| **Log Lob** | Branch Throw ×4 | Aura Farming ×5 |
+| **Duststorm** | Dust Kick ×5 | Inflate ×1 |
+| **Trans. Thrash** | Trans. Scratch ×3 | Hyperactivity ×3 |
+| **Four Chills** | Cold Glare ×6 | Polycephaly ×4 |
+
+### Evolution highlights
+- **Starved Chomp** — kills grant 2× XP instantly (no cricket drop); floating `+N XP` text appears
+- **Raging Roar** — always-active rotating 60° cone; runs in the update loop, no timer
+- **Bug Buster** — enemies killed by the blast drop a collectible pupa mine item (not a live mine — no recursion)
+- **Shining Shells** — unlimited ricochets for 25s; after each bounce, auto-aims at nearest enemy; kills trigger small explosions
+- **Dubia Defenders** — shields spin 1.5× faster; each fires a projectile outward every 5s
+- **Spike Shedder** — heals 1 HP per 10 enemies killed (global counter while active)
+- **Trans. Thrash** — large multi-scratch with much higher Foodbox + Treasure + Fullbox drop chance; base Trans. Scratch can no longer trigger Fullbox drops
+- **Four Chills** — huge 350px ring; slows all 8s, immobilises+halves HP of 8 closest (15s cooldown per enemy)
+
+### Pause menu
+- Evolved weapon names now show in the loadout text (e.g. "Starved Chomp" replaces "Bite ×4")
+- Boost caps added for all evolution-relevant boosts (Angry ×5, Aura Farming ×5, Hunter Instinct ×5, Basking ×5, Bug Bucket ×5, Well Fed ×3, Hungry Forager ×4, Hard Scales ×4, Vitamin Supplements ×4)
