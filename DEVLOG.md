@@ -307,3 +307,12 @@ Both the weapon AND the matching boost must be fully maxed to unlock an evolutio
 ### Pause menu
 - Evolved weapon names now show in the loadout text (e.g. "Starved Chomp" replaces "Bite ×4")
 - Boost caps added for all evolution-relevant boosts (Angry ×5, Aura Farming ×5, Hunter Instinct ×5, Basking ×5, Bug Bucket ×5, Well Fed ×3, Hungry Forager ×4, Hard Scales ×4, Vitamin Supplements ×4)
+
+### Evolutions menu — requirements popup
+- Clicking a locked (unavailable) evolution card now shows a requirements popup
+- Each requirement shows a green ✓ if already met, or a red ✗ with your current level vs what's needed (e.g. `✗ Bite ×4 — you have ×2`)
+- Click anywhere to dismiss the popup
+
+### Fullbox off-screen arrow
+- Fullbox items now have a pink off-screen arrow (matching the item's pink colour)
+- Treasure = gold arrow, Foodbox = red arrow, Fullbox = pink arrow
