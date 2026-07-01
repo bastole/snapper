@@ -511,7 +511,7 @@ export default class GameScene extends Phaser.Scene {
             // Only draw arrow when item is outside the camera view
             if (sx >= 0 && sx <= W && sy >= 0 && sy <= H) return;
 
-            const color = type === 'treasure' ? 0xffd700 : 0xff4444;
+            const color = type === 'treasure' ? 0xffd700 : type === 'fullbox' ? 0xff88ff : 0xff4444;
 
             // Clamp the arrow to the screen edge
             const cx = Phaser.Math.Clamp(sx, pad + 4, W - pad - 4);
