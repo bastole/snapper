@@ -17,6 +17,8 @@ export default class LevelSelectScene extends Phaser.Scene {
 
         const maxUnlocked = parseInt(localStorage.getItem('snapper_unlocked') ?? '1');
         let allUnlocked = false;
+        let selectionReady = false;
+        this.time.delayedCall(1000, () => { selectionReady = true; });
 
         const levelDefs = [
             { number: 1, name: 'Iceberg Lettuce & Basil'  },
@@ -52,7 +54,7 @@ export default class LevelSelectScene extends Phaser.Scene {
                     btn.setInteractive({ useHandCursor: true });
                     btn.on('pointerover', () => btn.setColor('#ffff00'));
                     btn.on('pointerout',  () => btn.setColor(colour));
-                    btn.on('pointerdown', () => this.scene.start('GameScene', { level: def.number }));
+                    btn.on('pointerdown', () => { if (selectionReady) this.scene.start('GameScene', { level: def.number }); });
                 }
 
                 levelBtns.push(btn);
@@ -61,6 +63,59 @@ export default class LevelSelectScene extends Phaser.Scene {
 
         const levelBtns = [];
         buildButtons();
+
+        // Gamepad navigation
+        let selectedIdx = 0;
+        const maxUnlockedForNav = () => allUnlocked ? 5 : maxUnlocked;
+
+        const updateHighlight = () => {
+            levelDefs.forEach((_, i) => {
+                const btn = levelBtns[i];
+                if (!btn?.active) return;
+                const unlocked = allUnlocked || levelDefs[i].number <= maxUnlocked;
+                if (!unlocked) return;
+                btn.setColor(i === selectedIdx ? '#ffff00' : '#ffffff');
+            });
+        };
+
+        this.input.gamepad.on('down', (pad, button) => {
+            const idx = button.index;
+            if (idx === 12) { // D-pad up
+                selectedIdx = Math.max(0, selectedIdx - 1);
+                updateHighlight();
+            } else if (idx === 13) { // D-pad down
+                selectedIdx = Math.min(maxUnlockedForNav() - 1, selectedIdx + 1);
+                updateHighlight();
+            } else if (idx === 0) { // A = confirm
+                const def = levelDefs[selectedIdx];
+                if (selectionReady && (allUnlocked || def.number <= maxUnlocked)) {
+                    this.scene.start('GameScene', { level: def.number });
+                }
+            } else if (idx === 1) { // B = back to title
+                this.scene.start('TitleScene');
+            }
+        });
+
+        // Poll left stick since 'down' only fires on button events
+        this._padNavCooldown = 0;
+        this.events.on('update', (_, delta) => {
+            this._padNavCooldown -= delta;
+            if (this._padNavCooldown > 0) return;
+            const pad = this.input.gamepad.getPad(0);
+            if (!pad) return;
+            const y = pad.leftStick.y;
+            if (y < -0.5) {
+                selectedIdx = Math.max(0, selectedIdx - 1);
+                updateHighlight();
+                this._padNavCooldown = 200;
+            } else if (y > 0.5) {
+                selectedIdx = Math.min(maxUnlockedForNav() - 1, selectedIdx + 1);
+                updateHighlight();
+                this._padNavCooldown = 200;
+            }
+        });
+
+        updateHighlight();
 
         // ALL LEVELS toggle — experimental testing button
         const allBtn = this.add.text(cx, cy - 20, '🧪 ALL LEVELS', {

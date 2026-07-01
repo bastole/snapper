@@ -22,7 +22,7 @@ export default class TitleScene extends Phaser.Scene {
             fontStyle: 'italic',
         }).setOrigin(0.5);
 
-        const prompt = this.add.text(cx, cy + 60, 'PRESS ANY KEY OR CLICK TO START', {
+        const prompt = this.add.text(cx, cy + 60, 'PRESS ANY KEY, CLICK, OR  🎮 A  TO START', {
             fontSize: '16px',
             fontFamily: 'Arial',
             color: '#ffff00',
@@ -37,8 +37,12 @@ export default class TitleScene extends Phaser.Scene {
             repeat: -1,
         });
 
-        // Any key or click starts the game
-        this.input.once('pointerdown', () => this.scene.start('LevelSelectScene'));
-        this.input.keyboard.once('keydown', () => this.scene.start('LevelSelectScene'));
+        // Wait 750ms before accepting any input so bleed-through events from the previous scene are ignored
+        const go = () => this.scene.start('LevelSelectScene');
+        this.time.delayedCall(750, () => {
+            this.input.once('pointerdown', go);
+            this.input.keyboard.once('keydown', go);
+            this.input.gamepad.once('down', go);
+        });
     }
 }

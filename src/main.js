@@ -9,6 +9,7 @@ const config = {
     width: 800,
     height: 450,
     backgroundColor: '#000000',
+    input: { gamepad: true },
     physics: {
         default: 'arcade',
         arcade: { gravity: { y: 0 }, debug: false },

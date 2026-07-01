@@ -183,9 +183,50 @@ Drop table: Spinach/Small Spinach → Cricket, Mulberry Bat → Vitaworm, Mulber
 - **N** — skip 60s of game time (spawn rate ramps accordingly)
 - **F** — spawn boss immediately + scatter 20 Foodboxes across the map + open 29 consecutive upgrade screens with no countdown between picks
 
+### Xbox controller support
+Full gamepad support added across all scenes:
+- **Title screen** — press A to start (750ms input cooldown so previous-scene events don't bleed through)
+- **Level select** — d-pad or left stick up/down to navigate, A to confirm, B to go back to title
+- **In-game movement** — left analog stick (with deadzone 0.15 and variable speed based on stick magnitude); d-pad as fallback
+- **Pause** — Start button toggles pause; any button (except Start) resumes
+- **Level-up screen** — LB/RB or d-pad left/right to browse cards, A to pick, Y to reroll
+- **Death screen** — A = retry, Y = revive, B = main menu; d-pad up/down toggles selected button highlight
+- **Game Over scene** — A = retry, B = menu
+
+### Mulberry Mantis boss (Level 4)
+Full two-phase AI implemented:
+- **Phase 1**: Chases player at 210 px/s. Every 5–10s, vanishes for 3–5s, reappears 80px from the player, then strikes 400ms later for 25 damage. After each strike, immediately resumes chasing.
+- **Phase 2 trigger**: At 10% HP, heals to full 1000 HP (total damage to kill = 1900), then enters phase 2.
+- **Phase 2**: Drops chasing entirely — repeats vanish → reappear → strike cycle with no pause between cycles, and rests 2s after each strike before the next vanish. Simultaneously spawns a ring of 25 Spinach Cyclones at 900px radius around itself.
+- Boss is invisible and un-hittable while vanished (`setActive(false)`, physics body disabled).
+
+### GAME OVER death overlay
+In-game death now shows an overlay instead of switching scenes, keeping all upgrades:
+- **REVIVE** — revives player at current position but ≥4000px from all enemies; 3s of blinking invincibility; all upgrades and levels kept
+- **RETRY** — restart the level from scratch
+- **MAIN MENU** — return to level select
+- All XP insects destroyed and pending level-ups cancelled when overlay appears
+- Gamepad: A = retry, Y = revive, B = menu
+
+### Pause system overhaul
+- All timers freeze via `this.time.paused = true/false` instead of individual timer flags
+- Pause is now **blocked** while in: pause menu itself (prevents double-toggle), level-up screen, 3-2-1 countdown, Level Clear screen, and Game Over overlay
+- Enemy spawn timers are permanently removed (`.remove()` + null) when boss spawns, so `time.paused = false` can never resume them
+
+### Boss fight drops
+- XP insects stop spawning and existing ones despawn when boss appears
+- Treasure drops also blocked during boss fight
+- Foodboxes (wormboxes) still drop normally throughout boss fight
+
+### Dubia Shields rebalance
+- Shield size halved: radius 18 → 9, hit detection range 28 → 14
+- 60% rarer after the first pick: base rarity stays the same; from level 2 onwards appears with flat 40% chance per level-up screen (not compounding)
+
+### Mulberry Bat speed nerf
+- Speed reduced from 200 → 140 px/s
+
 ### What's still not built
 - Level 5 — The Garden (enemies + The Hand boss)
-- Mulberry Mantis boss (Level 4 boss — AI not yet implemented)
 - Mobile virtual joystick
 - Sound effects and music
 - Real sprite art (placeholder PNGs only)

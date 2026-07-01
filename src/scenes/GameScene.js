@@ -6,6 +6,13 @@ export default class GameScene extends Phaser.Scene {
     create(data) {
         this.level = data?.level ?? 1;
 
+        // Reset any stale state left over from a previous run on this same scene instance
+        this._deathOverlayShown = false;
+        this.time.paused        = false;
+        this.physics.resume();
+        // Remove any leftover gamepad listener from the previous run to avoid stacking
+        this.input.gamepad.removeAllListeners('down');
+
         const WORLD_W = 3200;
         const WORLD_H = 3200;
 
@@ -36,6 +43,11 @@ export default class GameScene extends Phaser.Scene {
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
 
+        // Gamepad: Start (9) = pause (pauseBtn stored as this.pauseBtn after UI is built)
+        this.input.gamepad.on('down', (pad, button) => {
+            if (button.index === 9 && !this.isLevelingUp && !this.isCountdown && !this.isLevelClear && !this.isGameOver) this.togglePause(this.pauseBtn);
+        });
+
         // --- Groups ---
         this.enemies   = this.physics.add.group();
         this.crickets  = this.physics.add.group();
@@ -51,6 +63,9 @@ export default class GameScene extends Phaser.Scene {
         this.playerLevel    = 1;
         this.magnetRange    = 32;
         this.isLevelingUp   = false;
+        this.isCountdown    = false;
+        this.isLevelClear   = false;
+        this.isGameOver     = false;
         this.pendingLevelUps = 0;
         this.fastUpgrade    = false;
         this.lastMoveAngle  = 0;
@@ -186,9 +201,9 @@ export default class GameScene extends Phaser.Scene {
         pauseBtn.on('pointerout',  () => pauseBtn.setColor('#ffffff'));
         pauseBtn.on('pointerdown', () => this.togglePause(pauseBtn));
 
-        // ESC and P also toggle pause
-        this.input.keyboard.on('keydown-ESC', () => this.togglePause(pauseBtn));
-        this.input.keyboard.on('keydown-P',   () => this.togglePause(pauseBtn));
+        // ESC and P also toggle pause (blocked in countdown, level clear, game over, upgrade screen)
+        this.input.keyboard.on('keydown-ESC', () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver) this.togglePause(pauseBtn); });
+        this.input.keyboard.on('keydown-P',   () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver) this.togglePause(pauseBtn); });
         this.input.keyboard.on('keydown-U',   () => { if (!this.isPaused) this.showLevelUp(); });
         this.input.keyboard.on('keydown-F',   () => {
             if (this.isPaused || this.isLevelingUp) return;
@@ -232,23 +247,7 @@ export default class GameScene extends Phaser.Scene {
 
         if (this.isPaused) {
             this.physics.pause();
-            this.spawnTimer.paused      = true;
-            this.spawnRampTimer.paused  = true;
-            this.biteTimer.paused       = true;
-            this.gameTimerEvent.paused  = true;
-            this.regenTimer.paused      = true;
-            if (this.tailSlapTimer)     this.tailSlapTimer.paused    = true;
-            if (this.poopTimer)         this.poopTimer.paused        = true;
-            if (this.pebbleTimer)       this.pebbleTimer.paused      = true;
-            if (this.bossChargeTimer)   this.bossChargeTimer.paused  = true;
-            if (this.bossLegSlamTimer)  this.bossLegSlamTimer.paused = true;
-            if (this.hissTimer)         this.hissTimer.paused        = true;
-            if (this.lickTimer)         this.lickTimer.paused        = true;
-            if (this.wormWhipTimer)     this.wormWhipTimer.paused    = true;
-            if (this.pupaTimer)         this.pupaTimer.paused        = true;
-            if (this.skinTimer)         this.skinTimer.paused        = true;
-            if (this.woodieTimer)       this.woodieTimer.paused      = true;
-            if (this.poisonTimer)       this.poisonTimer.paused      = true;
+            this.time.paused = true;
             btn.setVisible(false);
 
             const W = this.cameras.main.width;
@@ -276,35 +275,35 @@ export default class GameScene extends Phaser.Scene {
                 align: 'center', wordWrap: { width: W - 80 },
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5, 0);
 
+            this._pauseQuitting = false;
+            this.pauseQuitBtn = this.add.text(W / 2, H / 2 + 175, '[ QUIT TO MAIN MENU ]', {
+                fontSize: '13px', fontFamily: 'Arial', color: '#ff8888',
+                backgroundColor: '#330000', padding: { x: 16, y: 8 },
+            }).setScrollFactor(0).setDepth(151).setOrigin(0.5).setInteractive({ useHandCursor: true });
+            this.pauseQuitBtn.on('pointerover', () => this.pauseQuitBtn.setColor('#ffffff'));
+            this.pauseQuitBtn.on('pointerout',  () => this.pauseQuitBtn.setColor('#ff8888'));
+            this.pauseQuitBtn.on('pointerdown', () => {
+                this._pauseQuitting = true;
+                this.scene.start('LevelSelectScene');
+            });
+
             // Any key resumes (exclude P/ESC which already have their own toggle handlers)
             this.pauseAnyKey = this.input.keyboard.on('keydown', (e) => {
                 if (this.isPaused && e.key !== 'Escape' && e.key !== 'p' && e.key !== 'P') this.togglePause(btn);
             });
-            // Delay by one tick so the tap that triggered pause isn't also caught here
-            this.time.delayedCall(50, () => {
+            // Register resume handlers on the next animation frame so the event
+            // that triggered pause doesn't immediately re-fire and unpause
+            requestAnimationFrame(() => {
                 this.input.on('pointerdown', this._pausePointerHandler = () => {
-                    if (this.isPaused) this.togglePause(btn);
+                    if (this.isPaused && !this._pauseQuitting) this.togglePause(btn);
+                });
+                this.input.gamepad.on('down', this._pauseGamepadHandler = (pad, button) => {
+                    if (this.isPaused && button.index !== 9 && !this._pauseQuitting) this.togglePause(btn);
                 });
             });
         } else {
             this.physics.resume();
-            this.spawnTimer.paused      = false;
-            this.spawnRampTimer.paused  = false;
-            this.biteTimer.paused       = false;
-            this.gameTimerEvent.paused  = false;
-            this.regenTimer.paused      = false;
-            if (this.tailSlapTimer)     this.tailSlapTimer.paused    = false;
-            if (this.poopTimer)         this.poopTimer.paused        = false;
-            if (this.pebbleTimer)       this.pebbleTimer.paused      = false;
-            if (this.bossChargeTimer)   this.bossChargeTimer.paused  = false;
-            if (this.bossLegSlamTimer)  this.bossLegSlamTimer.paused = false;
-            if (this.hissTimer)         this.hissTimer.paused        = false;
-            if (this.lickTimer)         this.lickTimer.paused        = false;
-            if (this.wormWhipTimer)     this.wormWhipTimer.paused    = false;
-            if (this.pupaTimer)         this.pupaTimer.paused        = false;
-            if (this.skinTimer)         this.skinTimer.paused        = false;
-            if (this.woodieTimer)       this.woodieTimer.paused      = false;
-            if (this.poisonTimer)       this.poisonTimer.paused      = false;
+            this.time.paused = false;
             btn.setText('⏸ PAUSE');
             btn.setVisible(true);
             this.pauseOverlay?.destroy();
@@ -313,8 +312,10 @@ export default class GameScene extends Phaser.Scene {
             this.pauseStatsLine?.destroy();
             this.pauseWeaponLine?.destroy();
             this.pauseBoostLine?.destroy();
+            this.pauseQuitBtn?.destroy();
             this.input.keyboard.off('keydown', this.pauseAnyKey);
             this.input.off('pointerdown', this._pausePointerHandler);
+            this.input.gamepad.off('down', this._pauseGamepadHandler);
         }
     }
 
@@ -335,7 +336,12 @@ export default class GameScene extends Phaser.Scene {
         this.handleMovement();
         this.attractCrickets();
         if (this.boss?.active) {
-            if (this.level === 2) {
+            if (this.level === 5) {
+                this.updateHandAI();
+                this.updateHandFireZones();
+            } else if (this.level === 4) {
+                this.updateMulberryMantisAI();
+            } else if (this.level === 2) {
                 this.updateRocketSpiderAI();
             } else if (this.level === 3) {
                 this.updateCarrotScorpionAI();
@@ -357,26 +363,54 @@ export default class GameScene extends Phaser.Scene {
 
         g.clear();
 
-        // Boss arrow (purple)
+        // Boss arrow — bright pink + larger for The Hand (level 5), purple for others
         if (this.boss?.active) {
             const sx = this.boss.x - cam.scrollX;
             const sy = this.boss.y - cam.scrollY;
             if (sx < 0 || sx > W || sy < 0 || sy > H) {
-                const cx = Phaser.Math.Clamp(sx, pad + 4, W - pad - 4);
-                const cy = Phaser.Math.Clamp(sy, pad + 4, H - pad - 4);
+                const isHand = this.level === 5;
+                const color  = isHand ? 0xff44cc : 0xcc44ff;
+                const len    = isHand ? 18 : 10;
+                const wing   = isHand ? 11 : 6;
+                const cx = Phaser.Math.Clamp(sx, pad + 6, W - pad - 6);
+                const cy = Phaser.Math.Clamp(sy, pad + 6, H - pad - 6);
                 const angle = Math.atan2(sy - cy, sx - cx);
-                const len = 10, wing = 6;
                 const tx = cx + Math.cos(angle) * len;
                 const ty = cy + Math.sin(angle) * len;
                 const lx = cx + Math.cos(angle + Math.PI * 0.75) * wing;
                 const ly = cy + Math.sin(angle + Math.PI * 0.75) * wing;
                 const rx = cx + Math.cos(angle - Math.PI * 0.75) * wing;
                 const ry = cy + Math.sin(angle - Math.PI * 0.75) * wing;
-                g.fillStyle(0xcc44ff, 1);
+                g.fillStyle(color, 1);
                 g.fillTriangle(tx, ty, lx, ly, rx, ry);
-                g.lineStyle(1.5, 0x000000, 0.6);
+                g.lineStyle(isHand ? 2.5 : 1.5, 0x000000, 0.7);
                 g.strokeTriangle(tx, ty, lx, ly, rx, ry);
             }
+        }
+
+        // Mini-boss arrows (purple) during The Hand fight
+        if (this.level === 5 && this.handMiniBossArray?.length) {
+            this.handMiniBossArray.forEach(mb => {
+                if (!mb?.active) return;
+                const sx = mb.x - cam.scrollX;
+                const sy = mb.y - cam.scrollY;
+                if (sx < 0 || sx > W || sy < 0 || sy > H) {
+                    const cx = Phaser.Math.Clamp(sx, pad + 4, W - pad - 4);
+                    const cy = Phaser.Math.Clamp(sy, pad + 4, H - pad - 4);
+                    const angle = Math.atan2(sy - cy, sx - cx);
+                    const len = 10, wing = 6;
+                    const tx = cx + Math.cos(angle) * len;
+                    const ty = cy + Math.sin(angle) * len;
+                    const lx = cx + Math.cos(angle + Math.PI * 0.75) * wing;
+                    const ly = cy + Math.sin(angle + Math.PI * 0.75) * wing;
+                    const rx = cx + Math.cos(angle - Math.PI * 0.75) * wing;
+                    const ry = cy + Math.sin(angle - Math.PI * 0.75) * wing;
+                    g.fillStyle(0xcc44ff, 1);
+                    g.fillTriangle(tx, ty, lx, ly, rx, ry);
+                    g.lineStyle(1.5, 0x000000, 0.6);
+                    g.strokeTriangle(tx, ty, lx, ly, rx, ry);
+                }
+            });
         }
 
         this.crickets.getChildren().forEach(item => {
@@ -423,8 +457,8 @@ export default class GameScene extends Phaser.Scene {
 
     // ─── Dubia Shields ───────────────────────────────────────────────────────────
     createDubiaShield(layer = 'single') {
-        const shield = this.add.circle(this.player.x, this.player.y, 18, 0xcc7700);
-        shield.setStrokeStyle(3, 0x884400);
+        const shield = this.add.circle(this.player.x, this.player.y, 9, 0xcc7700);
+        shield.setStrokeStyle(2, 0x884400);
         shield.setDepth(6);
         shield.layer = layer;
         shield.hitCooldowns = new Map();
@@ -434,7 +468,7 @@ export default class GameScene extends Phaser.Scene {
 
     updateDubiaShields() {
         if (this.dubiaLevel === 0) return;
-        if (this.isPaused || this.isLevelingUp) return;
+        if (this.isPaused || this.isLevelingUp || this.isCountdown) return;
 
         const dt  = this.game.loop.delta / 1000;
         const now = this.time.now;
@@ -466,7 +500,7 @@ export default class GameScene extends Phaser.Scene {
             this.enemies.getChildren().forEach(enemy => {
                 if (!this.canDamageEnemy(enemy)) return;
                 const dist = Phaser.Math.Distance.Between(shield.x, shield.y, enemy.x, enemy.y);
-                if (dist >= 28) return;
+                if (dist >= 14) return;
                 const lastHit = shield.hitCooldowns.get(enemy) ?? 0;
                 if (now - lastHit < 800) return;
                 shield.hitCooldowns.set(enemy, now);
@@ -493,19 +527,52 @@ export default class GameScene extends Phaser.Scene {
     handleMovement() {
         const speed = this.playerSpeed;
         let vx = 0, vy = 0;
+        let usingAnalog = false;
 
-        if (this.cursors.left.isDown  || this.wasd.left.isDown)  vx = -speed;
-        if (this.cursors.right.isDown || this.wasd.right.isDown) vx =  speed;
-        if (this.cursors.up.isDown    || this.wasd.up.isDown)    vy = -speed;
-        if (this.cursors.down.isDown  || this.wasd.down.isDown)  vy =  speed;
+        // Xbox controller: left stick takes priority; fall back to d-pad then keyboard
+        const pad = this.input.gamepad.getPad(0);
+        if (pad) {
+            const sx = pad.leftStick.x;
+            const sy = pad.leftStick.y;
+            const DEAD = 0.15;
+            if (Math.abs(sx) > DEAD || Math.abs(sy) > DEAD) {
+                const mag = Math.min(1, Math.sqrt(sx * sx + sy * sy));
+                vx = sx * speed * mag;
+                vy = sy * speed * mag;
+                usingAnalog = true;
+            } else {
+                // D-pad buttons: up=12, down=13, left=14, right=15
+                if (pad.buttons[14]?.pressed) vx = -speed;
+                if (pad.buttons[15]?.pressed) vx =  speed;
+                if (pad.buttons[12]?.pressed) vy = -speed;
+                if (pad.buttons[13]?.pressed) vy =  speed;
+            }
+        }
 
-        // Normalise diagonal so you don't move faster at 45°
-        if (vx !== 0 && vy !== 0) { vx *= 0.707; vy *= 0.707; }
+        if (!usingAnalog && vx === 0 && vy === 0) {
+            // Keyboard fallback
+            if (this.cursors.left.isDown  || this.wasd.left.isDown)  vx = -speed;
+            if (this.cursors.right.isDown || this.wasd.right.isDown) vx =  speed;
+            if (this.cursors.up.isDown    || this.wasd.up.isDown)    vy = -speed;
+            if (this.cursors.down.isDown  || this.wasd.down.isDown)  vy =  speed;
+        }
+
+        // Normalise diagonal for d-pad and keyboard (analog stick already has natural magnitude)
+        if (!usingAnalog && vx !== 0 && vy !== 0) { vx *= 0.707; vy *= 0.707; }
+
+        // Analog stick or d-pad movement while paused counts as "any input" → unpause
+        if (this.isPaused && (vx !== 0 || vy !== 0)) {
+            this.togglePause(this.pauseBtn);
+            return;
+        }
 
         this.player.setVelocity(vx, vy);
-        if (vx !== 0 || vy !== 0) this.lastMoveAngle = Math.atan2(vy, vx);
-        if (vx < 0) this.player.setFlipX(true);
-        else if (vx > 0) this.player.setFlipX(false);
+        const frozen = this.isPaused || this.isCountdown || this.isLevelingUp || this.isLevelClear;
+        if (!frozen) {
+            if (vx !== 0 || vy !== 0) this.lastMoveAngle = Math.atan2(vy, vx);
+            if (vx < 0) this.player.setFlipX(true);
+            else if (vx > 0) this.player.setFlipX(false);
+        }
     }
 
     // ─── Step 2: Enemy spawning ───────────────────────────────────────────────────
@@ -570,9 +637,45 @@ export default class GameScene extends Phaser.Scene {
             4: [
                 { key: 'spinach',         health: 35,  damage: 11, speed: 68,  scale: 0.25, minTime: 0   },
                 { key: 'small_spinach',   health: 18,  damage: 5,  speed: 110, scale: 0.22, minTime: 0   },
-                { key: 'mulberry_bat',    health: 50,  damage: 13, speed: 200, scale: 0.27, minTime: 150 },
+                { key: 'mulberry_bat',    health: 50,  damage: 13, speed: 140, scale: 0.27, minTime: 150 },
                 { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 48,  scale: 0.28, minTime: 300, shoots: true, projKey: 'mulberry_bat', projTint: 0x881144, projScale: 0.13, snakeWhip: true },
-                { key: 'spinach_cyclone', health: 200, damage: 20, speed: 35,  scale: 0.30, minTime: 420, rare: true, spawnsEnemy: 'small_spinach' },
+                { key: 'spinach_cyclone', health: 200, damage: 20, speed: 35,  scale: 0.30, minTime: 420, rare: true, spawnsEnemy: 'small_spinach', spawnsEnemyStats: { health: 18, damage: 9, speed: 110, scale: 0.22 } },
+            ],
+            5: [
+                // 0:00 — cricket droppers (one from every prior level)
+                { key: 'iceberg_lettuce', health: 15,  damage: 5,  speed: 60,  scale: 0.25, minTime: 0   },
+                { key: 'basil',           health: 25,  damage: 5,  speed: 60,  scale: 0.25, minTime: 0   },
+                { key: 'rocket',          health: 20,  damage: 6,  speed: 65,  scale: 0.25, minTime: 0   },
+                { key: 'oregano_skunk',   health: 45,  damage: 8,  speed: 55,  scale: 0.25, minTime: 0,   emitsGas: true },
+                { key: 'coriander',       health: 30,  damage: 10, speed: 72,  scale: 0.25, minTime: 0   },
+                { key: 'spinach',         health: 35,  damage: 11, speed: 68,  scale: 0.25, minTime: 0   },
+                { key: 'small_spinach',   health: 18,  damage: 5,  speed: 110, scale: 0.20, minTime: 0   },
+                // 2:30 — vitaworm droppers
+                { key: 'lettuce_hopper',  health: 60,  damage: 8,  speed: 45,  scale: 0.35, minTime: 150, splits: true },
+                { key: 'rocket_knife',    health: 30,  damage: 15, speed: 110, scale: 0.25, minTime: 150 },
+                { key: 'coriander_whip',  health: 60,  damage: 14, speed: 55,  scale: 0.25, minTime: 150, whips: true },
+                { key: 'carrot_mole',     health: 75,  damage: 12, speed: 60,  scale: 0.25, minTime: 150, burrowed: true },
+                { key: 'mulberry_bat',    health: 50,  damage: 13, speed: 140, scale: 0.25, minTime: 150 },
+                // 3:30 — mealworm droppers
+                { key: 'lettuce_shooter', health: 90,  damage: 6,  speed: 0,   scale: 0.25, minTime: 210, shoots: true },
+                { key: 'oregano_ghost',   health: 150, damage: 12, speed: 35,  scale: 0.30, minTime: 210, emitsGas: true },
+                { key: 'oregano_fan',     health: 80,  damage: 10, speed: 50,  scale: 0.25, minTime: 210, shoots: true, projKey: 'oregano_fan', projTint: 0x44ff44, projScale: 0.14, poisonous: true },
+                { key: 'coriander_hydra', health: 220, damage: 13, speed: 38,  scale: 0.30, minTime: 210, hydra: true },
+                { key: 'carrot_wheel',    health: 22,  damage: 9,  speed: 130, scale: 0.18, minTime: 210 },
+                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 48,  scale: 0.28, minTime: 210, shoots: true, projKey: 'mulberry_bat', projTint: 0x881144, projScale: 0.13, snakeWhip: true },
+                // 5:00 — dragonfly droppers
+                { key: 'basil_propeller', health: 120, damage: 10, speed: 180, scale: 0.25, minTime: 300 },
+                { key: 'rocket_sword',    health: 200, damage: 18, speed: 90,  scale: 0.35, minTime: 300 },
+                { key: 'carrot_dart',     health: 40,  damage: 17, speed: 145, scale: 0.25, minTime: 300, splitsInto: 'carrot_wheel', scaleMin: 0.18, scaleMax: 0.35 },
+                { key: 'spinach_cyclone', health: 200, damage: 20, speed: 35,  scale: 0.30, minTime: 300, rare: true, spawnsEnemy: 'small_spinach', spawnsEnemyStats: { health: 18, damage: 9, speed: 110, scale: 0.22 } },
+                // 7:00 — Level 5 exclusives
+                { key: 'lettuce_trap',         health: 180, damage: 10, snapDamage: 18, speed: 70,  scale: 0.28, minTime: 420, trap: true },
+                { key: 'basil_bomb',           health: 80,  damage: 0,  explodeDamage: 30, speed: 190, scale: 0.25, minTime: 420, bomb: true },
+                { key: 'rocket_great_sword',   health: 90,  damage: 22, speed: 200, scale: 0.35, minTime: 420, sweeps: true },
+                { key: 'oregano_phantom',      health: 250, damage: 25, speed: 50,  scale: 0.35, minTime: 420, phantom: true },
+                { key: 'coriander_carrot',     health: 500, damage: 30, speed: 20,  scale: 0.30, minTime: 420, spawnsCarrotCori: true },
+                { key: 'spinach_tempest',      health: 500, damage: 25, speed: 160, scale: 0.40, minTime: 420, rare: true, spawnsAnySpinach: true },
+                { key: 'mulberry_monstrosity', health: 350, damage: 15, speed: 140, scale: 0.40, minTime: 420, vineWhip: true, spawnsMinion: 'mulberry_bat' },
             ],
         };
         let typePool = (pools[this.level] ?? pools[1]).filter(t => elapsed >= t.minTime && (!t.rare || Math.random() < 0.2));
@@ -593,14 +696,25 @@ export default class GameScene extends Phaser.Scene {
         enemy.damage        = def.damage;
         enemy.speed         = def.speed;
         enemy.lastHitTime   = 0;
-        enemy.splits        = def.splits      ?? false;
-        enemy.shoots        = def.shoots      ?? false;
-        enemy.emitsGas      = def.emitsGas   ?? false;
-        enemy.splitsInto    = def.splitsInto  ?? null;
-        enemy.hydra         = def.hydra       ?? false;
-        enemy.burrowed      = def.burrowed    ?? false;
-        enemy.whips         = def.whips       ?? false;
-        enemy.snakeWhip     = def.snakeWhip   ?? false;
+        enemy.splits        = def.splits       ?? false;
+        enemy.shoots        = def.shoots       ?? false;
+        enemy.emitsGas      = def.emitsGas    ?? false;
+        enemy.splitsInto    = def.splitsInto   ?? null;
+        enemy.hydra         = def.hydra        ?? false;
+        enemy.burrowed      = def.burrowed     ?? false;
+        enemy.whips         = def.whips        ?? false;
+        enemy.snakeWhip     = def.snakeWhip    ?? false;
+        enemy.trap             = def.trap             ?? false;
+        enemy.trapArmed        = def.trap             ?? false;
+        enemy.snapDamage       = def.snapDamage       ?? 0;
+        enemy.bomb             = def.bomb             ?? false;
+        enemy.explodeDamage    = def.explodeDamage    ?? 0;
+        enemy.sweeps           = def.sweeps           ?? false;
+        enemy.phantom          = def.phantom          ?? false;
+        enemy.spawnsCarrotCori = def.spawnsCarrotCori ?? false;
+        enemy.spawnsAnySpinach = def.spawnsAnySpinach ?? false;
+        enemy.vineWhip         = def.vineWhip         ?? false;
+        enemy.spawnsMinion     = def.spawnsMinion     ?? null;
         enemy.isWanderer    = false;
         enemy.wanderTarget  = null;
         if (enemy.hydra) { enemy.hydraHeads = 3; enemy.body.setSize(110, 110); }
@@ -657,6 +771,7 @@ export default class GameScene extends Phaser.Scene {
                         proj.damage = enemy.damage;
                         this.physics.add.overlap(proj, this.player, () => {
                             if (!proj.active || proj.deflected) return;
+                            if (this.player.reviveInvincible) return;
                             if (this.deflectChance > 0 && Math.random() < this.deflectChance) {
                                 proj.deflected = true;
                                 this.tweens.add({ targets: this.player, alpha: 0.5, duration: 80, yoyo: true });
@@ -672,15 +787,15 @@ export default class GameScene extends Phaser.Scene {
                             }
                             this.playerHealth -= proj.damage;
                             this.updateHPBar();
-                            this.tweens.add({ targets: this.player, alpha: 0.3, duration: 100, yoyo: true });
+                            this.playerDamageFlash();
                             if (def.poisonous) this.applyPoison();
                             if (this.playerHealth <= 0) {
                                 this.playerHealth = 0;
-                                this.time.delayedCall(500, () => this.scene.start('GameOverScene', { level: this.level }));
+                                this.time.delayedCall(500, () => this.showDeathOverlay());
                             }
                             proj.destroy();
                         });
-                        this.time.delayedCall(6000, () => { if (proj.active) proj.destroy(); });
+                        this.scheduleProjectileDespawn(proj, 6000);
                     }
                     scheduleShot();
                 });
@@ -708,11 +823,11 @@ export default class GameScene extends Phaser.Scene {
                             enemy.lastHitTime = now;
                             this.playerHealth -= enemy.damage;
                             this.updateHPBar();
-                            this.tweens.add({ targets: this.player, alpha: 0.3, duration: 100, yoyo: true });
+                            this.playerDamageFlash();
                             if (this.inflateActive) this.inflateKnockback();
                             if (this.playerHealth <= 0) {
                                 this.playerHealth = 0;
-                                this.time.delayedCall(500, () => this.scene.start('GameOverScene', { level: this.level }));
+                                this.time.delayedCall(500, () => this.showDeathOverlay());
                             }
                         }
                         // Visual lash arc
@@ -743,11 +858,11 @@ export default class GameScene extends Phaser.Scene {
                             enemy.lastHitTime = now;
                             this.playerHealth -= enemy.damage;
                             this.updateHPBar();
-                            this.tweens.add({ targets: this.player, alpha: 0.3, duration: 100, yoyo: true });
+                            this.playerDamageFlash();
                             if (this.inflateActive) this.inflateKnockback();
                             if (this.playerHealth <= 0) {
                                 this.playerHealth = 0;
-                                this.time.delayedCall(500, () => this.scene.start('GameOverScene', { level: this.level }));
+                                this.time.delayedCall(500, () => this.showDeathOverlay());
                             }
                         }
                         const g = this.add.graphics().setDepth(20);
@@ -764,11 +879,12 @@ export default class GameScene extends Phaser.Scene {
             scheduleSnakeWhip();
         }
 
-        // Spinach Cyclone: wanders within camera view; spawns Small Spinach periodically while alive
+        // Spinach Cyclone / Spinach Tempest: wanders within camera view; spawns minions periodically while alive
         if (def.spawnsEnemy) {
             enemy.isWanderer = true;
             this.tweens.add({ targets: enemy, angle: 360, duration: 900, loop: -1 });
-            const spawnKey = def.spawnsEnemy;
+            const spawnKey   = def.spawnsEnemy;
+            const mStats     = def.spawnsEnemyStats ?? { health: 18, damage: 9, speed: 110, scale: 0.22 };
             const scheduleCycloneSpawn = () => {
                 if (!enemy.active) return;
                 enemy.cycloneTimer = this.time.delayedCall(Phaser.Math.Between(6000, 12000), () => {
@@ -776,13 +892,14 @@ export default class GameScene extends Phaser.Scene {
                     const sx = enemy.x + Phaser.Math.Between(-80, 80);
                     const sy = enemy.y + Phaser.Math.Between(-80, 80);
                     const mini = this.physics.add.sprite(sx, sy, spawnKey);
-                    mini.setScale(0.22).setDepth(5);
-                    mini.health = 18; mini.maxHealth = 18;
-                    mini.damage = 9;  mini.speed = 110;
+                    mini.setScale(mStats.scale).setDepth(5);
+                    mini.health = mStats.health; mini.maxHealth = mStats.health;
+                    mini.damage = mStats.damage; mini.speed = mStats.speed;
                     mini.lastHitTime = 0;
                     mini.splits = false; mini.shoots = false; mini.splitsInto = null;
                     mini.hydra = false; mini.burrowed = false; mini.whips = false;
                     mini.emitsGas = false; mini.snakeWhip = false;
+                    mini.trap = false; mini.trapArmed = false; mini.bomb = false; mini.sweeps = false; mini.spawnsMinion = null;
                     const animKey = `${spawnKey}_walk`;
                     if (!this.anims.exists(animKey)) {
                         this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(spawnKey, { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
@@ -794,6 +911,81 @@ export default class GameScene extends Phaser.Scene {
                 });
             };
             scheduleCycloneSpawn();
+        }
+
+        // Lettuce Trap: starts dormant and nearly invisible; activates when the player steps on it
+        if (def.trap) {
+            enemy.setAlpha(0.22);
+            if (enemy.body) enemy.body.setVelocity(0, 0);
+        }
+
+        // Rocket Great Sword: arc sweep attack every 3–5s
+        if (def.sweeps) {
+            const scheduleSweep = () => {
+                if (!enemy.active) return;
+                enemy.sweepTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
+                    if (!enemy.active) return;
+                    const angle        = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+                    const halfArc      = 80 * (Math.PI / 180); // 160° total arc
+                    const range        = 90;
+                    const g = this.add.graphics().setDepth(20);
+                    g.fillStyle(0xff8800, 0.45);
+                    g.slice(enemy.x, enemy.y, range, angle - halfArc, angle + halfArc);
+                    g.fillPath();
+                    this.tweens.add({ targets: g, alpha: 0, duration: 300, onComplete: () => g.destroy() });
+                    const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+                    if (dist <= range && !this.player.reviveInvincible) {
+                        const playerAngle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+                        if (Math.abs(Phaser.Math.Angle.Wrap(playerAngle - angle)) <= halfArc) {
+                            const now = this.time.now;
+                            if (now - (enemy.lastSweepHit ?? 0) >= 1000) {
+                                enemy.lastSweepHit = now;
+                                this.playerHealth -= enemy.damage;
+                                this.updateHPBar();
+                                this.playerDamageFlash();
+                                if (this.inflateActive) this.inflateKnockback();
+                                if (this.playerHealth <= 0) {
+                                    this.playerHealth = 0;
+                                    this.time.delayedCall(500, () => this.showDeathOverlay());
+                                }
+                            }
+                        }
+                    }
+                    scheduleSweep();
+                });
+            };
+            scheduleSweep();
+        }
+
+        // Mulberry Monstrosity: spawns a Mulberry Bat every 12–20s
+        if (def.spawnsMinion) {
+            const minionKey = def.spawnsMinion;
+            const scheduleMinion = () => {
+                if (!enemy.active) return;
+                enemy.minionTimer = this.time.delayedCall(Phaser.Math.Between(12000, 20000), () => {
+                    if (!enemy.active) return;
+                    const sx = enemy.x + Phaser.Math.Between(-60, 60);
+                    const sy = enemy.y + Phaser.Math.Between(-60, 60);
+                    const mini = this.physics.add.sprite(sx, sy, minionKey);
+                    mini.setScale(0.25).setDepth(5);
+                    mini.health = 50; mini.maxHealth = 50;
+                    mini.damage = 13; mini.speed = 140;
+                    mini.lastHitTime = 0;
+                    mini.splits = false; mini.shoots = false; mini.splitsInto = null;
+                    mini.hydra = false; mini.burrowed = false; mini.whips = false;
+                    mini.emitsGas = false; mini.snakeWhip = false;
+                    mini.trap = false; mini.trapArmed = false; mini.bomb = false; mini.sweeps = false; mini.spawnsMinion = null;
+                    const animKey = `${minionKey}_walk`;
+                    if (!this.anims.exists(animKey)) {
+                        this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(minionKey, { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
+                    }
+                    mini.play(animKey);
+                    this.physics.moveToObject(mini, this.player, mini.speed);
+                    this.enemies.add(mini);
+                    scheduleMinion();
+                });
+            };
+            scheduleMinion();
         }
 
         // Carrot Dart: telegraphed charge at the player every 3–6s
@@ -840,6 +1032,209 @@ export default class GameScene extends Phaser.Scene {
             scheduleDartCharge();
         }
 
+        // Oregano Phantom: fires a poisonous projectile every 3–10s
+        if (def.phantom) {
+            const schedulePhantomShot = () => {
+                if (!enemy.active) return;
+                enemy.phantomTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
+                    if (!enemy.active) return;
+                    const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+                    const proj  = this.physics.add.image(enemy.x, enemy.y, 'oregano_fan');
+                    proj.setScale(0.14).setDepth(7).setTint(0x44ff44);
+                    proj.setVelocity(Math.cos(angle) * 160, Math.sin(angle) * 160);
+                    proj.damage = enemy.damage;
+                    this.physics.add.overlap(proj, this.player, () => {
+                        if (!proj.active || proj.deflected) return;
+                        if (this.player.reviveInvincible) return;
+                        if (this.deflectChance > 0 && Math.random() < this.deflectChance) {
+                            proj.deflected = true;
+                            proj.setVelocity(-proj.body.velocity.x * 1.4, -proj.body.velocity.y * 1.4);
+                            this.physics.add.overlap(proj, this.enemies, (p, e) => {
+                                if (!p.active) return;
+                                this.damageDealt += 20; e.health -= 20;
+                                this.tweens.add({ targets: e, alpha: 0.2, duration: 80, yoyo: true });
+                                if (e.health <= 0) this.killEnemy(e);
+                                p.destroy();
+                            });
+                            return;
+                        }
+                        this.playerHealth -= proj.damage;
+                        this.updateHPBar();
+                        this.playerDamageFlash();
+                        this.applyPoison(6); // 3 seconds of poison
+                        if (this.playerHealth <= 0) {
+                            this.playerHealth = 0;
+                            this.time.delayedCall(500, () => this.showDeathOverlay());
+                        }
+                        proj.destroy();
+                    });
+                    this.scheduleProjectileDespawn(proj, 5000);
+                    schedulePhantomShot();
+                });
+            };
+            schedulePhantomShot();
+        }
+
+        // Coriander Carrot: spawns 2 random coriander or carrot enemies every 5–12s
+        if (def.spawnsCarrotCori) {
+            const spawnPool = ['coriander', 'coriander_whip', 'coriander_hydra', 'carrot_mole', 'carrot_dart', 'carrot_wheel'];
+            const spawnStats = {
+                coriander:       { health: 30,  damage: 10, speed: 72,  scale: 0.25 },
+                coriander_whip:  { health: 60,  damage: 14, speed: 55,  scale: 0.25 },
+                coriander_hydra: { health: 220, damage: 13, speed: 38,  scale: 0.30 },
+                carrot_mole:     { health: 75,  damage: 12, speed: 60,  scale: 0.25 },
+                carrot_dart:     { health: 40,  damage: 17, speed: 145, scale: 0.25 },
+                carrot_wheel:    { health: 22,  damage: 9,  speed: 130, scale: 0.18 },
+            };
+            const scheduleSpawn = () => {
+                if (!enemy.active) return;
+                enemy.spawnTimer = this.time.delayedCall(Phaser.Math.Between(5000, 12000), () => {
+                    if (!enemy.active) return;
+                    for (let i = 0; i < 2; i++) {
+                        const sKey  = Phaser.Utils.Array.GetRandom(spawnPool);
+                        const sData = spawnStats[sKey];
+                        const sx    = enemy.x + Phaser.Math.Between(-60, 60);
+                        const sy    = enemy.y + Phaser.Math.Between(-60, 60);
+                        const mini  = this.physics.add.sprite(sx, sy, sKey);
+                        mini.setScale(sData.scale).setDepth(5);
+                        mini.health = sData.health; mini.maxHealth = sData.health;
+                        mini.damage = sData.damage; mini.speed     = sData.speed;
+                        mini.lastHitTime = 0;
+                        mini.splits = false; mini.shoots = false; mini.splitsInto = null;
+                        mini.hydra = (sKey === 'coriander_hydra'); mini.burrowed = (sKey === 'carrot_mole');
+                        mini.whips = (sKey === 'coriander_whip');  mini.emitsGas = false;
+                        mini.snakeWhip = false; mini.trap = false; mini.trapArmed = false;
+                        mini.bomb = false; mini.sweeps = false; mini.phantom = false;
+                        mini.spawnsCarrotCori = false; mini.spawnsAnySpinach = false; mini.vineWhip = false; mini.spawnsMinion = null;
+                        mini.isWanderer = false;
+                        if (mini.hydra) { mini.hydraHeads = 3; mini.body.setSize(110, 110); }
+                        if (mini.burrowed) {
+                            mini.isUnderground = false; mini.speed = 0;
+                            const sb = () => {
+                                if (!mini.active) return;
+                                mini.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
+                                    if (!mini.active) return;
+                                    mini.isUnderground = true; mini.setAlpha(0.25); mini.body.setSize(40, 30); mini.speed = 80;
+                                    mini.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
+                                        if (!mini.active) return;
+                                        mini.isUnderground = false; mini.setAlpha(1); mini.body.setSize(60, 40); mini.speed = 0;
+                                        if (mini.body) mini.body.setVelocity(0, 0); sb();
+                                    });
+                                });
+                            };
+                            sb();
+                        }
+                        if (mini.whips) {
+                            mini.body.setSize(70, 70);
+                            const sw = () => {
+                                if (!mini.active) return;
+                                mini.whipTimer = this.time.delayedCall(Phaser.Math.Between(1000, 2000), () => {
+                                    if (!mini.active) return;
+                                    const d = Phaser.Math.Distance.Between(mini.x, mini.y, this.player.x, this.player.y);
+                                    if (d <= 56) {
+                                        const now = this.time.now;
+                                        if (now - mini.lastHitTime >= 1000) {
+                                            mini.lastHitTime = now;
+                                            this.playerHealth -= mini.damage; this.updateHPBar();
+                                            this.playerDamageFlash();
+                                            if (this.inflateActive) this.inflateKnockback();
+                                            if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                                        }
+                                    }
+                                    sw();
+                                });
+                            };
+                            sw();
+                        }
+                        const aKey = `${sKey}_walk`;
+                        if (!this.anims.exists(aKey)) {
+                            this.anims.create({ key: aKey, frames: this.anims.generateFrameNumbers(sKey, { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+                        }
+                        mini.play(aKey);
+                        this.physics.moveToObject(mini, this.player, mini.speed);
+                        this.enemies.add(mini);
+                    }
+                    scheduleSpawn();
+                });
+            };
+            scheduleSpawn();
+        }
+
+        // Spinach Tempest: wanders + spawns a random spinach enemy every 2–8s
+        if (def.spawnsAnySpinach) {
+            enemy.isWanderer = true;
+            this.tweens.add({ targets: enemy, angle: 360, duration: 600, loop: -1 });
+            const spinachPool = [
+                { key: 'spinach',       health: 35,  damage: 11, speed: 68,  scale: 0.25 },
+                { key: 'small_spinach', health: 18,  damage: 5,  speed: 110, scale: 0.22 },
+                { key: 'spinach_cyclone', health: 200, damage: 20, speed: 35, scale: 0.30, wanders: true },
+            ];
+            const scheduleTempestSpawn = () => {
+                if (!enemy.active) return;
+                enemy.cycloneTimer = this.time.delayedCall(Phaser.Math.Between(2000, 8000), () => {
+                    if (!enemy.active) return;
+                    const pick = Phaser.Utils.Array.GetRandom(spinachPool);
+                    const sx   = enemy.x + Phaser.Math.Between(-80, 80);
+                    const sy   = enemy.y + Phaser.Math.Between(-80, 80);
+                    const mini = this.physics.add.sprite(sx, sy, pick.key);
+                    mini.setScale(pick.scale).setDepth(5);
+                    mini.health = pick.health; mini.maxHealth = pick.health;
+                    mini.damage = pick.damage; mini.speed = pick.speed;
+                    mini.lastHitTime = 0;
+                    mini.splits = false; mini.shoots = false; mini.splitsInto = null;
+                    mini.hydra = false; mini.burrowed = false; mini.whips = false;
+                    mini.emitsGas = false; mini.snakeWhip = false;
+                    mini.trap = false; mini.trapArmed = false; mini.bomb = false; mini.sweeps = false;
+                    mini.phantom = false; mini.spawnsCarrotCori = false; mini.spawnsAnySpinach = false; mini.vineWhip = false; mini.spawnsMinion = null;
+                    mini.isWanderer = pick.wanders ?? false;
+                    if (mini.isWanderer) this.tweens.add({ targets: mini, angle: 360, duration: 900, loop: -1 });
+                    const aKey = `${pick.key}_walk`;
+                    if (!this.anims.exists(aKey)) {
+                        this.anims.create({ key: aKey, frames: this.anims.generateFrameNumbers(pick.key, { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
+                    }
+                    mini.play(aKey);
+                    if (!mini.isWanderer) this.physics.moveToObject(mini, this.player, mini.speed);
+                    this.enemies.add(mini);
+                    scheduleTempestSpawn();
+                });
+            };
+            scheduleTempestSpawn();
+        }
+
+        // Mulberry Monstrosity: vine whip attack within 100px every 2–5s, deals 20dmg
+        if (def.vineWhip) {
+            const scheduleVineWhip = () => {
+                if (!enemy.active) return;
+                enemy.whipTimer = this.time.delayedCall(Phaser.Math.Between(2000, 5000), () => {
+                    if (!enemy.active) return;
+                    const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+                    if (dist <= 100) {
+                        const now = this.time.now;
+                        if (now - enemy.lastHitTime >= 1000) {
+                            enemy.lastHitTime = now;
+                            this.playerHealth -= 20;
+                            this.updateHPBar();
+                            this.playerDamageFlash();
+                            if (this.inflateActive) this.inflateKnockback();
+                            if (this.playerHealth <= 0) {
+                                this.playerHealth = 0;
+                                this.time.delayedCall(500, () => this.showDeathOverlay());
+                            }
+                        }
+                        const g = this.add.graphics().setDepth(20);
+                        g.lineStyle(4, 0x882244, 0.9);
+                        g.beginPath();
+                        g.moveTo(enemy.x, enemy.y);
+                        g.lineTo(this.player.x, this.player.y);
+                        g.strokePath();
+                        this.tweens.add({ targets: g, alpha: 0, duration: 250, onComplete: () => g.destroy() });
+                    }
+                    scheduleVineWhip();
+                });
+            };
+            scheduleVineWhip();
+        }
+
         const animKey = `${type}_walk`;
         if (!this.anims.exists(animKey)) {
             this.anims.create({
@@ -863,7 +1258,7 @@ export default class GameScene extends Phaser.Scene {
 
     // ─── Step 3: Bite weapon + enemy death + cricket drop ────────────────────────
     doBite() {
-        if (this.isPaused) return;
+        if (this.isPaused || this.isCountdown) return;
         const px = this.player.x;
         const py = this.player.y;
 
@@ -886,7 +1281,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     doTailSlap() {
-        if (this.isPaused) return;
+        if (this.isPaused || this.isCountdown) return;
         // Behind the player = opposite of movement direction
         const angle = (this.lastMoveAngle ?? 0) + Math.PI;
         const arc   = this.tailSlapUpgraded ? Math.PI : (Math.PI / 3);
@@ -920,7 +1315,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     doPoop() {
-        if (this.isPaused) return;
+        if (this.isPaused || this.isCountdown) return;
         const angle      = Phaser.Math.FloatBetween(0, Math.PI * 2);
         const speed      = 220;
         const radius     = 120;
@@ -948,7 +1343,7 @@ export default class GameScene extends Phaser.Scene {
                 delay: 500,
                 loop: true,
                 callback: () => {
-                    if (this.isPaused || this.isLevelingUp) return;
+                    if (this.isPaused || this.isLevelingUp || this.isCountdown) return;
                     this.enemies.getChildren().forEach(enemy => {
                         if (Phaser.Math.Distance.Between(fx, fy, enemy.x, enemy.y) <= radius && this.canDamageEnemy(enemy)) {
                             this.damageDealt += this.poopDamage; enemy.health -= this.poopDamage;
@@ -978,7 +1373,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     doPebbleFlick() {
-        if (this.isPaused) return;
+        if (this.isPaused || this.isCountdown) return;
         // Fire toward nearest enemy; if none, fire right
         let targetAngle = 0;
         let nearest = null;
@@ -1004,7 +1399,7 @@ export default class GameScene extends Phaser.Scene {
             pebble.hits   = 0;
 
             this.physics.add.overlap(pebble, this.enemies, (p, enemy) => {
-                if (!this.canDamageEnemy(enemy)) return;
+                if (this.isCountdown || !this.canDamageEnemy(enemy)) return;
                 this.damageDealt += p.damage; enemy.health -= p.damage;
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 if (enemy.health <= 0) this.killEnemy(enemy);
@@ -1053,6 +1448,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     doLick() {
+        if (this.isPaused || this.isCountdown) return;
         const px = this.player.x;
         const py = this.player.y;
         const lickRange = ([90, 120, 150][this.lickLevel - 1] || 90) + this.lickRangeBonus;
@@ -1096,6 +1492,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     doWormWhip() {
+        if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
         const arc = Math.PI * 0.65;
         const sides = this.wormWhipLevel >= 2 ? [-1, 1] : [this._whipSide];
@@ -1137,6 +1534,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     doPupaMines() {
+        if (this.isPaused || this.isCountdown) return;
         const counts = [1, 3, 5];
         const count  = counts[this.pupaLevel - 1] || 1;
 
@@ -1159,7 +1557,7 @@ export default class GameScene extends Phaser.Scene {
             this.tweens.add({ targets: mine, x: ox, y: oy, duration: 200, ease: 'Quad.easeOut' });
 
             const explodeMine = () => {
-                if (mine.exploded || !mine.active) return;
+                if (mine.exploded || !mine.active || this.isCountdown) return;
                 mine.exploded = true;
                 const ex = mine.x, ey = mine.y;
                 mine.destroy();
@@ -1195,6 +1593,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     doSkinShed() {
+        if (this.isPaused || this.isCountdown) return;
         const count = this.skinLevel;
         const cam   = this.cameras.main;
 
@@ -1230,6 +1629,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     doWoodieBounce() {
+        if (this.isPaused || this.isCountdown) return;
         const configs = [[1, 2], [2, 3], [3, 5]];
         const [count, maxBounces] = configs[this.woodieLevel - 1] || [1, 2];
 
@@ -1245,7 +1645,7 @@ export default class GameScene extends Phaser.Scene {
             woodie.hitEnemies  = new Set();
 
             this.physics.add.overlap(woodie, this.enemies, (w, enemy) => {
-                if (!w.active || w.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy)) return;
+                if (this.isCountdown || !w.active || w.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy)) return;
                 w.hitEnemies.add(enemy);
                 this.damageDealt += this.woodieDamage; enemy.health -= this.woodieDamage;
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
@@ -1276,6 +1676,25 @@ export default class GameScene extends Phaser.Scene {
     }
 
     killEnemy(enemy) {
+        // Hand mini-bosses: just drop a dragonfly and clean up
+        if (enemy.isBossMini) {
+            const idx = this.handMiniBossArray?.indexOf(enemy);
+            if (idx >= 0) this.handMiniBossArray.splice(idx, 1);
+            if (!this.bossSpawned) {
+                const drop = this.physics.add.image(enemy.x, enemy.y, 'cricket');
+                drop.setScale(0.40).setTint(0x44ccff).setDepth(3);
+                drop.xpValue = 10;
+                this.crickets.add(drop);
+            }
+            if (enemy.shootTimer)  enemy.shootTimer.remove();
+            if (enemy.whipTimer)   enemy.whipTimer.remove();
+            if (enemy.burrowTimer) enemy.burrowTimer.remove();
+            enemy.hpBarBg?.destroy();
+            enemy.hpBar?.destroy();
+            enemy.hpLabel?.destroy();
+            enemy.destroy();
+            return;
+        }
         this.kills++;
         if (this.kills >= this.nextRerollAt) {
             this.rerolls++;
@@ -1284,12 +1703,15 @@ export default class GameScene extends Phaser.Scene {
         // Rare special item check — each capped at 2 per game
         const rand = Math.random();
         if (rand < 0.025) {
+            // Foodbox — always drops, even during the boss fight
             const item = this.physics.add.image(enemy.x, enemy.y, 'cricket');
             item.setScale(0.55).setTint(0xff4488).setDepth(4);
             item.xpValue = 0;
             item.specialType = 'wormbox';
             this.tweens.add({ targets: item, scaleX: 0.65, scaleY: 0.65, duration: 350, yoyo: true, loop: -1 });
             this.crickets.add(item);
+        } else if (this.bossSpawned) {
+            // No XP insects or Treasure once the boss is on the field
         } else if (rand < 0.056 && this.treasureSpawned < 2) {
             this.treasureSpawned++;
             const item = this.physics.add.image(enemy.x, enemy.y, 'cricket');
@@ -1301,21 +1723,29 @@ export default class GameScene extends Phaser.Scene {
         } else {
             // Normal drop
             const dropTable = {
-                lettuce_hopper:  { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
-                lettuce_shooter: { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                basil_propeller: { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                rocket_knife:    { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
-                oregano_ghost:   { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                oregano_fan:     { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                rocket_sword:    { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                coriander_whip:  { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
-                carrot_mole:     { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
-                coriander_hydra: { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                carrot_dart:     { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                carrot_wheel:    { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                mulberry_bat:    { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
-                mulberry_snake:  { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                spinach_cyclone: { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                lettuce_hopper:       { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
+                lettuce_shooter:      { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
+                basil_propeller:      { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                rocket_knife:         { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
+                oregano_ghost:        { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
+                oregano_fan:          { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
+                rocket_sword:         { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                coriander_whip:       { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
+                carrot_mole:          { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
+                coriander_hydra:      { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
+                carrot_dart:          { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                carrot_wheel:         { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
+                mulberry_bat:         { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
+                mulberry_snake:       { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
+                spinach_cyclone:      { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                // Level 5 exclusives
+                lettuce_trap:         { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                basil_bomb:           { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                rocket_great_sword:   { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                oregano_phantom:      { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                coriander_carrot:     { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                spinach_tempest:      { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                mulberry_monstrosity: { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
             };
             const drop = dropTable[enemy.texture?.key] ?? { xpValue: 1, tint: 0xffffff, scale: 0.25 };
 
@@ -1367,11 +1797,62 @@ export default class GameScene extends Phaser.Scene {
             }
         }
 
+        // Basil Bomb: explodes in a ~47px radius on death (1/3 of pupa mine diameter)
+        if (enemy.bomb) {
+            const bombRadius = Math.round(this.pupaRadius * 2 / 3);
+            const g = this.add.graphics().setDepth(20);
+            g.fillStyle(0xff6600, 0.65);
+            g.fillCircle(enemy.x, enemy.y, bombRadius);
+            this.tweens.add({ targets: g, alpha: 0, scaleX: 1.4, scaleY: 1.4, duration: 300, onComplete: () => g.destroy() });
+            if (!this.player.reviveInvincible) {
+                const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+                if (dist <= bombRadius) {
+                    this.playerHealth -= enemy.explodeDamage;
+                    this.updateHPBar();
+                    this.playerDamageFlash();
+                    if (this.inflateActive) this.inflateKnockback();
+                    if (this.playerHealth <= 0) {
+                        this.playerHealth = 0;
+                        this.time.delayedCall(500, () => this.showDeathOverlay());
+                    }
+                }
+            }
+        }
+
+        // Oregano Phantom: bursts into 3 randomly aimed poisonous projectiles on death
+        if (enemy.phantom) {
+            for (let i = 0; i < 3; i++) {
+                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                const proj  = this.physics.add.image(enemy.x, enemy.y, 'oregano_fan');
+                proj.setScale(0.14).setDepth(7).setTint(0x44ff44);
+                proj.setVelocity(Math.cos(angle) * 160, Math.sin(angle) * 160);
+                proj.damage = enemy.damage;
+                this.physics.add.overlap(proj, this.player, () => {
+                    if (!proj.active || proj.deflected) return;
+                    if (this.player.reviveInvincible) return;
+                    this.playerHealth -= proj.damage;
+                    this.updateHPBar();
+                    this.playerDamageFlash();
+                    this.applyPoison(6);
+                    if (this.playerHealth <= 0) {
+                        this.playerHealth = 0;
+                        this.time.delayedCall(500, () => this.showDeathOverlay());
+                    }
+                    proj.destroy();
+                });
+                this.scheduleProjectileDespawn(proj, 4000);
+            }
+        }
+
         if (enemy.shootTimer)   enemy.shootTimer.remove();
         if (enemy.whipTimer)    enemy.whipTimer.remove();
         if (enemy.burrowTimer)  enemy.burrowTimer.remove();
         if (enemy.dartTimer)    enemy.dartTimer.remove();
         if (enemy.cycloneTimer) enemy.cycloneTimer.remove();
+        if (enemy.sweepTimer)   enemy.sweepTimer.remove();
+        if (enemy.minionTimer)  enemy.minionTimer.remove();
+        if (enemy.phantomTimer) enemy.phantomTimer.remove();
+        if (enemy.spawnTimer)   enemy.spawnTimer.remove();
         enemy.destroy();
     }
 
@@ -1381,6 +1862,31 @@ export default class GameScene extends Phaser.Scene {
         const py = this.player.y;
 
         this.enemies.getChildren().forEach(enemy => {
+            // Lettuce Trap: snap shut when player walks over it
+            if (enemy.trapArmed) {
+                const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+                if (dist < 36) {
+                    enemy.trapArmed = false;
+                    enemy.setAlpha(1);
+                    // Flash and deal snap damage
+                    this.tweens.add({ targets: enemy, scaleX: enemy.scaleX * 1.3, scaleY: enemy.scaleY * 1.3, duration: 80, yoyo: true });
+                    if (!this.player.reviveInvincible) {
+                        const now = this.time.now;
+                        if (now - enemy.lastHitTime >= 1000) {
+                            enemy.lastHitTime = now;
+                            this.playerHealth -= enemy.snapDamage;
+                            this.updateHPBar();
+                            this.playerDamageFlash();
+                            if (this.inflateActive) this.inflateKnockback();
+                            if (this.playerHealth <= 0) {
+                                this.playerHealth = 0;
+                                this.time.delayedCall(500, () => this.showDeathOverlay());
+                            }
+                        }
+                    }
+                }
+                return; // stays stationary until snapped
+            }
             if (enemy.isCharging || enemy.speed === 0) return;
             if (enemy.isWanderer) {
                 if (!enemy.wanderTarget) enemy.wanderTarget = this.pickCycloneWanderTarget();
@@ -1456,16 +1962,18 @@ export default class GameScene extends Phaser.Scene {
         const range = 110;
         const burst = this.add.circle(this.player.x, this.player.y, range, 0xffffff, 0.25).setDepth(20);
         this.tweens.add({ targets: burst, alpha: 0, scaleX: 1.3, scaleY: 1.3, duration: 250, onComplete: () => burst.destroy() });
-        this.enemies.getChildren().forEach(e => {
+        const toKill = [];
+        this.enemies.getChildren().slice().forEach(e => {
             if (!this.canDamageEnemy(e)) return;
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
             if (dist < range) {
                 const a = Math.atan2(e.y - this.player.y, e.x - this.player.x);
                 if (e.body) e.body.setVelocity(Math.cos(a) * 220, Math.sin(a) * 220);
                 this.damageDealt += 15; e.health -= 15;
-                if (e.health <= 0) this.killEnemy(e);
+                if (e.health <= 0) toKill.push(e);
             }
         });
+        toKill.forEach(e => this.killEnemy(e));
     }
 
     applyPoison(maxTicks = 4) {
@@ -1484,7 +1992,7 @@ export default class GameScene extends Phaser.Scene {
                 if (this.playerHealth <= 0) {
                     this.playerHealth = 0;
                     this.updateHPBar();
-                    this.time.delayedCall(500, () => this.scene.start('GameOverScene', { level: this.level }));
+                    this.time.delayedCall(500, () => this.showDeathOverlay());
                 }
                 if (ticks >= maxTicks) {
                     this.poisonTimer.remove();
@@ -1498,24 +2006,28 @@ export default class GameScene extends Phaser.Scene {
 
     enemyHitPlayer(player, enemy) {
         if (enemy.isUnderground) return;
+        if (player.reviveInvincible) return;
+        // Basil Bomb has no contact damage — it detonates (handled in attractCrickets)
+        if (enemy.bomb) { this.killEnemy(enemy); return; }
         const now = this.time.now;
         if (now - enemy.lastHitTime < 1000) return;
         enemy.lastHitTime = now;
 
         this.playerHealth -= enemy.damage;
         this.updateHPBar();
-        this.tweens.add({ targets: player, alpha: 0.3, duration: 100, yoyo: true });
+        this.playerDamageFlash();
         if (this.inflateActive) this.inflateKnockback();
         if (enemy.emitsGas) this.applyPoison(2);
 
         if (this.playerHealth <= 0) {
             this.playerHealth = 0;
             this.updateHPBar();
-            this.time.delayedCall(500, () => this.scene.start('GameOverScene', { level: this.level }));
+            this.time.delayedCall(500, () => this.showDeathOverlay());
         }
     }
 
     tickTimer() {
+        if (this.isCountdown) return;
         this.gameTime--;
         const mins = Math.floor(this.gameTime / 60);
         const secs = this.gameTime % 60;
@@ -1529,13 +2041,19 @@ export default class GameScene extends Phaser.Scene {
     // ─── Boss ────────────────────────────────────────────────────────────────────
     spawnBoss() {
         // Stop all regular spawning immediately when the warning appears
-        this.spawnTimer.paused     = true;
-        this.spawnRampTimer.paused = true;
+        this.spawnTimer.remove();
+        this.spawnRampTimer.remove();
+        this.spawnTimer = null;
+        this.spawnRampTimer = null;
 
         const W = this.cameras.main.width;
         const H = this.cameras.main.height;
 
-        const bossCfg = this.level === 3
+        const bossCfg = this.level === 5
+            ? { key: 'the_hand',        label: 'THE HAND',        health: 10000, damage: 30, scale: 0.8 }
+            : this.level === 4
+            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 8000, damage: Phaser.Math.Between(5, 15), scale: 0.6 }
+            : this.level === 3
             ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 18000, damage: 28, scale: 0.65 }
             : this.level === 2
             ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 12000, damage: 25, scale: 0.6 }
@@ -1550,6 +2068,12 @@ export default class GameScene extends Phaser.Scene {
 
         // Spawn boss after warning
         this.time.delayedCall(2800, () => {
+            // Clear all existing XP insects and treasures; wormboxes stay
+            this.bossSpawned = true;
+            this.crickets.getChildren().slice().forEach(c => {
+                if (c.specialType !== 'wormbox') c.destroy();
+            });
+
             const bossX = this.player.x + 450;
             const bossY = this.player.y;
 
@@ -1589,7 +2113,26 @@ export default class GameScene extends Phaser.Scene {
             this.physics.add.overlap(this.player, this.boss, this.bossHitPlayer, null, this);
             this.physics.add.overlap(this.boss, this.pupaGroup, (boss, mine) => { if (mine.explodeFn) mine.explodeFn(); });
 
-            if (this.level === 3) {
+            if (this.level === 5) {
+                // The Hand: multi-phase boss
+                this.boss.handPhase            = 1;
+                this.boss.handImmobile         = false;
+                this.boss.handWanderTarget     = null;
+                this.boss.handPhaseTransitioned = false;
+                this.boss.lastHitTime          = 0;
+                this.handFireZones             = [];
+                this.handMiniBossArray         = [];
+                this.scheduleHandSlap();
+            } else if (this.level === 4) {
+                // Mulberry Mantis: chases at high speed; vanishes every 5–10s
+                this.boss.mantisPhase          = 1;
+                this.boss.mantisVanishing      = false;
+                this.boss.mantisResting        = false;
+                this.boss.mantisChasing        = false;
+                this.boss.mantisVanishCycles   = 0;
+                this.boss.mantisChaseThreshold = Phaser.Math.Between(5, 25);
+                this.scheduleMantisVanish();
+            } else if (this.level === 3) {
                 // Carrot Scorpion: chases player; claw swipe every 4s; stinger bury every 8–14s
                 this.boss.isStinging = false;
                 this.bossChargeTimer = this.time.addEvent({ delay: 4000, callback: this.scorpionClawSwipe, callbackScope: this, loop: true });
@@ -1617,7 +2160,7 @@ export default class GameScene extends Phaser.Scene {
                 this.bossChargeTimer = this.time.addEvent({ delay: bossCfg.chargeDelay, callback: this.bossCharge, callbackScope: this, loop: true });
             }
 
-            this.timerText.setText('BOSS');
+            this.timerText.setVisible(false);
         });
     }
 
@@ -1638,18 +2181,19 @@ export default class GameScene extends Phaser.Scene {
     }
 
     bossHitPlayer(player, boss) {
+        if (player.reviveInvincible) return;
         const now = this.time.now;
         if (now - boss.lastHitTime < 1000) return;
         boss.lastHitTime = now;
         this.playerHealth -= boss.damage;
         this.updateHPBar();
-        this.tweens.add({ targets: player, alpha: 0.3, duration: 100, yoyo: true });
+        this.playerDamageFlash();
         if (this.inflateActive) this.inflateKnockback();
         if (this.level === 2) this.applyPoison();
         if (this.playerHealth <= 0) {
             this.playerHealth = 0;
             this.updateHPBar();
-            this.time.delayedCall(500, () => this.scene.start('GameOverScene', { level: this.level }));
+            this.time.delayedCall(500, () => this.showDeathOverlay());
         }
     }
 
@@ -1913,14 +2457,172 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
+    updateMulberryMantisAI() {
+        const boss = this.boss;
+        if (!boss?.active || boss.mantisVanishing || boss.mantisResting) return;
+        if (boss.mantisPhase === 1 || boss.mantisChasing) {
+            this.physics.moveToObject(boss, this.player, 210);
+        }
+    }
+
+    scheduleMantisVanish() {
+        if (!this.boss?.active) return;
+        const boss = this.boss;
+
+        // In phase 2 the mantis only rests then vanishes again; in phase 1 it chases first
+        const chaseTime = boss.mantisPhase === 1
+            ? Phaser.Math.Between(5000, 10000)
+            : 0; // phase 2: vanish immediately after rest
+
+        this.bossChargeTimer = this.time.delayedCall(chaseTime, () => {
+            if (!boss?.active) return;
+            this.mantisVanish();
+        });
+    }
+
+    mantisVanish() {
+        const boss = this.boss;
+        if (!boss?.active || boss.mantisChasing) return;
+
+        boss.mantisVanishing = true;
+        boss.setVelocity(0, 0);
+
+        // Flash out then go invisible
+        this.tweens.add({ targets: boss, alpha: 0, duration: 200, onComplete: () => {
+            if (!this.boss) return;
+            boss.setActive(false).setVisible(false);
+            boss.body.enable = false;
+
+            // Hide the world-space health bar label while vanished
+            this.bossHpBarBg?.setVisible(false);
+            this.bossHpBar?.setVisible(false);
+            this.bossHpLabel?.setVisible(false);
+
+            // Wait 3–5s then reappear next to player
+            const hideDuration = Phaser.Math.Between(3000, 5000);
+            this.time.delayedCall(hideDuration, () => {
+                // this.boss is nulled out by killBoss; check that before reappearing
+                if (!this.boss) return;
+                this.mantisReappear();
+            });
+        }});
+    }
+
+    mantisReappear() {
+        const boss = this.boss;
+        if (!boss) return;
+
+        // Reappear just off to one side of the player
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const offset = 80;
+        boss.x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * offset, 64, 3136);
+        boss.y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * offset, 64, 3136);
+
+        boss.setActive(true).setVisible(true).setAlpha(0);
+        boss.body.enable = true;
+        boss.mantisVanishing = false;
+
+        this.bossHpBarBg?.setVisible(true);
+        this.bossHpBar?.setVisible(true);
+        this.bossHpLabel?.setVisible(true);
+
+        // Flash in
+        this.tweens.add({ targets: boss, alpha: 1, duration: 150, onComplete: () => {
+            if (!this.boss) return;
+            // Wait 400ms then strike
+            this.time.delayedCall(400, () => {
+                if (!this.boss) return;
+                this.mantisStrike();
+            });
+        }});
+    }
+
+    mantisStrike() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+        if (this.player.reviveInvincible) {
+            // Still schedule next cycle even if strike was blocked
+            boss.mantisResting = true;
+            const restTime = boss.mantisPhase === 2 ? 2000 : 0;
+            this.time.delayedCall(restTime, () => {
+                if (!this.boss) return;
+                this.boss.mantisResting = false;
+                this.scheduleMantisVanish();
+            });
+            return;
+        }
+
+        // Red flash warning
+        this.tweens.add({ targets: boss, alpha: 0.2, duration: 80, yoyo: true, repeat: 1 });
+
+        // Deal 25 damage if player is still nearby
+        const dist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
+        if (dist < 80) {
+            this.playerHealth -= 25;
+            this.playerDamageFlash();
+            this.updateHPBar();
+            if (this.playerHealth <= 0) {
+                this.playerHealth = 0;
+                this.time.delayedCall(500, () => this.showDeathOverlay());
+            }
+        }
+
+        if (boss.mantisPhase === 2) {
+            boss.mantisVanishCycles++;
+            boss.mantisResting = true;
+            this.time.delayedCall(2000, () => {
+                if (!this.boss) return;
+                this.boss.mantisResting = false;
+                if (this.boss.mantisVanishCycles >= this.boss.mantisChaseThreshold) {
+                    this.boss.mantisVanishCycles   = 0;
+                    this.boss.mantisChaseThreshold = Phaser.Math.Between(5, 25);
+                    this.startMantisChaseRun();
+                } else {
+                    this.scheduleMantisVanish();
+                }
+            });
+        } else {
+            // Phase 1: immediately resume chasing; scheduleMantisVanish handles the next 5–10s window
+            this.scheduleMantisVanish();
+        }
+    }
+
+    startMantisChaseRun() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+        boss.mantisChasing = true;
+        const duration = Phaser.Math.Between(15000, 45000);
+        this.time.delayedCall(duration, () => {
+            if (!this.boss) return;
+            this.boss.mantisChasing = false;
+            this.boss.setVelocity(0, 0);
+            this.scheduleMantisVanish();
+        });
+    }
+
     damageBoss(amount) {
         if (!this.boss || !this.boss.active) return;
         this.damageDealt += amount; this.boss.health -= amount;
         this.tweens.add({ targets: this.boss, alpha: 0.2, duration: 80, yoyo: true });
         this.updateBossHealthBar();
+        if (this.level === 4 && this.boss.mantisPhase === 1 && this.boss.health <= this.boss.maxHealth * 0.1) {
+            this.boss.mantisPhase = 2;
+            this.boss.health      = this.boss.maxHealth;
+            this.updateBossHealthBar();
+            this.spawnMantisPhase2Ring();
+        }
         if (this.level === 2 && !this.boss.phaseTriggered && this.boss.health <= this.boss.maxHealth * 0.5) {
             this.boss.phaseTriggered = true;
             this.triggerRocketSpiderPhase2();
+        }
+        if (this.level === 5 && this.boss && !this.boss.handPhaseTransitioned) {
+            if (this.boss.handPhase < 4 && this.boss.health <= this.boss.maxHealth * 0.1) {
+                this.boss.handPhaseTransitioned = true;
+                this.boss.health = this.boss.maxHealth;
+                this.updateBossHealthBar();
+                this.triggerHandNextPhase();
+                return;
+            }
         }
         if (this.boss.health <= 0) this.killBoss();
     }
@@ -1951,20 +2653,216 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    spawnMantisPhase2Ring() {
+        const COUNT  = 25;
+        const RADIUS = 900;
+        for (let i = 0; i < COUNT; i++) {
+            const angle = (i / COUNT) * Math.PI * 2;
+            const cx = Phaser.Math.Clamp(this.boss.x + Math.cos(angle) * RADIUS, 64, 3136);
+            const cy = Phaser.Math.Clamp(this.boss.y + Math.sin(angle) * RADIUS, 64, 3136);
+
+            const cyclone = this.physics.add.sprite(cx, cy, 'spinach_cyclone');
+            cyclone.setScale(0.30).setDepth(5);
+            cyclone.health      = 200;
+            cyclone.maxHealth   = 200;
+            cyclone.damage      = 20;
+            cyclone.speed       = 35;
+            cyclone.lastHitTime = 0;
+            cyclone.splits = false; cyclone.shoots = false; cyclone.splitsInto = null;
+            cyclone.hydra = false; cyclone.burrowed = false; cyclone.whips = false;
+            cyclone.emitsGas = false; cyclone.snakeWhip = false;
+            cyclone.isWanderer = true;
+
+            const animKey = 'spinach_cyclone_walk';
+            if (!this.anims.exists(animKey)) {
+                this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers('spinach_cyclone', { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
+            }
+            cyclone.play(animKey);
+            this.tweens.add({ targets: cyclone, angle: 360, duration: 900, loop: -1 });
+
+            // Each cyclone periodically spawns Small Spinach
+            const scheduleSpawn = () => {
+                if (!cyclone.active) return;
+                cyclone.cycloneTimer = this.time.delayedCall(Phaser.Math.Between(6000, 12000), () => {
+                    if (!cyclone.active) return;
+                    const sx = cyclone.x + Phaser.Math.Between(-80, 80);
+                    const sy = cyclone.y + Phaser.Math.Between(-80, 80);
+                    const mini = this.physics.add.sprite(sx, sy, 'small_spinach');
+                    mini.setScale(0.22).setDepth(5);
+                    mini.health = 18; mini.maxHealth = 18;
+                    mini.damage = 9;  mini.speed = 110;
+                    mini.lastHitTime = 0;
+                    mini.splits = false; mini.shoots = false; mini.splitsInto = null;
+                    mini.hydra = false; mini.burrowed = false; mini.whips = false;
+                    mini.emitsGas = false; mini.snakeWhip = false;
+                    const miniAnim = 'small_spinach_walk';
+                    if (!this.anims.exists(miniAnim)) {
+                        this.anims.create({ key: miniAnim, frames: this.anims.generateFrameNumbers('small_spinach', { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
+                    }
+                    mini.play(miniAnim);
+                    this.physics.moveToObject(mini, this.player, mini.speed);
+                    this.enemies.add(mini);
+                    scheduleSpawn();
+                });
+            };
+            scheduleSpawn();
+            this.enemies.add(cyclone);
+        }
+    }
+
     killBoss() {
-        if (this.bossChargeTimer)   this.bossChargeTimer.remove();
-        if (this.bossLegSlamTimer)  this.bossLegSlamTimer.remove();
+        if (this.bossChargeTimer)    this.bossChargeTimer.remove();
+        if (this.bossLegSlamTimer)   this.bossLegSlamTimer.remove();
+        if (this.handSlapTimer)      this.handSlapTimer.remove();
+        if (this.handTeleportTimer)  this.handTeleportTimer.remove();
+        if (this.handRingTimer)      this.handRingTimer.remove();
+        if (this.handBossSpawnTimer) this.handBossSpawnTimer.remove();
+        if (this.handRingsTimer)     this.handRingsTimer.remove();
+        if (this.handVacuumTimer)    this.handVacuumTimer.remove();
+        this.handFireZones?.forEach(z => { z.damageTimer?.remove(); z.graphics?.destroy(); });
+        this.handFireZones = [];
+        this.handMiniBossArray?.forEach(b => {
+            if (!b.active) return;
+            b.hpBarBg?.destroy(); b.hpBar?.destroy(); b.hpLabel?.destroy();
+            b.destroy();
+        });
+        this.handMiniBossArray = [];
         this.bossHpBar?.destroy();
         this.bossHpBarBg?.destroy();
         this.bossHpLabel?.destroy();
         if (this.topBossHpBar)   { this.topBossHpBar.width = 0; }
         if (this.topBossLabel)   { this.topBossLabel.setText('BOSS DEFEATED'); }
+        this.timerText.setVisible(true);
         this.boss.destroy();
         this.boss = null;
         this.showLevelClear();
     }
 
+    showDeathOverlay() {
+        if (this._deathOverlayShown) return;
+        this._deathOverlayShown = true;
+
+        this.isGameOver = true;
+        this.pendingLevelUps = 0;
+        // Destroy all XP insects on the map
+        this.crickets.getChildren().slice().forEach(c => c.destroy());
+
+        // Pause everything
+        this.physics.pause();
+        this.time.paused = true;
+
+        const W = this.cameras.main.width;
+        const H = this.cameras.main.height;
+
+        const ui = [];
+        const addUI = el => { ui.push(el); return el; };
+        const destroyUI = () => ui.forEach(el => el.destroy());
+
+        addUI(this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.75)
+            .setScrollFactor(0).setDepth(500));
+
+        addUI(this.add.text(W / 2, H / 2 - 90, 'GAME OVER', {
+            fontSize: '48px', fontFamily: 'Arial Black, Arial',
+            color: '#ff3333', stroke: '#000000', strokeThickness: 6,
+        }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
+
+        // REVIVE
+        const reviveBtn = addUI(this.add.text(W / 2, H / 2 - 10, '[ REVIVE ]', {
+            fontSize: '24px', fontFamily: 'Arial',
+            color: '#00ffaa', backgroundColor: '#003322', padding: { x: 20, y: 10 },
+        }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
+        reviveBtn.on('pointerover', () => reviveBtn.setColor('#ffffff'));
+        reviveBtn.on('pointerout',  () => reviveBtn.setColor('#00ffaa'));
+        reviveBtn.on('pointerdown', () => { destroyUI(); this.revivePlayer(); });
+
+        // RETRY
+        const retryBtn = addUI(this.add.text(W / 2, H / 2 + 60, '[ RETRY ]', {
+            fontSize: '20px', fontFamily: 'Arial',
+            color: '#ffffff', backgroundColor: '#333333', padding: { x: 20, y: 10 },
+        }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
+        retryBtn.on('pointerover', () => retryBtn.setColor('#ffff00'));
+        retryBtn.on('pointerout',  () => retryBtn.setColor('#ffffff'));
+        retryBtn.on('pointerdown', () => this.scene.start('GameScene', { level: this.level }));
+
+        // MAIN MENU
+        const menuBtn = addUI(this.add.text(W / 2, H / 2 + 120, '[ MAIN MENU ]', {
+            fontSize: '20px', fontFamily: 'Arial',
+            color: '#ffffff', backgroundColor: '#333333', padding: { x: 20, y: 10 },
+        }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
+        menuBtn.on('pointerover', () => menuBtn.setColor('#ffff00'));
+        menuBtn.on('pointerout',  () => menuBtn.setColor('#ffffff'));
+        menuBtn.on('pointerdown', () => this.scene.start('LevelSelectScene'));
+
+        addUI(this.add.text(W / 2, H / 2 + 168, 'REVIVE keeps your upgrades and spawns you safely away from enemies', {
+            fontSize: '11px', fontFamily: 'Arial', color: '#888888',
+        }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
+
+        // Gamepad: A = retry, Y = revive, B = menu
+        this._deathPadHandler = (pad, button) => {
+            const idx = button.index;
+            if (idx === 0) retryBtn.emit('pointerdown');
+            if (idx === 3) reviveBtn.emit('pointerdown');
+            if (idx === 1) menuBtn.emit('pointerdown');
+        };
+        this.input.gamepad.on('down', this._deathPadHandler);
+        addUI(this.add.text(W / 2, H / 2 + 185, '🎮  A  Retry    Y  Revive    B  Menu', {
+            fontSize: '11px', fontFamily: 'Arial', color: '#666666',
+        }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
+    }
+
+    revivePlayer() {
+        this.input.gamepad.off('down', this._deathPadHandler);
+        this._deathOverlayShown = false;
+
+        // Find a spot at least 4000px from every active enemy
+        const SAFE_DIST = 4000;
+        const WORLD = 3200;
+        const enemies = this.enemies.getChildren().filter(e => e.active);
+
+        let bestX = WORLD / 2, bestY = WORLD / 2, bestMinDist = -1;
+        const attempts = 60;
+        for (let i = 0; i < attempts; i++) {
+            const angle = (i / attempts) * Math.PI * 2;
+            // Try rings at varying distances from world centre
+            for (const radius of [1200, 800, 400]) {
+                const cx = Phaser.Math.Clamp(WORLD / 2 + Math.cos(angle) * radius, 100, WORLD - 100);
+                const cy = Phaser.Math.Clamp(WORLD / 2 + Math.sin(angle) * radius, 100, WORLD - 100);
+                const minDist = enemies.reduce((min, e) => {
+                    return Math.min(min, Phaser.Math.Distance.Between(cx, cy, e.x, e.y));
+                }, Infinity);
+                if (minDist >= SAFE_DIST) {
+                    bestX = cx; bestY = cy;
+                    bestMinDist = minDist;
+                    break;
+                }
+                if (minDist > bestMinDist) {
+                    bestMinDist = minDist;
+                    bestX = cx; bestY = cy;
+                }
+            }
+            if (bestMinDist >= SAFE_DIST) break;
+        }
+
+        // Move player to safe spot and restore health
+        this.player.setPosition(bestX, bestY);
+        this.player.setAlpha(1);
+        this.playerHealth = this.playerMaxHealth;
+        this.updateHPBar();
+
+        // Brief invincibility flash so they don't immediately take damage
+        this.player.reviveInvincible = true;
+        this.tweens.add({
+            targets: this.player, alpha: 0.4, duration: 150, yoyo: true, repeat: 9,
+            onComplete: () => { this.player.alpha = 1; this.player.reviveInvincible = false; },
+        });
+
+        // Resume everything
+        this.physics.resume();
+        this.time.paused = false;
+    }
+
     showLevelClear() {
+        this.isLevelClear = true;
         // Unlock the next level
         const currentMax = parseInt(localStorage.getItem('snapper_unlocked') ?? '1');
         if (this.level >= currentMax) {
@@ -1972,20 +2870,7 @@ export default class GameScene extends Phaser.Scene {
         }
 
         this.physics.pause();
-        this.spawnTimer.paused      = true;
-        this.spawnRampTimer.paused  = true;
-        this.biteTimer.paused       = true;
-        this.gameTimerEvent.paused  = true;
-        this.regenTimer.paused      = true;
-        if (this.tailSlapTimer)     this.tailSlapTimer.paused   = true;
-        if (this.poopTimer)         this.poopTimer.paused       = true;
-        if (this.pebbleTimer)       this.pebbleTimer.paused     = true;
-        if (this.hissTimer)         this.hissTimer.paused       = true;
-        if (this.lickTimer)         this.lickTimer.paused       = true;
-        if (this.wormWhipTimer)     this.wormWhipTimer.paused   = true;
-        if (this.pupaTimer)         this.pupaTimer.paused       = true;
-        if (this.skinTimer)         this.skinTimer.paused       = true;
-        if (this.woodieTimer)       this.woodieTimer.paused     = true;
+        this.time.paused = true;
 
         const W = this.cameras.main.width;
         const H = this.cameras.main.height;
@@ -2020,10 +2905,52 @@ export default class GameScene extends Phaser.Scene {
         menu.on('pointerover', () => menu.setColor('#ffffff'));
         menu.on('pointerout',  () => menu.setColor('#aaaaaa'));
         menu.on('pointerdown', () => this.scene.start('LevelSelectScene'));
+
+        // Gamepad: d-pad/stick to toggle, A to confirm
+        this.add.text(W / 2, H / 2 + 185, '🎮  A  Confirm    ↕  Navigate', {
+            fontSize: '11px', fontFamily: 'Arial', color: '#666666',
+        }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
+
+        let lcSelected = 0; // 0 = continue, 1 = menu
+        const lcButtons = [next, menu];
+        const lcColors  = ['#00ff88', '#ffffff'];
+        const lcDefault = ['#ffffff', '#aaaaaa'];
+        const lcHighlight = () => {
+            lcButtons.forEach((b, i) => b.setColor(i === lcSelected ? lcColors[i] : lcDefault[i]));
+        };
+        lcHighlight();
+
+        const lcPadHandler = (pad, button) => {
+            const idx = button.index;
+            if (idx === 12 || idx === 13) {
+                lcSelected = lcSelected === 0 ? 1 : 0;
+                lcHighlight();
+            } else if (idx === 0) {
+                this.scene.start('LevelSelectScene');
+            }
+        };
+        this.input.gamepad.on('down', lcPadHandler);
+
+        // Also handle left-stick for navigation
+        this._lcNavCooldown = 0;
+        this.events.on('update', (_, delta) => {
+            if (!this.isLevelClear) return;
+            this._lcNavCooldown -= delta;
+            if (this._lcNavCooldown > 0) return;
+            const pad = this.input.gamepad.getPad(0);
+            if (!pad) return;
+            const y = pad.leftStick.y;
+            if (Math.abs(y) > 0.5) {
+                lcSelected = lcSelected === 0 ? 1 : 0;
+                lcHighlight();
+                this._lcNavCooldown = 250;
+            }
+        });
     }
 
     // ─── Step 5: Level-up screen ─────────────────────────────────────────────────
     showLevelUp() {
+        if (this.isGameOver) return;
         if (this.isLevelingUp) { this.pendingLevelUps++; return; }
         this.isLevelingUp = true;
         // Zero all enemy velocities immediately so they stop this frame,
@@ -2032,22 +2959,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.boss?.active && this.boss.body) this.boss.body.setVelocity(0, 0);
 
         this.physics.pause();
-        this.spawnTimer.paused      = true;
-        this.spawnRampTimer.paused  = true;
-        this.biteTimer.paused       = true;
-        this.gameTimerEvent.paused  = true;
-        this.regenTimer.paused      = true;
-        if (this.bossChargeTimer)   this.bossChargeTimer.paused  = true;
-        if (this.bossLegSlamTimer)  this.bossLegSlamTimer.paused = true;
-        if (this.tailSlapTimer)     this.tailSlapTimer.paused   = true;
-        if (this.poopTimer)         this.poopTimer.paused       = true;
-        if (this.pebbleTimer)       this.pebbleTimer.paused     = true;
-        if (this.hissTimer)         this.hissTimer.paused       = true;
-        if (this.lickTimer)         this.lickTimer.paused       = true;
-        if (this.wormWhipTimer)     this.wormWhipTimer.paused   = true;
-        if (this.pupaTimer)         this.pupaTimer.paused       = true;
-        if (this.skinTimer)         this.skinTimer.paused       = true;
-        if (this.woodieTimer)       this.woodieTimer.paused     = true;
+        this.time.paused = true;
 
         const W = this.cameras.main.width;
         const H = this.cameras.main.height;
@@ -2195,7 +3107,7 @@ export default class GameScene extends Phaser.Scene {
                     'Two layers of shields orbit in opposite directions',
                 ][this.dubiaLevel] ?? 'Dubia Shields',
                 type: 'weapon',
-                available: () => this.dubiaLevel < 4,
+                available: () => this.dubiaLevel < 4 && (this.dubiaLevel === 0 || Math.random() < 0.4),
                 effect: () => {
                     this.dubiaLevel++;
                     if (this.dubiaLevel === 1) {
@@ -2274,14 +3186,69 @@ export default class GameScene extends Phaser.Scene {
         // Card elements that get replaced on reroll (separate from persistent ui[])
         let cardEls = [];
         let rKeyHandler = null;
+        let padHandler = null;
+        let currentChoices = [];
+        let selectedCard = 0;
+
+        const pickCard = (upgrade) => {
+            upgrade.effect();
+            rKeyHandler && this.input.keyboard.off('keydown-R', rKeyHandler);
+            padHandler  && this.input.gamepad.off('down', padHandler);
+            cardEls.forEach(el => el.destroy());
+            ui.forEach(el => el.destroy());
+            // Unpause time so the 3-2-1 countdown delayedCalls can fire;
+            // physics stays paused until resume() is called below
+            this.time.paused = false;
+
+            const countLabel = this.add.text(W / 2, H / 2, '3', {
+                fontSize: '72px', fontFamily: 'Arial Black, Arial',
+                color: '#ffffff', stroke: '#000000', strokeThickness: 8,
+            }).setScrollFactor(0).setDepth(210).setOrigin(0.5);
+
+            this.isCountdown = true;
+
+            const resume = () => {
+                countLabel.destroy();
+                this.physics.resume();
+                this.time.paused = false;
+                this.isLevelingUp = false;
+                this.isCountdown  = false;
+                if (this.pendingLevelUps > 0) {
+                    this.pendingLevelUps--;
+                    this.time.delayedCall(this.fastUpgrade ? 0 : 200, () => this.showLevelUp());
+                } else {
+                    this.fastUpgrade = false;
+                }
+            };
+
+            if (!this.fastUpgrade) {
+                this.time.delayedCall(500,  () => { if (countLabel.active) countLabel.setText('2'); });
+                this.time.delayedCall(1000, () => { if (countLabel.active) countLabel.setText('1'); });
+            }
+            this.time.delayedCall(this.fastUpgrade ? 0 : 1500, resume);
+        };
+
+        const applyCardHighlight = () => {
+            // cardEls layout: for each card i → indices i*3=card rect, i*3+1=title, i*3+2=desc
+            currentChoices.forEach((upgrade, i) => {
+                const card = cardEls[i * 3];
+                if (!card) return;
+                const isWeapon   = upgrade.type === 'weapon';
+                const cardColor  = isWeapon ? 0x2a1a00 : 0x1a1a44;
+                const hoverColor = isWeapon ? 0x7a4400 : 0x3333aa;
+                card.setFillStyle(i === selectedCard ? hoverColor : cardColor);
+                card.setStrokeStyle(i === selectedCard ? 3 : 0, 0xffffff);
+            });
+        };
 
         const drawCards = () => {
             cardEls.forEach(el => el.destroy());
             cardEls = [];
+            selectedCard = 0;
 
-            const choices = Phaser.Utils.Array.Shuffle([...allUpgrades]).slice(0, 3);
+            currentChoices = Phaser.Utils.Array.Shuffle([...allUpgrades]).slice(0, 3);
 
-            choices.forEach((upgrade, i) => {
+            currentChoices.forEach((upgrade, i) => {
                 const cx = startX + i * (cardW + gap) + cardW / 2;
                 const cy = H / 2 + 30;
 
@@ -2305,55 +3272,12 @@ export default class GameScene extends Phaser.Scene {
 
                 cardEls.push(card, title, desc);
 
-                card.on('pointerover', () => card.setFillStyle(hoverColor));
+                card.on('pointerover', () => { selectedCard = i; applyCardHighlight(); });
                 card.on('pointerout',  () => card.setFillStyle(cardColor));
-                card.on('pointerdown', () => {
-                    upgrade.effect();
-                    rKeyHandler && this.input.keyboard.off('keydown-R', rKeyHandler);
-                    cardEls.forEach(el => el.destroy());
-                    ui.forEach(el => el.destroy());
-
-                // 3-2-1 countdown (150ms total, 50ms per number)
-                const countLabel = this.add.text(W / 2, H / 2, '3', {
-                    fontSize: '72px', fontFamily: 'Arial Black, Arial',
-                    color: '#ffffff', stroke: '#000000', strokeThickness: 8,
-                }).setScrollFactor(0).setDepth(210).setOrigin(0.5);
-
-                const resume = () => {
-                    countLabel.destroy();
-                    this.physics.resume();
-                    this.spawnTimer.paused      = false;
-                    this.spawnRampTimer.paused  = false;
-                    this.biteTimer.paused       = false;
-                    this.gameTimerEvent.paused  = false;
-                    this.regenTimer.paused      = false;
-                    if (this.bossChargeTimer)   this.bossChargeTimer.paused  = false;
-                    if (this.bossLegSlamTimer)  this.bossLegSlamTimer.paused = false;
-                    if (this.tailSlapTimer)     this.tailSlapTimer.paused    = false;
-                    if (this.poopTimer)         this.poopTimer.paused       = false;
-                    if (this.pebbleTimer)       this.pebbleTimer.paused     = false;
-                    if (this.hissTimer)         this.hissTimer.paused       = false;
-                    if (this.lickTimer)         this.lickTimer.paused       = false;
-                    if (this.wormWhipTimer)     this.wormWhipTimer.paused   = false;
-                    if (this.pupaTimer)         this.pupaTimer.paused       = false;
-                    if (this.skinTimer)         this.skinTimer.paused       = false;
-                    if (this.woodieTimer)       this.woodieTimer.paused     = false;
-                    this.isLevelingUp = false;
-                    if (this.pendingLevelUps > 0) {
-                        this.pendingLevelUps--;
-                        this.time.delayedCall(this.fastUpgrade ? 0 : 200, () => this.showLevelUp());
-                    } else {
-                        this.fastUpgrade = false;
-                    }
-                };
-
-                if (!this.fastUpgrade) {
-                    this.time.delayedCall(500,  () => { if (countLabel.active) countLabel.setText('2'); });
-                    this.time.delayedCall(1000, () => { if (countLabel.active) countLabel.setText('1'); });
-                }
-                this.time.delayedCall(this.fastUpgrade ? 0 : 1500, resume);
-                });
+                card.on('pointerdown', () => pickCard(upgrade));
             });
+
+            applyCardHighlight();
         }; // end drawCards
 
         const doReroll = () => {
@@ -2371,6 +3295,28 @@ export default class GameScene extends Phaser.Scene {
 
         rerollBtn.on('pointerdown', doReroll);
         rKeyHandler = this.input.keyboard.on('keydown-R', doReroll);
+
+        // Gamepad handler for level-up screen: LB(4)/RB(5) navigate, A(0) pick, Y(3) reroll
+        padHandler = (pad, button) => {
+            const idx = button.index;
+            if (idx === 4 || idx === 14) { // LB or d-pad left
+                selectedCard = (selectedCard + 2) % 3;
+                applyCardHighlight();
+            } else if (idx === 5 || idx === 15) { // RB or d-pad right
+                selectedCard = (selectedCard + 1) % 3;
+                applyCardHighlight();
+            } else if (idx === 0) { // A = pick
+                if (currentChoices[selectedCard]) pickCard(currentChoices[selectedCard]);
+            } else if (idx === 3) { // Y = reroll
+                doReroll();
+            }
+        };
+        this.input.gamepad.on('down', padHandler);
+
+        // Gamepad hint below reroll button
+        ui.push(this.add.text(W / 2, H / 2 - 55, '🎮  LB / RB  Navigate    A  Pick    Y  Reroll', {
+            fontSize: '11px', fontFamily: 'Arial', color: '#888888',
+        }).setScrollFactor(0).setDepth(202).setOrigin(0.5));
 
         drawCards();
     }
@@ -2398,7 +3344,23 @@ export default class GameScene extends Phaser.Scene {
         };
     }
 
+    playerDamageFlash() {
+        if (!this.player?.active) return;
+        this.tweens.killTweensOf(this.player);
+        this.player.setAlpha(1);
+        this.tweens.add({ targets: this.player, alpha: 0.3, duration: 100, yoyo: true });
+    }
+
+    scheduleProjectileDespawn(proj, delay) {
+        this.time.delayedCall(delay, () => {
+            if (!proj.active) return;
+            if (this.isCountdown) this.scheduleProjectileDespawn(proj, 500);
+            else proj.destroy();
+        });
+    }
+
     doRegen() {
+        if (this.isCountdown) return;
         if (this.playerHealth < this.playerMaxHealth) {
             this.playerHealth = Math.min(this.playerMaxHealth, this.playerHealth + 1);
             this.updateHPBar();
@@ -2409,5 +3371,612 @@ export default class GameScene extends Phaser.Scene {
         this.regenDelay = Math.max(500, Math.round(this.regenDelay * 0.8));
         this.regenTimer.remove();
         this.regenTimer = this.time.addEvent({ delay: this.regenDelay, callback: this.doRegen, callbackScope: this, loop: true });
+    }
+
+    // ─── The Hand Boss AI ────────────────────────────────────────────────────────
+
+    updateHandAI() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        // Always track mini-boss bars every frame regardless of immobility
+        this.handMiniBossArray?.forEach(mb => {
+            if (!mb.active) return;
+            if (mb.hpBarBg) {
+                mb.hpBarBg.setPosition(mb.x, mb.y + 30);
+                mb.hpBar.x = mb.x - 30;
+                mb.hpBar.y = mb.y + 30;
+                mb.hpBar.width = 60 * Math.max(0, mb.health / mb.maxHealth);
+                mb.hpLabel.setPosition(mb.x, mb.y - 44);
+            }
+        });
+
+        if (boss.handImmobile) return;
+
+        if (!boss.handWanderTarget) boss.handWanderTarget = this.pickHandWanderTarget();
+        const dist = Phaser.Math.Distance.Between(boss.x, boss.y, boss.handWanderTarget.x, boss.handWanderTarget.y);
+        if (dist < 40) {
+            boss.handWanderTarget = this.pickHandWanderTarget();
+        } else {
+            this.physics.moveTo(boss, boss.handWanderTarget.x, boss.handWanderTarget.y, 200);
+        }
+
+        // Chase mini-bosses toward player
+        this.handMiniBossArray?.forEach(mb => {
+            if (!mb.active) return;
+            this.physics.moveToObject(mb, this.player, mb.speed ?? 90);
+        });
+    }
+
+    pickHandWanderTarget() {
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const dist  = Phaser.Math.Between(100, 300);
+        return {
+            x: Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 64, 3136),
+            y: Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 64, 3136),
+        };
+    }
+
+    scheduleHandSlap() {
+        if (!this.boss?.active) return;
+        this.handSlapTimer = this.time.delayedCall(Phaser.Math.Between(1000, 20000), () => {
+            this.doHandSlap();
+        });
+    }
+
+    doHandSlap() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        boss.handImmobile = true;
+        if (boss.body) boss.body.setVelocity(0, 0);
+
+        const angle    = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
+        const halfArc  = Math.PI / 2; // 90° each side = 180° total
+        const radius   = 120;
+        const g = this.add.graphics().setDepth(20);
+        g.fillStyle(0xff8800, 0.5);
+        g.slice(boss.x, boss.y, radius, angle - halfArc, angle + halfArc);
+        g.fillPath();
+        this.tweens.add({ targets: g, alpha: 0, duration: 600, onComplete: () => g.destroy() });
+
+        // Damage player if within the arc
+        const pDist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
+        if (pDist <= radius && !this.player.reviveInvincible) {
+            const pAngle = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
+            if (Math.abs(Phaser.Math.Angle.Wrap(pAngle - angle)) <= halfArc) {
+                this.playerHealth -= 30;
+                this.updateHPBar();
+                this.playerDamageFlash();
+                if (this.inflateActive) this.inflateKnockback();
+                if (this.playerHealth <= 0) {
+                    this.playerHealth = 0;
+                    this.time.delayedCall(500, () => this.showDeathOverlay());
+                }
+            }
+        }
+
+        this.time.delayedCall(1500, () => {
+            if (boss.active) boss.handImmobile = false;
+            this.scheduleHandSlap();
+        });
+    }
+
+    triggerHandNextPhase() {
+        const boss = this.boss;
+        if (!boss) return;
+        boss.handPhase++;
+        this.tweens.add({ targets: boss, alpha: 0.1, duration: 200, yoyo: true, repeat: 2 });
+
+        const phase = boss.handPhase;
+        if (phase === 2) this.triggerHandPhase2();
+        if (phase === 3) this.triggerHandPhase3();
+        if (phase === 4) this.triggerHandPhase4();
+
+        // Reset transition flag after short delay so next phase can trigger
+        this.time.delayedCall(600, () => {
+            if (boss.active) boss.handPhaseTransitioned = false;
+        });
+    }
+
+    triggerHandPhase2() {
+        this.scheduleHandTeleport();
+    }
+
+    triggerHandPhase3() {
+        // First teleport immediately with the salad bowl
+        this.doHandTeleport(true);
+        this.scheduleHandPhase3Ring();
+    }
+
+    triggerHandPhase4() {
+        this.scheduleHandBossRespawn();
+        this.scheduleHandPhase4Rings();
+        this.scheduleHandVacuum();
+    }
+
+    scheduleHandTeleport() {
+        if (!this.boss?.active) return;
+        this.handTeleportTimer = this.time.delayedCall(Phaser.Math.Between(5000, 25000), () => {
+            this.doHandTeleport();
+        });
+    }
+
+    doHandTeleport(forceSalad = false) {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        boss.handImmobile = true;
+        if (boss.body) boss.body.setVelocity(0, 0);
+
+        // Pick destination close to player so attacks land in view
+        const tpAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const tpDist  = Phaser.Math.Between(250, 450);
+        const newX = Phaser.Math.Clamp(this.player.x + Math.cos(tpAngle) * tpDist, 64, 3136);
+        const newY = Phaser.Math.Clamp(this.player.y + Math.sin(tpAngle) * tpDist, 64, 3136);
+
+        this.tweens.add({ targets: boss, alpha: 0, duration: 250, onComplete: () => {
+            if (!boss.active) return;
+            boss.setPosition(newX, newY);
+            boss.handWanderTarget = null;
+
+            // Roll weapon
+            const roll = Math.random();
+            let weapon = null;
+            if (forceSalad)       weapon = 'salad';
+            else if (roll < 0.15) weapon = 'tweezers';
+            else if (roll < 0.30) weapon = 'heatlamp';
+            else if (roll < 0.45) weapon = 'spray';
+            boss.handWeapon = weapon;
+
+            this.tweens.add({ targets: boss, alpha: 1, duration: 250 });
+
+            // Stay immobile for 2s then act
+            this.time.delayedCall(2000, () => {
+                if (!boss.active) return;
+                boss.handImmobile = false;
+                if (weapon === 'tweezers') this.doTweezerCharge();
+                else if (weapon === 'heatlamp') this.doHeatLamp();
+                else if (weapon === 'spray')    this.doSprayBottle();
+                else if (weapon === 'salad')    this.doSaladBowl();
+                boss.handWeapon = null;
+                // Schedule next teleport
+                this.scheduleHandTeleport();
+            });
+        }});
+    }
+
+    doTweezerCharge() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        boss.handImmobile = true;
+        boss.body.setVelocity(0, 0);
+
+        const targetX = this.player.x;
+        const targetY = this.player.y;
+        const angle   = Math.atan2(targetY - boss.y, targetX - boss.x);
+        const dist    = Phaser.Math.Distance.Between(boss.x, boss.y, targetX, targetY) + 60;
+
+        // Red rectangle telegraph — same style as Lettuce Beetle
+        const warn = this.add.graphics().setDepth(18);
+        warn.fillStyle(0xff0000, 0.25);
+        warn.fillRect(0, -30, dist, 60);
+        warn.setPosition(boss.x, boss.y);
+        warn.setRotation(angle);
+        this.tweens.add({ targets: boss, alpha: 0.3, duration: 75, yoyo: true, repeat: 1 });
+
+        // Short 100ms react window, then charge
+        this.time.delayedCall(100, () => {
+            warn.destroy();
+            if (!boss.active) return;
+            const chargeAngle = Math.atan2(targetY - boss.y, targetX - boss.x);
+            boss.body.setVelocity(Math.cos(chargeAngle) * 420, Math.sin(chargeAngle) * 420);
+            this.time.delayedCall(450, () => {
+                if (!boss.active) return;
+                boss.body.setVelocity(0, 0);
+                boss.handImmobile = false;
+            });
+        });
+    }
+
+    doHeatLamp() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        boss.handImmobile = true;
+        if (boss.body) boss.body.setVelocity(0, 0);
+
+        // Spin 360° and drop 10 fire zones
+        const COUNT  = 10;
+        const RING_R = 90;
+        for (let i = 0; i < COUNT; i++) {
+            const a  = (i / COUNT) * Math.PI * 2;
+            const fx = boss.x + Math.cos(a) * RING_R;
+            const fy = boss.y + Math.sin(a) * RING_R;
+            this.spawnHandFireZone(fx, fy, 55);
+        }
+
+        this.tweens.add({ targets: boss, angle: boss.angle + 360, duration: 1200, onComplete: () => {
+            if (boss.active) boss.handImmobile = false;
+        }});
+    }
+
+    spawnHandFireZone(x, y, radius) {
+        const g = this.add.graphics().setDepth(12);
+        g.fillStyle(0xff5500, 0.55);
+        g.fillCircle(x, y, radius);
+
+        const zone = { x, y, radius, graphics: g, lastDamageTick: 0 };
+        this.handFireZones.push(zone);
+
+        // Initial hit on spawn
+        const d = Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y);
+        if (d <= radius && !this.player.reviveInvincible) {
+            this.playerHealth -= 15;
+            this.updateHPBar();
+            this.playerDamageFlash();
+            if (this.inflateActive) this.inflateKnockback();
+            if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+        }
+
+        // Fade and destroy after 6s
+        this.tweens.add({ targets: g, alpha: 0.2, delay: 4000, duration: 2000, onComplete: () => {
+            g.destroy();
+            const idx = this.handFireZones.indexOf(zone);
+            if (idx >= 0) this.handFireZones.splice(idx, 1);
+        }});
+    }
+
+    updateHandFireZones() {
+        if (!this.handFireZones?.length) return;
+        const now = this.time.now;
+        const px  = this.player.x;
+        const py  = this.player.y;
+        this.handFireZones.forEach(zone => {
+            if (now - zone.lastDamageTick < 1000) return;
+            const d = Phaser.Math.Distance.Between(zone.x, zone.y, px, py);
+            if (d <= zone.radius && !this.player.reviveInvincible) {
+                zone.lastDamageTick = now;
+                this.playerHealth -= 10;
+                this.updateHPBar();
+                this.playerDamageFlash();
+                if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+            }
+        });
+    }
+
+    doSprayBottle() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        boss.handImmobile = true;
+        if (boss.body) boss.body.setVelocity(0, 0);
+
+        const fireBeam = (onDone) => {
+            if (!boss.active) { onDone?.(); return; }
+            const tx     = this.player.x;
+            const ty     = this.player.y;
+            const angle  = Math.atan2(ty - boss.y, tx - boss.x);
+            const length = 300;
+
+            const g = this.add.graphics().setDepth(20);
+            g.fillStyle(0x88ffaa, 0.65);
+            g.fillRect(0, -10, length, 20);
+            g.setPosition(boss.x, boss.y);
+            g.setRotation(angle);
+
+            // Check hit
+            const pDist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
+            if (pDist <= length && !this.player.reviveInvincible) {
+                const pAngle = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
+                if (Math.abs(Phaser.Math.Angle.Wrap(pAngle - angle)) <= 0.12) {
+                    this.playerHealth -= 20;
+                    this.updateHPBar();
+                    this.playerDamageFlash();
+                    if (this.inflateActive) this.inflateKnockback();
+                    if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                }
+            }
+
+            this.time.delayedCall(400, () => {
+                g.destroy();
+                onDone?.();
+            });
+        };
+
+        // 3 beams with 100ms gap
+        fireBeam(() => this.time.delayedCall(100, () =>
+            fireBeam(() => this.time.delayedCall(100, () =>
+                fireBeam(() => {
+                    if (boss.active) boss.handImmobile = false;
+                })
+            ))
+        ));
+    }
+
+    doSaladBowl() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        boss.handImmobile = true;
+        if (boss.body) boss.body.setVelocity(0, 0);
+
+        const label = this.add.text(boss.x, boss.y - 40, '🥗', {
+            fontSize: '40px',
+        }).setDepth(25).setOrigin(0.5);
+        this.tweens.add({ targets: label, y: label.y + 80, alpha: 0, duration: 1000, onComplete: () => label.destroy() });
+
+        this.time.delayedCall(600, () => {
+            if (!boss.active) return;
+            const configs = [
+                { key: 'lettuce_beetle',  health: 4000,  damage: 15, speed: 70,  scale: 0.6 },
+                { key: 'rocket_spider',   health: 6000,  damage: 18, speed: 80,  scale: 0.6 },
+                { key: 'carrot_scorpion', health: 9000,  damage: 20, speed: 85,  scale: 0.65 },
+                { key: 'mulberry_mantis', health: 4000,  damage: 12, speed: 100, scale: 0.6 },
+            ];
+            configs.forEach(cfg => this.spawnHandMiniBoss(cfg));
+            boss.handImmobile = false;
+        });
+    }
+
+    spawnHandMiniBoss(cfg) {
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const dist  = Phaser.Math.Between(300, 500);
+        const sx    = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 64, 3136);
+        const sy    = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 64, 3136);
+
+        const mb = this.physics.add.sprite(sx, sy, cfg.key);
+        mb.setScale(cfg.scale).setDepth(8);
+        mb.health      = cfg.health;
+        mb.maxHealth   = cfg.health;
+        mb.damage      = cfg.damage;
+        mb.speed       = cfg.speed;
+        mb.lastHitTime = 0;
+        mb.isBossMini  = true;
+        // Treat like a regular enemy so all weapons hit it
+        mb.splits = false; mb.shoots = false; mb.splitsInto = null;
+        mb.hydra = false; mb.burrowed = false; mb.whips = false;
+        mb.emitsGas = false; mb.snakeWhip = false;
+        mb.trap = false; mb.trapArmed = false; mb.bomb = false;
+        mb.sweeps = false; mb.phantom = false;
+        mb.spawnsCarrotCori = false; mb.spawnsAnySpinach = false;
+        mb.vineWhip = false; mb.spawnsMinion = null;
+        mb.isWanderer = false;
+
+        const animKey = `${cfg.key}_walk`;
+        if (!this.anims.exists(animKey)) {
+            this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(cfg.key, { start: 0, end: 1 }), frameRate: 3, repeat: -1 });
+        }
+        mb.play(animKey);
+
+        // World-space health bar under the mini-boss sprite
+        mb.hpBarBg = this.add.rectangle(sx, sy + 30, 60, 8, 0x222222).setDepth(9);
+        mb.hpBar   = this.add.rectangle(sx - 30, sy + 30, 60, 6, 0xff2222).setDepth(10).setOrigin(0, 0.5);
+        mb.hpLabel = this.add.text(sx, sy - 44, cfg.key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), {
+            fontSize: '9px', fontFamily: 'Arial Black, Arial', color: '#ff8888',
+        }).setDepth(10).setOrigin(0.5);
+
+        this.enemies.add(mb);
+        this.handMiniBossArray = this.handMiniBossArray || [];
+        this.handMiniBossArray.push(mb);
+    }
+
+    scheduleHandPhase3Ring() {
+        if (!this.boss?.active) return;
+        this.handRingTimer = this.time.delayedCall(Phaser.Math.Between(15000, 45000), () => {
+            this.doHandRingAttack();
+        });
+    }
+
+    doHandRingAttack() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        if (Math.random() < 0.5) {
+            // Enemy ring: 30 L5-exclusive enemies around boss
+            const keys = ['lettuce_trap', 'basil_bomb', 'rocket_great_sword', 'oregano_phantom', 'coriander_carrot', 'spinach_tempest', 'mulberry_monstrosity'];
+            const statMap = {
+                lettuce_trap:         { health: 180, damage: 10, speed: 70,  scale: 0.28 },
+                basil_bomb:           { health: 80,  damage: 0,  speed: 190, scale: 0.25 },
+                rocket_great_sword:   { health: 90,  damage: 22, speed: 200, scale: 0.35 },
+                oregano_phantom:      { health: 250, damage: 25, speed: 50,  scale: 0.35 },
+                coriander_carrot:     { health: 500, damage: 30, speed: 20,  scale: 0.30 },
+                spinach_tempest:      { health: 500, damage: 25, speed: 160, scale: 0.40 },
+                mulberry_monstrosity: { health: 350, damage: 15, speed: 140, scale: 0.40 },
+            };
+            for (let i = 0; i < 30; i++) {
+                const a    = (i / 30) * Math.PI * 2;
+                const ex   = Phaser.Math.Clamp(boss.x + Math.cos(a) * 350, 64, 3136);
+                const ey   = Phaser.Math.Clamp(boss.y + Math.sin(a) * 350, 64, 3136);
+                const key  = Phaser.Utils.Array.GetRandom(keys);
+                const stat = statMap[key];
+                const e    = this.physics.add.sprite(ex, ey, key);
+                e.setScale(stat.scale).setDepth(5);
+                e.health = stat.health; e.maxHealth = stat.health;
+                e.damage = stat.damage; e.speed = stat.speed;
+                e.lastHitTime = 0;
+                e.splits = false; e.shoots = false; e.splitsInto = null;
+                e.hydra = false; e.burrowed = false; e.whips = false;
+                e.emitsGas = false; e.snakeWhip = false;
+                e.trap = (key === 'lettuce_trap'); e.trapArmed = e.trap; e.bomb = (key === 'basil_bomb');
+                e.explodeDamage = e.bomb ? 30 : 0; e.sweeps = (key === 'rocket_great_sword');
+                e.phantom = (key === 'oregano_phantom'); e.spawnsCarrotCori = false;
+                e.spawnsAnySpinach = (key === 'spinach_tempest'); e.vineWhip = (key === 'mulberry_monstrosity');
+                e.spawnsMinion = null; e.isWanderer = e.spawnsAnySpinach; e.isBossMini = false;
+                if (e.trap) e.setAlpha(0.22);
+                const aKey = `${key}_walk`;
+                if (!this.anims.exists(aKey)) {
+                    this.anims.create({ key: aKey, frames: this.anims.generateFrameNumbers(key, { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+                }
+                e.play(aKey);
+                if (!e.isWanderer) this.physics.moveToObject(e, this.player, e.speed);
+                this.enemies.add(e);
+            }
+        } else {
+            // Two rings of 30 projectiles, 2000ms apart
+            const fireRing = () => {
+                if (!boss.active) return;
+                for (let i = 0; i < 30; i++) {
+                    const a    = (i / 30) * Math.PI * 2;
+                    const proj = this.physics.add.image(boss.x, boss.y, 'iceberg_lettuce');
+                    proj.setScale(0.18).setDepth(7).setTint(0x88ffaa);
+                    proj.setVelocity(Math.cos(a) * 250, Math.sin(a) * 250);
+                    proj.damage = 15;
+                    this.physics.add.overlap(proj, this.player, () => {
+                        if (!proj.active || this.player.reviveInvincible) return;
+                        this.playerHealth -= proj.damage;
+                        this.updateHPBar();
+                        this.playerDamageFlash();
+                        if (this.inflateActive) this.inflateKnockback();
+                        if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                        proj.destroy();
+                    });
+                    this.scheduleProjectileDespawn(proj, 5000);
+                }
+            };
+            fireRing();
+            this.time.delayedCall(2000, () => fireRing());
+        }
+
+        this.scheduleHandPhase3Ring();
+    }
+
+    scheduleHandPhase4Rings() {
+        if (!this.boss?.active) return;
+        this.handRingsTimer = this.time.delayedCall(Phaser.Math.Between(10000, 40000), () => {
+            this.doHandPhase4Rings();
+        });
+    }
+
+    doHandPhase4Rings() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        const count = 2;
+        let fired = 0;
+
+        const fireRing = () => {
+            if (!boss.active || fired >= count) return;
+            fired++;
+            for (let i = 0; i < 30; i++) {
+                const a    = (i / 30) * Math.PI * 2;
+                const proj = this.physics.add.image(boss.x, boss.y, 'iceberg_lettuce');
+                proj.setScale(0.20).setDepth(7).setTint(0xff44cc);
+                proj.setVelocity(Math.cos(a) * 200, Math.sin(a) * 200);
+                this.physics.add.overlap(proj, this.player, () => {
+                    if (!proj.active || this.player.reviveInvincible) return;
+                    this.playerHealth = Math.floor(this.playerHealth / 2);
+                    this.updateHPBar();
+                    this.playerDamageFlash();
+                    if (this.inflateActive) this.inflateKnockback();
+                    if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                    proj.destroy();
+                });
+                this.scheduleProjectileDespawn(proj, 6000);
+            }
+            if (fired < count) this.time.delayedCall(1000, fireRing);
+        };
+
+        fireRing();
+        this.scheduleHandPhase4Rings();
+    }
+
+    scheduleHandVacuum() {
+        if (!this.boss?.active) return;
+        this.handVacuumTimer = this.time.delayedCall(Phaser.Math.Between(20000, 55000), () => {
+            this.doHandVacuum();
+        });
+    }
+
+    doHandVacuum() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        boss.handImmobile = true;
+        if (boss.body) boss.body.setVelocity(0, 0);
+
+        // Flash warning
+        this.tweens.add({ targets: boss, alpha: 0.1, duration: 150, yoyo: true, repeat: 3 });
+
+        // Suck all enemies and mini-bosses toward the boss
+        const targets = [
+            ...this.enemies.getChildren().filter(e => e.active && !e.isBossMini),
+            ...(this.handMiniBossArray?.filter(b => b.active) ?? []),
+        ];
+        targets.forEach(e => {
+            if (e.body) this.physics.moveTo(e, boss.x, boss.y, 600);
+        });
+
+        // After 4500ms: kill them all, then explode
+        this.time.delayedCall(4500, () => {
+            if (!boss.active) return;
+
+            // Kill every sucked target
+            const toKill = [
+                ...this.enemies.getChildren().slice().filter(e => e.active && !e.isBossMini),
+                ...(this.handMiniBossArray?.slice().filter(b => b.active) ?? []),
+            ];
+            toKill.forEach(e => this.killEnemy(e));
+
+            // Screenshake
+            this.cameras.main.shake(600, 0.04);
+
+            // Explosion visual — circle grows from 0 → 1500px in 400ms
+            const g = this.add.graphics().setDepth(26);
+            g.fillStyle(0xffffff, 0.9);
+            g.fillCircle(0, 0, 1500);
+            g.setPosition(boss.x, boss.y);
+            g.setScale(0);
+
+            let playerHit = false;
+            this.tweens.add({
+                targets: g, scaleX: 1, scaleY: 1, duration: 400, ease: 'Quad.Out',
+                onUpdate: () => {
+                    if (playerHit || this.player.reviveInvincible) return;
+                    const currentR = 1500 * g.scaleX;
+                    const d = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
+                    if (d <= currentR) {
+                        playerHit = true;
+                        this.playerHealth -= 80;
+                        this.updateHPBar();
+                        this.playerDamageFlash();
+                        if (this.inflateActive) this.inflateKnockback();
+                        if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                    }
+                },
+                onComplete: () => {
+                    this.tweens.add({ targets: g, alpha: 0, duration: 300, onComplete: () => g.destroy() });
+                    boss.handImmobile = false;
+                    this.scheduleHandVacuum();
+                },
+            });
+        });
+    }
+
+    scheduleHandBossRespawn() {
+        if (!this.boss?.active) return;
+        this.handBossSpawnTimer = this.time.delayedCall(Phaser.Math.Between(30000, 45000), () => {
+            this.checkHandPhase4BossSpawn();
+        });
+    }
+
+    checkHandPhase4BossSpawn() {
+        if (!this.boss?.active) return;
+        const arr    = this.handMiniBossArray ?? [];
+        const active = arr.filter(b => b.active);
+        const allWeakOrGone = active.length === 0 || active.every(b => b.health <= b.maxHealth * 0.2);
+
+        if (allWeakOrGone) {
+            const configs = [
+                { key: 'lettuce_beetle',  health: 8000,  damage: 15, speed: 70,  scale: 0.6 },
+                { key: 'rocket_spider',   health: 12000, damage: 18, speed: 80,  scale: 0.6 },
+                { key: 'carrot_scorpion', health: 18000, damage: 20, speed: 85,  scale: 0.65 },
+                { key: 'mulberry_mantis', health: 4000,  damage: 12, speed: 100, scale: 0.6 },
+            ];
+            configs.forEach(cfg => this.spawnHandMiniBoss(cfg));
+        }
+
+        this.scheduleHandBossRespawn();
     }
 }
