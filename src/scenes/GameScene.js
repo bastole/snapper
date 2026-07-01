@@ -73,9 +73,16 @@ export default class GameScene extends Phaser.Scene {
         this.damageDealt    = 0;
         this.rerolls        = 0;
         this.nextRerollAt   = 300;
-        this.wormboxSpawned = 0;
+        this.wormboxSpawned  = 0;
         this.treasureSpawned = 0;
-        this.gameTime       = 600;
+        this.gameTime        = 600;
+        this.bossSpawned     = false;
+        this.boss            = null;
+        this.topBossHpBar    = null;
+        this.topBossHpBarBg  = null;
+        this.topBossLabel    = null;
+        this.handFireZones   = [];
+        this.handMiniBossArray = [];
 
         // --- Passive boost flags ---
         this.inflateActive  = false;
@@ -121,6 +128,28 @@ export default class GameScene extends Phaser.Scene {
         this.dubiaShields      = [];
         this.dubiaAngle        = 0;
         this.dubiaOuterAngle   = 0;
+
+        // --- New weapons ---
+        this.poisonClawLevel   = 0;
+        this.branchLevel       = 0;
+        this.branchWidth       = 20;
+        this.branchMaxHits     = 15;
+        this.dustKickLevel     = 0;
+        this.dustKickLength    = 180;
+        this.dustKickSlowDuration = 2000;
+        this.scratchLevel      = 0;
+
+        // --- New passives ---
+        this.coldGlareActive   = false;
+        this.coldGlareCooldown = 30000;
+        this.coldGlareSlow     = 1000;
+        this.coldGlareCdLevel  = 0;
+        this.coldGlareSlLevel  = 0;
+        this.polycephalyChance = 0;
+        this._polycephalyFiring = false;
+        this.venomChance       = 0;
+        this.venomDuration     = 2000;
+        this.vitaminBonus      = 0;
 
         // Track which weapons the player owns
         this.ownedWeapons  = new Set(['bite']);
@@ -791,7 +820,7 @@ export default class GameScene extends Phaser.Scene {
                             if (def.poisonous) this.applyPoison();
                             if (this.playerHealth <= 0) {
                                 this.playerHealth = 0;
-                                this.time.delayedCall(500, () => this.showDeathOverlay());
+                                this.showDeathOverlay();
                             }
                             proj.destroy();
                         });
@@ -827,7 +856,7 @@ export default class GameScene extends Phaser.Scene {
                             if (this.inflateActive) this.inflateKnockback();
                             if (this.playerHealth <= 0) {
                                 this.playerHealth = 0;
-                                this.time.delayedCall(500, () => this.showDeathOverlay());
+                                this.showDeathOverlay();
                             }
                         }
                         // Visual lash arc
@@ -862,7 +891,7 @@ export default class GameScene extends Phaser.Scene {
                             if (this.inflateActive) this.inflateKnockback();
                             if (this.playerHealth <= 0) {
                                 this.playerHealth = 0;
-                                this.time.delayedCall(500, () => this.showDeathOverlay());
+                                this.showDeathOverlay();
                             }
                         }
                         const g = this.add.graphics().setDepth(20);
@@ -946,7 +975,7 @@ export default class GameScene extends Phaser.Scene {
                                 if (this.inflateActive) this.inflateKnockback();
                                 if (this.playerHealth <= 0) {
                                     this.playerHealth = 0;
-                                    this.time.delayedCall(500, () => this.showDeathOverlay());
+                                    this.showDeathOverlay();
                                 }
                             }
                         }
@@ -1064,7 +1093,7 @@ export default class GameScene extends Phaser.Scene {
                         this.applyPoison(6); // 3 seconds of poison
                         if (this.playerHealth <= 0) {
                             this.playerHealth = 0;
-                            this.time.delayedCall(500, () => this.showDeathOverlay());
+                            this.showDeathOverlay();
                         }
                         proj.destroy();
                     });
@@ -1138,7 +1167,7 @@ export default class GameScene extends Phaser.Scene {
                                             this.playerHealth -= mini.damage; this.updateHPBar();
                                             this.playerDamageFlash();
                                             if (this.inflateActive) this.inflateKnockback();
-                                            if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                                            if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
                                         }
                                     }
                                     sw();
@@ -1218,7 +1247,7 @@ export default class GameScene extends Phaser.Scene {
                             if (this.inflateActive) this.inflateKnockback();
                             if (this.playerHealth <= 0) {
                                 this.playerHealth = 0;
-                                this.time.delayedCall(500, () => this.showDeathOverlay());
+                                this.showDeathOverlay();
                             }
                         }
                         const g = this.add.graphics().setDepth(20);
@@ -1267,6 +1296,7 @@ export default class GameScene extends Phaser.Scene {
             if (dist <= this.biteRange && this.canDamageEnemy(enemy)) {
                 this.damageDealt += this.biteDamage; enemy.health -= this.biteDamage;
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
+                this.maybeVenom(enemy);
                 this.checkHydraPhase(enemy);
                 if (enemy.health <= 0) this.killEnemy(enemy);
             }
@@ -1278,6 +1308,7 @@ export default class GameScene extends Phaser.Scene {
         // Always show bite circle so player can see the attack range
         const circle = this.add.circle(px, py, this.biteRange, 0xffffff, 0.12).setDepth(20);
         this.tweens.add({ targets: circle, alpha: 0, duration: 200, onComplete: () => circle.destroy() });
+        this.maybePolycephaly(() => this.doBite());
     }
 
     doTailSlap() {
@@ -1294,6 +1325,7 @@ export default class GameScene extends Phaser.Scene {
             if (Math.abs(diff) <= arc / 2 && this.canDamageEnemy(enemy)) {
                 this.damageDealt += this.tailSlapDamage; enemy.health -= this.tailSlapDamage; this.checkHydraPhase(enemy);
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
+                this.maybeVenom(enemy);
                 if (enemy.health <= 0) this.killEnemy(enemy);
             }
         });
@@ -1312,6 +1344,7 @@ export default class GameScene extends Phaser.Scene {
         g.arc(this.player.x, this.player.y, this.tailSlapRange, angle - arc / 2, angle + arc / 2);
         g.strokePath();
         this.tweens.add({ targets: g, alpha: 0, duration: 250, onComplete: () => g.destroy() });
+        this.maybePolycephaly(() => this.doTailSlap());
     }
 
     doPoop() {
@@ -1370,6 +1403,7 @@ export default class GameScene extends Phaser.Scene {
         this.physics.add.overlap(poop, this.enemies, land);
         if (this.boss?.active) this.physics.add.overlap(poop, this.boss, land);
         this.time.delayedCall(800, land);
+        this.maybePolycephaly(() => this.doPoop());
     }
 
     doPebbleFlick() {
@@ -1412,9 +1446,11 @@ export default class GameScene extends Phaser.Scene {
 
             this.time.delayedCall(1000, () => { if (pebble.active) pebble.destroy(); });
         }
+        this.maybePolycephaly(() => this.doPebbleFlick());
     }
 
     doHiss() {
+        if (this.isPaused || this.isCountdown) return;
         const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
         const arc   = this.hissUpgraded ? Math.PI / 2 : Math.PI / 4;
 
@@ -1445,6 +1481,7 @@ export default class GameScene extends Phaser.Scene {
         g.arc(this.player.x, this.player.y, this.hissRange, angle - arc / 2, angle + arc / 2);
         g.strokePath();
         this.tweens.add({ targets: g, alpha: 0, duration: 300, onComplete: () => g.destroy() });
+        this.maybePolycephaly(() => this.doHiss());
     }
 
     doLick() {
@@ -1471,6 +1508,7 @@ export default class GameScene extends Phaser.Scene {
                 tx = target.x; ty = target.y;
                 this.damageDealt += this.lickDamage; target.health -= this.lickDamage;
                 this.tweens.add({ targets: target, alpha: 0, duration: 60, yoyo: true, repeat: 1 });
+                this.maybeVenom(target);
                 if (target.health <= 0) this.killEnemy(target);
             }
 
@@ -1489,6 +1527,7 @@ export default class GameScene extends Phaser.Scene {
             g.fillCircle(tx, ty, 5);
             this.tweens.add({ targets: g, alpha: 0, duration: 180, onComplete: () => g.destroy() });
         }
+        this.maybePolycephaly(() => this.doLick());
     }
 
     doWormWhip() {
@@ -1508,6 +1547,7 @@ export default class GameScene extends Phaser.Scene {
                 if (Math.abs(Phaser.Math.Angle.Wrap(toEnemy - baseAngle)) <= arc / 2 && this.canDamageEnemy(enemy)) {
                     this.damageDealt += this.wormWhipDamage; enemy.health -= this.wormWhipDamage;
                     this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
+                    this.maybeVenom(enemy);
                     if (enemy.health <= 0) this.killEnemy(enemy);
                 }
             });
@@ -1531,6 +1571,7 @@ export default class GameScene extends Phaser.Scene {
             g.fillCircle(tipX, tipY, 5);
             this.tweens.add({ targets: g, alpha: 0, duration: 200, onComplete: () => g.destroy() });
         });
+        this.maybePolycephaly(() => this.doWormWhip());
     }
 
     doPupaMines() {
@@ -1590,6 +1631,7 @@ export default class GameScene extends Phaser.Scene {
             this.tweens.add({ targets: mine, alpha: 0.3, duration: 400, yoyo: true, loop: -1 });
             this.time.delayedCall(10000, explodeMine);
         }
+        this.maybePolycephaly(() => this.doPupaMines());
     }
 
     doSkinShed() {
@@ -1626,6 +1668,7 @@ export default class GameScene extends Phaser.Scene {
             // Destroy when it exits the bottom of the camera view
             this.time.delayedCall(1000, () => { if (skin.active) skin.destroy(); });
         }
+        this.maybePolycephaly(() => this.doSkinShed());
     }
 
     doWoodieBounce() {
@@ -1660,6 +1703,7 @@ export default class GameScene extends Phaser.Scene {
 
             this.scheduleWoodieBounce(woodie, speed);
         }
+        this.maybePolycephaly(() => this.doWoodieBounce());
     }
 
     scheduleWoodieBounce(woodie, speed) {
@@ -1672,6 +1716,260 @@ export default class GameScene extends Phaser.Scene {
             woodie.setVelocity(Math.cos(newAngle) * speed, Math.sin(newAngle) * speed);
             this.tweens.add({ targets: woodie, alpha: 0.2, duration: 60, yoyo: true });
             this.scheduleWoodieBounce(woodie, speed);
+        });
+    }
+
+    // ─── Helper: enemy poison (from Venom passive / Poison Claw) ────────────────
+    applyEnemyPoison(enemy, durationMs) {
+        if (!enemy?.active || enemy.poisoned) return;
+        enemy.poisoned = true;
+        enemy.setTint(0x44ff44);
+        const ticks = Math.max(1, Math.floor(durationMs / 500));
+        let done = 0;
+        const t = this.time.addEvent({
+            delay: 500, loop: true,
+            callback: () => {
+                if (!enemy.active) { t.remove(); return; }
+                this.damageDealt += 3; enemy.health -= 3;
+                done++;
+                if (enemy.health <= 0) { this.killEnemy(enemy); t.remove(); return; }
+                if (done >= ticks) {
+                    t.remove();
+                    if (enemy.active) { enemy.poisoned = false; enemy.clearTint(); }
+                }
+            },
+        });
+    }
+
+    maybeVenom(enemy) {
+        if (this.venomChance > 0 && Math.random() < this.venomChance) this.applyEnemyPoison(enemy, this.venomDuration);
+    }
+
+    maybePolycephaly(fn) {
+        if (!this._polycephalyFiring && this.polycephalyChance > 0 && Math.random() < this.polycephalyChance) {
+            this._polycephalyFiring = true;
+            this.time.delayedCall(120, () => { fn(); this._polycephalyFiring = false; });
+        }
+    }
+
+    // ─── Poison Claw ────────────────────────────────────────────────────────────
+    doPoisonClaw() {
+        if (this.isPaused || this.isCountdown) return;
+        const px = this.player.x, py = this.player.y;
+        const ranges    = [80, 110, 140, 170];
+        const durations = [3000, 5000, 6000, 7000];
+        const range     = (ranges[this.poisonClawLevel - 1] ?? 80) + this.lickRangeBonus;
+        const duration  = durations[this.poisonClawLevel - 1] ?? 3000;
+        const damage    = 15;
+
+        let nearest = null, nearestDist = Infinity;
+        this.enemies.getChildren().forEach(e => {
+            if (!this.canDamageEnemy(e)) return;
+            const d = Phaser.Math.Distance.Between(px, py, e.x, e.y);
+            if (d <= range && d < nearestDist) { nearest = e; nearestDist = d; }
+        });
+
+        const angle = this.lastMoveAngle ?? 0;
+        let tx = px + Math.cos(angle) * range;
+        let ty = py + Math.sin(angle) * range;
+
+        if (nearest) {
+            tx = nearest.x; ty = nearest.y;
+            this.damageDealt += damage; nearest.health -= damage;
+            this.tweens.add({ targets: nearest, alpha: 0, duration: 60, yoyo: true, repeat: 1 });
+            this.applyEnemyPoison(nearest, duration);
+            if (nearest.health <= 0) this.killEnemy(nearest);
+        }
+        if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= range) {
+            this.damageBoss(damage);
+        }
+
+        // Visual: green claw line
+        const g = this.add.graphics().setDepth(20);
+        g.lineStyle(5, 0x44ff44, 0.9);
+        g.beginPath(); g.moveTo(px, py); g.lineTo(tx, ty); g.strokePath();
+        const ta = Math.atan2(ty - py, tx - px);
+        g.fillStyle(0x44ff44, 1);
+        for (let i = -1; i <= 1; i++) {
+            const ca = ta + i * 0.45;
+            g.fillTriangle(tx, ty, tx + Math.cos(ca + Math.PI) * 14, ty + Math.sin(ca + Math.PI) * 14,
+                tx + Math.cos(ca + Math.PI + 0.4) * 7, ty + Math.sin(ca + Math.PI + 0.4) * 7);
+        }
+        this.tweens.add({ targets: g, alpha: 0, duration: 220, onComplete: () => g.destroy() });
+
+        this.maybePolycephaly(() => this.doPoisonClaw());
+    }
+
+    // ─── Branch Throw ────────────────────────────────────────────────────────────
+    doBranchThrow() {
+        if (this.isPaused || this.isCountdown) return;
+        let nearest = null, nearestDist = Infinity;
+        this.enemies.getChildren().forEach(e => {
+            if (!e.active) return;
+            const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
+            if (d < nearestDist) { nearest = e; nearestDist = d; }
+        });
+
+        // Aim angle = toward nearest enemy; travel angle = perpendicular (sideways sweep)
+        const aimAngle    = nearest
+            ? Math.atan2(nearest.y - this.player.y, nearest.x - this.player.x)
+            : (this.lastMoveAngle ?? 0);
+        const travelAngle = aimAngle + Math.PI / 2;
+
+        const barLen  = 120;
+        const barW    = this.branchWidth;
+        const speed   = 300;
+        const maxHits = this.branchMaxHits;
+        const dmg     = 22;
+
+        const branch = this.physics.add.image(this.player.x, this.player.y, 'cricket');
+        // Visual angle = aim direction so the bar faces the enemy; travel = perpendicular
+        branch.setDisplaySize(barLen, barW).setTint(0x6b3a1f).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
+        branch.body.setSize(barLen, barW);
+        branch.setVelocity(Math.cos(travelAngle) * speed, Math.sin(travelAngle) * speed);
+        branch.hits = 0;
+        branch.hitEnemies = new Set();
+
+        this.physics.add.overlap(branch, this.enemies, (b, enemy) => {
+            if (!b.active || b.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy) || this.isCountdown) return;
+            b.hitEnemies.add(enemy);
+            b.hits++;
+            this.damageDealt += dmg; enemy.health -= dmg;
+            this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
+            this.maybeVenom(enemy);
+            if (enemy.health <= 0) this.killEnemy(enemy);
+            if (b.hits >= maxHits && b.active) b.destroy();
+        });
+        if (this.boss?.active) {
+            this.physics.add.overlap(branch, this.boss, (b) => { if (!b.active) return; this.damageBoss(dmg); });
+        }
+
+        this.scheduleProjectileDespawn(branch, 15000);
+        this.maybePolycephaly(() => this.doBranchThrow());
+    }
+
+    // ─── Dust Kick ───────────────────────────────────────────────────────────────
+    doDustKick() {
+        if (this.isPaused || this.isCountdown) return;
+        const px = this.player.x, py = this.player.y;
+        const angle  = (this.lastMoveAngle ?? 0) + Math.PI;
+        const len    = this.dustKickLength;
+        const width  = 30;
+        const dmg    = 8;
+        const cosA   = Math.cos(angle), sinA = Math.sin(angle);
+
+        this.enemies.getChildren().forEach(enemy => {
+            if (!this.canDamageEnemy(enemy)) return;
+            const dx = enemy.x - px, dy = enemy.y - py;
+            const along = dx * cosA + dy * sinA;
+            const perp  = Math.abs(-dx * sinA + dy * cosA);
+            if (along >= 0 && along <= len && perp <= width / 2) {
+                this.damageDealt += dmg; enemy.health -= dmg;
+                this.tweens.add({ targets: enemy, alpha: 0.3, duration: 80, yoyo: true });
+                if (enemy.health <= 0) { this.killEnemy(enemy); return; }
+                if (!enemy.slowed) {
+                    enemy.slowed = true;
+                    const baseSpeed = enemy.speed;
+                    enemy.speed = baseSpeed * 0.5;
+                    if (enemy.active) enemy.setTint(0xc8a020);
+                    this.time.delayedCall(this.dustKickSlowDuration, () => {
+                        if (enemy.active) { enemy.speed = baseSpeed; enemy.clearTint(); enemy.slowed = false; }
+                    });
+                }
+            }
+        });
+        if (this.boss?.active) {
+            const dx = this.boss.x - px, dy = this.boss.y - py;
+            if ((dx * cosA + dy * sinA) >= 0 && Math.abs(-dx * sinA + dy * cosA) <= width / 2) this.damageBoss(dmg);
+        }
+
+        // Visual: dusty beam (rotated filled polygon)
+        const g = this.add.graphics().setDepth(20);
+        g.fillStyle(0xc8a020, 0.45);
+        const hw = width / 2;
+        g.fillPoints([
+            { x: px - sinA * hw,        y: py + cosA * hw        },
+            { x: px + cosA * len - sinA * hw, y: py + sinA * len + cosA * hw },
+            { x: px + cosA * len + sinA * hw, y: py + sinA * len - cosA * hw },
+            { x: px + sinA * hw,         y: py - cosA * hw        },
+        ], true);
+        this.tweens.add({ targets: g, alpha: 0, duration: 450, onComplete: () => g.destroy() });
+
+        this.maybePolycephaly(() => this.doDustKick());
+    }
+
+    // ─── Transmutational Scratch ─────────────────────────────────────────────────
+    doTransmutationalScratch() {
+        if (this.isPaused || this.isCountdown) return;
+        const px = this.player.x, py = this.player.y;
+        const a   = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const d   = Phaser.Math.FloatBetween(20, 80);
+        const sx  = Phaser.Math.Clamp(px + Math.cos(a) * d, 32, 3168);
+        const sy  = Phaser.Math.Clamp(py + Math.sin(a) * d, 32, 3168);
+        const r   = this.scratchLevel >= 3 ? 80 : 60;
+        const dmg = Phaser.Math.Between(15, 25);
+
+        this.enemies.getChildren().forEach(enemy => {
+            if (!this.canDamageEnemy(enemy)) return;
+            if (Phaser.Math.Distance.Between(sx, sy, enemy.x, enemy.y) <= r) {
+                this.damageDealt += dmg; enemy.health -= dmg;
+                this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
+                // Tag this specific enemy for boosted drops
+                enemy._scratchFoodbox  = (enemy._scratchFoodbox  ?? 0) + 0.12;
+                if (this.scratchLevel >= 2) enemy._scratchTreasure = (enemy._scratchTreasure ?? 0) + 0.05;
+                if (enemy.health <= 0) this.killEnemy(enemy);
+            }
+        });
+        if (this.boss?.active && Phaser.Math.Distance.Between(sx, sy, this.boss.x, this.boss.y) <= r) {
+            this.damageBoss(dmg);
+        }
+
+        // Visual: gold X mark
+        const s = this.scratchLevel >= 3 ? 18 : 14;
+        const g = this.add.graphics().setDepth(15);
+        g.lineStyle(3, 0xffd700, 0.95);
+        g.beginPath(); g.moveTo(sx - s, sy - s); g.lineTo(sx + s, sy + s); g.strokePath();
+        g.beginPath(); g.moveTo(sx + s, sy - s); g.lineTo(sx - s, sy + s); g.strokePath();
+        this.tweens.add({ targets: g, alpha: 0, duration: 2000, onComplete: () => g.destroy() });
+
+        this.maybePolycephaly(() => this.doTransmutationalScratch());
+    }
+
+    // ─── Cold Glare ──────────────────────────────────────────────────────────────
+    doColdGlare() {
+        if (this.isPaused || this.isCountdown) return;
+        const px = this.player.x, py = this.player.y;
+        const range = 120;
+
+        this.enemies.getChildren().forEach(enemy => {
+            if (!this.canDamageEnemy(enemy) || enemy.slowed) return;
+            if (Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y) > range) return;
+            enemy.slowed = true;
+            const baseSpeed = enemy.speed;
+            enemy.speed = Math.max(0, baseSpeed * 0.15);
+            if (enemy.active) enemy.setTint(0x88ddff);
+            this.time.delayedCall(this.coldGlareSlow, () => {
+                if (enemy.active) { enemy.speed = baseSpeed; enemy.clearTint(); enemy.slowed = false; }
+            });
+        });
+
+        // Visual: icy ring burst
+        const g = this.add.graphics().setDepth(20);
+        g.fillStyle(0x88ddff, 0.18);
+        g.fillCircle(px, py, range);
+        g.lineStyle(3, 0xaaeeff, 0.9);
+        g.strokeCircle(px, py, range);
+        this.tweens.add({ targets: g, alpha: 0, scaleX: 1.15, scaleY: 1.15, duration: 600,
+            onComplete: () => g.destroy() });
+
+        this.maybePolycephaly(() => this.doColdGlare());
+        this.scheduleColdGlare();
+    }
+
+    scheduleColdGlare() {
+        this.coldGlareTimer?.remove();
+        this.coldGlareTimer = this.time.delayedCall(this.coldGlareCooldown, () => {
+            if (this.coldGlareActive) this.doColdGlare();
         });
     }
 
@@ -1702,7 +2000,9 @@ export default class GameScene extends Phaser.Scene {
         }
         // Rare special item check — each capped at 2 per game
         const rand = Math.random();
-        if (rand < 0.025) {
+        const foodboxChance  = 0.025 + (this.vitaminBonus ?? 0) + (enemy._scratchFoodbox  ?? 0);
+        const treasureChance = 0.056 + (this.vitaminBonus ?? 0) + (enemy._scratchTreasure ?? 0);
+        if (rand < foodboxChance) {
             // Foodbox — always drops, even during the boss fight
             const item = this.physics.add.image(enemy.x, enemy.y, 'cricket');
             item.setScale(0.55).setTint(0xff4488).setDepth(4);
@@ -1712,7 +2012,7 @@ export default class GameScene extends Phaser.Scene {
             this.crickets.add(item);
         } else if (this.bossSpawned) {
             // No XP insects or Treasure once the boss is on the field
-        } else if (rand < 0.056 && this.treasureSpawned < 2) {
+        } else if (rand < treasureChance && this.treasureSpawned < 2) {
             this.treasureSpawned++;
             const item = this.physics.add.image(enemy.x, enemy.y, 'cricket');
             item.setScale(0.55).setTint(0xffd700).setDepth(4);
@@ -1813,7 +2113,7 @@ export default class GameScene extends Phaser.Scene {
                     if (this.inflateActive) this.inflateKnockback();
                     if (this.playerHealth <= 0) {
                         this.playerHealth = 0;
-                        this.time.delayedCall(500, () => this.showDeathOverlay());
+                        this.showDeathOverlay();
                     }
                 }
             }
@@ -1830,13 +2130,25 @@ export default class GameScene extends Phaser.Scene {
                 this.physics.add.overlap(proj, this.player, () => {
                     if (!proj.active || proj.deflected) return;
                     if (this.player.reviveInvincible) return;
+                    if (this.deflectChance > 0 && Math.random() < this.deflectChance) {
+                        proj.deflected = true;
+                        proj.setVelocity(-proj.body.velocity.x * 1.4, -proj.body.velocity.y * 1.4);
+                        this.physics.add.overlap(proj, this.enemies, (p, e) => {
+                            if (!p.active) return;
+                            this.damageDealt += 20; e.health -= 20;
+                            this.tweens.add({ targets: e, alpha: 0.2, duration: 80, yoyo: true });
+                            if (e.health <= 0) this.killEnemy(e);
+                            p.destroy();
+                        });
+                        return;
+                    }
                     this.playerHealth -= proj.damage;
                     this.updateHPBar();
                     this.playerDamageFlash();
                     this.applyPoison(6);
                     if (this.playerHealth <= 0) {
                         this.playerHealth = 0;
-                        this.time.delayedCall(500, () => this.showDeathOverlay());
+                        this.showDeathOverlay();
                     }
                     proj.destroy();
                 });
@@ -1880,7 +2192,7 @@ export default class GameScene extends Phaser.Scene {
                             if (this.inflateActive) this.inflateKnockback();
                             if (this.playerHealth <= 0) {
                                 this.playerHealth = 0;
-                                this.time.delayedCall(500, () => this.showDeathOverlay());
+                                this.showDeathOverlay();
                             }
                         }
                     }
@@ -1898,6 +2210,7 @@ export default class GameScene extends Phaser.Scene {
                 }
                 return;
             }
+            if (enemy.trapArmed) { enemy.setVelocity(0, 0); return; }
             this.physics.moveToObject(enemy, this.player, enemy.speed);
         });
 
@@ -1959,6 +2272,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     inflateKnockback() {
+        if (this._inInflateKnockback) return;
+        this._inInflateKnockback = true;
         const range = 110;
         const burst = this.add.circle(this.player.x, this.player.y, range, 0xffffff, 0.25).setDepth(20);
         this.tweens.add({ targets: burst, alpha: 0, scaleX: 1.3, scaleY: 1.3, duration: 250, onComplete: () => burst.destroy() });
@@ -1974,6 +2289,7 @@ export default class GameScene extends Phaser.Scene {
             }
         });
         toKill.forEach(e => this.killEnemy(e));
+        this._inInflateKnockback = false;
     }
 
     applyPoison(maxTicks = 4) {
@@ -1992,7 +2308,7 @@ export default class GameScene extends Phaser.Scene {
                 if (this.playerHealth <= 0) {
                     this.playerHealth = 0;
                     this.updateHPBar();
-                    this.time.delayedCall(500, () => this.showDeathOverlay());
+                    this.showDeathOverlay();
                 }
                 if (ticks >= maxTicks) {
                     this.poisonTimer.remove();
@@ -2022,7 +2338,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.playerHealth <= 0) {
             this.playerHealth = 0;
             this.updateHPBar();
-            this.time.delayedCall(500, () => this.showDeathOverlay());
+            this.showDeathOverlay();
         }
     }
 
@@ -2193,7 +2509,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.playerHealth <= 0) {
             this.playerHealth = 0;
             this.updateHPBar();
-            this.time.delayedCall(500, () => this.showDeathOverlay());
+            this.showDeathOverlay();
         }
     }
 
@@ -2563,7 +2879,7 @@ export default class GameScene extends Phaser.Scene {
             this.updateHPBar();
             if (this.playerHealth <= 0) {
                 this.playerHealth = 0;
-                this.time.delayedCall(500, () => this.showDeathOverlay());
+                this.showDeathOverlay();
             }
         }
 
@@ -2988,7 +3304,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Tail Slap+', desc: 'Widen the arc behind you to 180°', type: 'weapon',
+                name: 'Tail Slap', desc: 'Widen the arc behind you to 180°', type: 'weapon',
                 available: () => this.ownedWeapons.has('tailslap') && !this.tailSlapUpgraded,
                 effect: () => { this.tailSlapUpgraded = true; },
             },
@@ -3001,7 +3317,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Poop+', desc: 'Field lasts 6 seconds instead of 3', type: 'weapon',
+                name: 'Poop', desc: 'Field lasts 6 seconds instead of 3', type: 'weapon',
                 available: () => this.ownedWeapons.has('poop') && !this.poopUpgraded,
                 effect: () => { this.poopUpgraded = true; this.poopDuration = 6000; },
             },
@@ -3014,7 +3330,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Pebble Flick+', desc: 'Fire 9 pebbles that pierce 3 enemies', type: 'weapon',
+                name: 'Pebble Flick', desc: 'Fire 9 pebbles that pierce 3 enemies', type: 'weapon',
                 available: () => this.ownedWeapons.has('pebble') && this.pebbleCount < 9,
                 effect: () => { this.pebbleCount = 9; this.pebblePierce = 3; },
             },
@@ -3040,7 +3356,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Hiss+', desc: 'Widen cone to 90°', type: 'weapon',
+                name: 'Hiss', desc: 'Widen cone to 90°', type: 'weapon',
                 available: () => this.ownedWeapons.has('hiss') && !this.hissUpgraded,
                 effect: () => { this.hissUpgraded = true; },
             },
@@ -3125,15 +3441,108 @@ export default class GameScene extends Phaser.Scene {
                     }
                 },
             },
+            {
+                name: 'Poison Claw',
+                desc: [
+                    'Lunge a venomous claw at nearest enemy (80px) — poisons for 3s',
+                    'Longer reach (110px) — poisons for 5s',
+                    'Even longer reach (140px) — poisons for 6s',
+                    'Max reach (170px) — poisons for 7s',
+                ][this.poisonClawLevel] ?? 'Poison Claw',
+                type: 'weapon',
+                available: () => this.poisonClawLevel < 4,
+                effect: () => {
+                    this.poisonClawLevel++;
+                    if (this.poisonClawLevel === 1) {
+                        this.ownedWeapons.add('poisonclaw');
+                        this.poisonClawTimer = this.time.addEvent({ delay: 4000, callback: this.doPoisonClaw, callbackScope: this, loop: true });
+                    }
+                },
+            },
+            {
+                name: 'Branch Throw',
+                desc: ['Hurl a wide branch at the nearest enemy (breaks after 15 hits)', 'Wider branch', 'Even wider branch', 'Breaks after 30 hits instead'][this.branchLevel] ?? 'Branch Throw',
+                type: 'weapon',
+                available: () => this.branchLevel < 4,
+                effect: () => {
+                    this.branchLevel++;
+                    if (this.branchLevel === 1) {
+                        this.ownedWeapons.add('branchthrow');
+                        this.branchTimer = this.time.addEvent({ delay: 6000, callback: this.doBranchThrow, callbackScope: this, loop: true });
+                    } else if (this.branchLevel === 2) { this.branchWidth = 30; }
+                    else if (this.branchLevel === 3)   { this.branchWidth = 40; }
+                    else if (this.branchLevel === 4)   { this.branchMaxHits = 30; }
+                },
+            },
+            {
+                name: 'Dust Kick',
+                desc: ['Fire a short beam of dust — deals low damage and slows enemies 2s', 'Stronger kick', 'Stronger kick', 'Stronger kick', 'Much longer beam, slows for 10s'][this.dustKickLevel] ?? 'Dust Kick',
+                type: 'weapon',
+                available: () => this.dustKickLevel < 5,
+                effect: () => {
+                    this.dustKickLevel++;
+                    if (this.dustKickLevel === 1) {
+                        this.ownedWeapons.add('dustkick');
+                        this.dustKickTimer = this.time.addEvent({ delay: 15000, callback: this.doDustKick, callbackScope: this, loop: true });
+                    } else if (this.dustKickLevel === 5) {
+                        this.dustKickLength = 400;
+                        this.dustKickSlowDuration = 10000;
+                    }
+                },
+            },
+            {
+                name: 'Transmutational Scratch',
+                desc: ['Scratch mark near you — damaged enemies have a higher Foodbox drop chance', 'Damaged enemies also have a higher Treasure drop chance', 'Bigger scratch, larger area'][this.scratchLevel] ?? 'Transmutational Scratch',
+                type: 'weapon',
+                available: () => this.scratchLevel < 3,
+                effect: () => {
+                    this.scratchLevel++;
+                    if (this.scratchLevel === 1) {
+                        this.ownedWeapons.add('scratch');
+                        this.scratchTimer = this.time.addEvent({ delay: 12000, callback: this.doTransmutationalScratch, callbackScope: this, loop: true });
+                    }
+                },
+            },
+            {
+                name: 'Cold Glare',
+                desc: (() => {
+                    if (!this.coldGlareActive)
+                        return 'Freeze nearby enemies for 1s every 30s';
+                    const cd   = this.coldGlareCooldown / 1000;
+                    const slow = this.coldGlareSlow / 1000;
+                    if (this.coldGlareCdLevel < 3) {
+                        const nextCd = (this.coldGlareCooldown - 5000) / 1000;
+                        return `Cooldown ${cd}s → ${nextCd}s  •  slow ${slow}s`;
+                    }
+                    const nextSlows = [4, 7, 10];
+                    const nextSlow  = nextSlows[this.coldGlareSlLevel];
+                    return `Slow ${slow}s → ${nextSlow}s  •  cooldown ${cd}s`;
+                })(),
+                type: 'weapon',
+                available: () => !this.coldGlareActive || this.coldGlareCdLevel < 3 || this.coldGlareSlLevel < 3,
+                effect: () => {
+                    if (!this.coldGlareActive) {
+                        this.coldGlareActive = true;
+                        this.ownedWeapons.add('coldglare');
+                        this.scheduleColdGlare();
+                    } else if (this.coldGlareCdLevel < 3) {
+                        this.coldGlareCdLevel++;
+                        this.coldGlareCooldown -= 5000;
+                    } else {
+                        this.coldGlareSlLevel++;
+                        this.coldGlareSlow = [4000, 7000, 10000][this.coldGlareSlLevel - 1] ?? 10000;
+                    }
+                },
+            },
         ];
 
         // Passives — always available
         const passiveUpgrades = [
             { name: 'Inflate',      desc: 'Taking damage knocks back and hurts nearby enemies', effect: () => { this.ownedPassives.push('Inflate');      this.inflateActive = true; } },
-            { name: 'Shiny Scales', desc: '30% chance to deflect enemy projectiles',            effect: () => { this.ownedPassives.push('Shiny Scales'); this.deflectChance = Math.min(0.9, this.deflectChance + 0.30); } },
+            { name: 'Shiny Scales', desc: '60% chance to deflect enemy projectiles back at them', available: () => this.deflectChance === 0, effect: () => { this.ownedPassives.push('Shiny Scales'); this.deflectChance = 0.60; } },
             { name: 'Angry',           desc: 'Snapper moves faster',                effect: () => { this.ownedPassives.push('Angry');           this.playerSpeed += 30; } },
             { name: 'Aura Farming',    desc: 'Snapper\'s attacks do more damage',   effect: () => { this.ownedPassives.push('Aura Farming');    this.biteDamage += 10; this.tailSlapDamage += 10; this.poopDamage += 10; this.pebbleDamage += 10; this.lickDamage += 10; this.wormWhipDamage += 10; this.pupaDamage += 10; this.skinDamage += 10; this.woodieDamage += 10; this.dubiaShieldDamage += 10; } },
-            { name: 'Hunter Instinct', desc: 'Snapper\'s attacks reach further',    effect: () => { this.ownedPassives.push('Hunter Instinct'); this.biteRange += 25; this.tailSlapRange += 25; this.hissRange += 25; this.lickRangeBonus += 25; this.wormWhipRange += 25; this.pupaRadius += 15; } },
+            { name: 'Hunter Instinct', desc: 'Snapper\'s attacks reach further',    effect: () => { this.ownedPassives.push('Hunter Instinct'); this.biteRange += 25; this.tailSlapRange += 25; this.hissRange += 25; this.lickRangeBonus += 25; this.wormWhipRange += 25; this.pupaRadius += 15; this.dustKickLength += 40; } },
             { name: 'Basking',         desc: 'Snapper\'s attacks fire faster',      effect: () => {
                 this.ownedPassives.push('Basking');
                 this.biteRate = Math.max(300, this.biteRate - 150);
@@ -3145,13 +3554,39 @@ export default class GameScene extends Phaser.Scene {
                 if (this.lickTimer)       this.lickTimer.reset({     delay: Math.max(300, this.lickTimer.delay     - 150), callback: this.doLick,          callbackScope: this, loop: true });
                 if (this.wormWhipTimer)   this.wormWhipTimer.reset({ delay: Math.max(300, this.wormWhipTimer.delay - 150), callback: this.doWormWhip,       callbackScope: this, loop: true });
                 if (this.pupaTimer)       this.pupaTimer.reset({     delay: Math.max(300, this.pupaTimer.delay     - 150), callback: this.doPupaMines,      callbackScope: this, loop: true });
-                if (this.skinTimer)       this.skinTimer.reset({     delay: Math.max(300, this.skinTimer.delay     - 150), callback: this.doSkinShed,        callbackScope: this, loop: true });
-                if (this.woodieTimer)     this.woodieTimer.reset({   delay: Math.max(300, this.woodieTimer.delay   - 150), callback: this.doWoodieBounce,    callbackScope: this, loop: true });
+                if (this.skinTimer)         this.skinTimer.reset({         delay: Math.max(300, this.skinTimer.delay         - 150), callback: this.doSkinShed,               callbackScope: this, loop: true });
+                if (this.woodieTimer)       this.woodieTimer.reset({       delay: Math.max(300, this.woodieTimer.delay       - 150), callback: this.doWoodieBounce,           callbackScope: this, loop: true });
+                if (this.poisonClawTimer)   this.poisonClawTimer.reset({   delay: Math.max(300, this.poisonClawTimer.delay   - 150), callback: this.doPoisonClaw,             callbackScope: this, loop: true });
+                if (this.branchTimer)       this.branchTimer.reset({       delay: Math.max(300, this.branchTimer.delay       - 150), callback: this.doBranchThrow,            callbackScope: this, loop: true });
+                if (this.dustKickTimer)     this.dustKickTimer.reset({     delay: Math.max(300, this.dustKickTimer.delay     - 150), callback: this.doDustKick,               callbackScope: this, loop: true });
+                if (this.scratchTimer)      this.scratchTimer.reset({      delay: Math.max(300, this.scratchTimer.delay      - 150), callback: this.doTransmutationalScratch, callbackScope: this, loop: true });
+                if (this.coldGlareActive) { this.coldGlareCooldown = Math.max(5000, this.coldGlareCooldown - 1500); this.scheduleColdGlare(); }
             } },
             { name: 'Bug Bucket',      desc: 'Snapper\'s max health increases by 25',  effect: () => { this.ownedPassives.push('Bug Bucket');      this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
             { name: 'Well Fed',        desc: (() => { const d = Math.round(this.regenDelay * 0.8 / 100) / 10; return `Speed up regen to 1 HP every ${d}s`; })(), effect: () => { this.ownedPassives.push('Well Fed'); this.startRegen(); } },
             { name: 'Hungry Forager',  desc: 'Insects attract to Snapper from further', effect: () => { this.ownedPassives.push('Hungry Forager'); this.magnetRange += 80; } },
             { name: 'Hard Scales',     desc: 'Enemies deal less damage to Snapper',    effect: () => { this.ownedPassives.push('Hard Scales');    this.enemies.getChildren().forEach(e => { e.damage = Math.max(1, e.damage - 2); }); } },
+            {
+                name: 'Polycephaly',
+                desc: `${Math.round((this.polycephalyChance + 0.10) * 100)}% chance for each attack to fire twice`,
+                effect: () => { this.ownedPassives.push('Polycephaly'); this.polycephalyChance += 0.10; },
+            },
+            {
+                name: 'Venom',
+                desc: (() => {
+                    const first = this.venomChance === 0;
+                    const nextChance = first ? 15 : Math.round((this.venomChance + 0.10) * 100);
+                    const nextDur   = first ? '2.0' : ((this.venomDuration + 500) / 1000).toFixed(1);
+                    return `${nextChance}% chance to poison enemies for ${nextDur}s`;
+                })(),
+                effect: () => {
+                    const first = this.venomChance === 0;
+                    this.ownedPassives.push('Venom');
+                    this.venomChance += first ? 0.15 : 0.10;
+                    if (!first) this.venomDuration += 500;
+                },
+            },
+            { name: 'Vitamin Supplements', desc: 'Higher chance of Foodbox and Treasure drops', effect: () => { this.ownedPassives.push('Vitamin Supplements'); this.vitaminBonus += 0.02; } },
         ];
 
         // Build the pool: all available weapons first, then passives
@@ -3323,16 +3758,23 @@ export default class GameScene extends Phaser.Scene {
 
     buildLoadoutText() {
         const weapons = [];
+        const lv = (n) => n > 1 ? ` ×${n}` : '';
         if (this.ownedWeapons.has('bite'))         weapons.push('Bite');
-        if (this.ownedWeapons.has('tailslap'))     weapons.push('Tail Slap' + (this.tailSlapUpgraded ? '+' : ''));
-        if (this.ownedWeapons.has('poop'))         weapons.push('Poop' + (this.poopUpgraded ? '+' : ''));
-        if (this.ownedWeapons.has('pebble'))       weapons.push('Pebble Flick' + (this.pebbleCount > 3 ? '+' : ''));
-        if (this.ownedWeapons.has('hiss'))         weapons.push('Hiss' + (this.hissUpgraded ? '+' : ''));
-        if (this.ownedWeapons.has('lick'))         weapons.push('Lick Lv.' + this.lickLevel);
-        if (this.ownedWeapons.has('wormwhip'))     weapons.push('Worm Whip' + (this.wormWhipLevel > 1 ? '+' : ''));
-        if (this.ownedWeapons.has('pupamines'))    weapons.push('Pupa Mines Lv.' + this.pupaLevel);
-        if (this.ownedWeapons.has('skinshed'))     weapons.push('Skin Shed' + (this.skinLevel > 1 ? '+' : ''));
-        if (this.ownedWeapons.has('woodiebounce')) weapons.push('Woodie Bounce Lv.' + this.woodieLevel);
+        if (this.ownedWeapons.has('tailslap'))     weapons.push('Tail Slap'      + lv(1 + (this.tailSlapUpgraded ? 1 : 0)));
+        if (this.ownedWeapons.has('poop'))         weapons.push('Poop'           + lv(1 + (this.poopUpgraded     ? 1 : 0)));
+        if (this.ownedWeapons.has('pebble'))       weapons.push('Pebble Flick'   + lv(1 + (this.pebbleCount > 3  ? 1 : 0)));
+        if (this.ownedWeapons.has('hiss'))         weapons.push('Hiss'           + lv(1 + (this.hissUpgraded     ? 1 : 0)));
+        if (this.ownedWeapons.has('lick'))         weapons.push('Lick'           + lv(this.lickLevel));
+        if (this.ownedWeapons.has('wormwhip'))     weapons.push('Worm Whip'      + lv(this.wormWhipLevel));
+        if (this.ownedWeapons.has('pupamines'))    weapons.push('Pupa Mines'     + lv(this.pupaLevel));
+        if (this.ownedWeapons.has('skinshed'))     weapons.push('Skin Shed'      + lv(this.skinLevel));
+        if (this.ownedWeapons.has('woodiebounce')) weapons.push('Woodie Bounce'  + lv(this.woodieLevel));
+        if (this.ownedWeapons.has('dubiashields')) weapons.push('Dubia Shields'  + lv(this.dubiaLevel));
+        if (this.ownedWeapons.has('poisonclaw'))   weapons.push('Poison Claw'    + lv(this.poisonClawLevel));
+        if (this.ownedWeapons.has('branchthrow'))  weapons.push('Branch Throw'   + lv(this.branchLevel));
+        if (this.ownedWeapons.has('dustkick'))     weapons.push('Dust Kick'      + lv(this.dustKickLevel));
+        if (this.ownedWeapons.has('scratch'))      weapons.push('Trans. Scratch'  + lv(this.scratchLevel));
+        if (this.coldGlareActive)                  weapons.push('Cold Glare'     + lv(1 + this.coldGlareCdLevel + this.coldGlareSlLevel));
 
         const counts = {};
         this.ownedPassives.forEach(p => { counts[p] = (counts[p] || 0) + 1; });
@@ -3451,7 +3893,7 @@ export default class GameScene extends Phaser.Scene {
                 if (this.inflateActive) this.inflateKnockback();
                 if (this.playerHealth <= 0) {
                     this.playerHealth = 0;
-                    this.time.delayedCall(500, () => this.showDeathOverlay());
+                    this.showDeathOverlay();
                 }
             }
         }
@@ -3617,7 +4059,7 @@ export default class GameScene extends Phaser.Scene {
             this.updateHPBar();
             this.playerDamageFlash();
             if (this.inflateActive) this.inflateKnockback();
-            if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+            if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
         }
 
         // Fade and destroy after 6s
@@ -3641,7 +4083,7 @@ export default class GameScene extends Phaser.Scene {
                 this.playerHealth -= 10;
                 this.updateHPBar();
                 this.playerDamageFlash();
-                if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
             }
         });
     }
@@ -3675,7 +4117,7 @@ export default class GameScene extends Phaser.Scene {
                     this.updateHPBar();
                     this.playerDamageFlash();
                     if (this.inflateActive) this.inflateKnockback();
-                    if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                    if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
                 }
             }
 
@@ -3829,7 +4271,7 @@ export default class GameScene extends Phaser.Scene {
                         this.updateHPBar();
                         this.playerDamageFlash();
                         if (this.inflateActive) this.inflateKnockback();
-                        if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                        if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
                         proj.destroy();
                     });
                     this.scheduleProjectileDespawn(proj, 5000);
@@ -3870,7 +4312,7 @@ export default class GameScene extends Phaser.Scene {
                     this.updateHPBar();
                     this.playerDamageFlash();
                     if (this.inflateActive) this.inflateKnockback();
-                    if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                    if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
                     proj.destroy();
                 });
                 this.scheduleProjectileDespawn(proj, 6000);
@@ -3942,7 +4384,7 @@ export default class GameScene extends Phaser.Scene {
                         this.updateHPBar();
                         this.playerDamageFlash();
                         if (this.inflateActive) this.inflateKnockback();
-                        if (this.playerHealth <= 0) { this.playerHealth = 0; this.time.delayedCall(500, () => this.showDeathOverlay()); }
+                        if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
                     }
                 },
                 onComplete: () => {
