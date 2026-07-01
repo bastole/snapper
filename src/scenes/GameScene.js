@@ -4763,6 +4763,60 @@ export default class GameScene extends Phaser.Scene {
         ev.effect.call(this);
     }
 
+    _getEvoReqLines(ev) {
+        // Returns { weaponLine, boostLine } describing current vs required progress
+        const boostCounts = {
+            'Inflate': 1, 'Shiny Scales': 2, 'Angry': 5, 'Aura Farming': 5,
+            'Hunter Instinct': 5, 'Basking': 5, 'Bug Bucket': 5, 'Well Fed': 3,
+            'Hungry Forager': 4, 'Hard Scales': 4, 'Polycephaly': 4, 'Venom': 3,
+            'Vitamin Supplements': 4, 'Big Fangs': 4, 'Hyperactivity': 3, 'Bug Catcher': 3,
+        };
+        const weaponMaxed = this.isWeaponMaxed(ev.weaponKey);
+        const boostMaxed  = this.isBoostMaxed(ev.boostName);
+
+        // Weapon: build "Label ×N" description
+        const weaponMaxLevels = {
+            bite: 4, tailslap: 2, poop: 2, pebble: 2, hiss: 2, lick: 3,
+            wormwhip: 2, pupamines: 3, skinshed: 2, woodiebounce: 3,
+            dubiashields: 4, poisonclaw: 4, branchthrow: 4, dustkick: 5, scratch: 3, coldglare: 6,
+        };
+        const weaponCurrentLevels = {
+            bite:         this.biteLevel,
+            tailslap:     1 + (this.tailSlapUpgraded ? 1 : 0),
+            poop:         1 + (this.poopUpgraded ? 1 : 0),
+            pebble:       1 + (this.pebbleCount > 3 ? 1 : 0),
+            hiss:         1 + (this.hissUpgraded ? 1 : 0),
+            lick:         this.lickLevel,
+            wormwhip:     this.wormWhipLevel,
+            pupamines:    this.pupaLevel,
+            skinshed:     this.skinLevel,
+            woodiebounce: this.woodieLevel,
+            dubiashields: this.dubiaLevel,
+            poisonclaw:   this.poisonClawLevel,
+            branchthrow:  this.branchLevel,
+            dustkick:     this.dustKickLevel,
+            scratch:      this.scratchLevel,
+            coldglare:    1 + this.coldGlareCdLevel + this.coldGlareSlLevel,
+        };
+        const wMax = weaponMaxLevels[ev.weaponKey] ?? 1;
+        const wCur = weaponCurrentLevels[ev.weaponKey] ?? (this.ownedWeapons.has(ev.weaponKey) ? 1 : 0);
+        const weaponSuffix = wMax > 1 ? ` ×${wMax}` : '';
+        const weaponCurSuffix = wCur > 1 ? ` ×${wCur}` : (wCur === 0 ? ' (not owned)' : '');
+        const weaponLine = weaponMaxed
+            ? `✓ ${ev.weaponLabel}${weaponSuffix} — READY`
+            : `✗ ${ev.weaponLabel}${weaponSuffix} — you have${weaponCurSuffix || ' ×1'}`;
+
+        // Boost: build "BoostName ×N" description
+        const bMax = boostCounts[ev.boostName] ?? 1;
+        const bCur = this.ownedPassives.filter(p => p === ev.boostName).length;
+        const boostSuffix = bMax > 1 ? ` ×${bMax}` : '';
+        const boostLine = boostMaxed
+            ? `✓ ${ev.boostName}${boostSuffix} — READY`
+            : `✗ ${ev.boostName}${boostSuffix} — you have ×${bCur}`;
+
+        return { weaponLine, boostLine };
+    }
+
     showEvolutionMenu() {
         const W = this.cameras.main.width;
         const H = this.cameras.main.height;
@@ -4819,9 +4873,48 @@ export default class GameScene extends Phaser.Scene {
                     this.applyEvolution(ev);
                     this._updateEvoBtnAppearance();
                 });
-
                 // Glow flash tween on available cards
                 this.tweens.add({ targets: [bg, border], alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
+            } else {
+                // Clicking a locked card shows a requirements popup
+                bg.setInteractive({ useHandCursor: true });
+                bg.on('pointerover', () => bg.setFillStyle(0x2a2a2a));
+                bg.on('pointerout',  () => bg.setFillStyle(0x1a1a1a));
+                bg.on('pointerdown', () => {
+                    // Remove any existing req popup
+                    if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
+
+                    const { weaponLine, boostLine } = this._getEvoReqLines(ev);
+                    const popW = 310, popH = 104;
+                    const px = Phaser.Math.Clamp(cx, popW / 2 + 8, W - popW / 2 - 8);
+                    const py = Phaser.Math.Clamp(cy + cardH + 10, popH / 2 + 8, H - popH / 2 - 30);
+
+                    const pbg = this.add.rectangle(px, py, popW, popH, 0x111111, 0.96)
+                        .setScrollFactor(0).setDepth(depth + 10).setOrigin(0.5);
+                    const pborder = this.add.rectangle(px, py, popW, popH)
+                        .setScrollFactor(0).setDepth(depth + 10).setOrigin(0.5)
+                        .setStrokeStyle(2, 0x888888);
+                    const pTitle = this.add.text(px, py - 38, `Requirements — ${ev.evolvedName}`, {
+                        fontSize: '10px', fontFamily: 'Arial Black, Arial', color: '#dddddd',
+                    }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
+                    const pWeapon = this.add.text(px, py - 14, weaponLine, {
+                        fontSize: '11px', fontFamily: 'Arial', color: weaponLine.startsWith('✓') ? '#88ff88' : '#ff8888',
+                    }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
+                    const pBoost = this.add.text(px, py + 10, boostLine, {
+                        fontSize: '11px', fontFamily: 'Arial', color: boostLine.startsWith('✓') ? '#88ff88' : '#ff8888',
+                    }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
+                    const pHint = this.add.text(px, py + 34, 'Click anywhere to dismiss', {
+                        fontSize: '9px', fontFamily: 'Arial', color: '#555555',
+                    }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
+
+                    this._evoReqPopup = [pbg, pborder, pTitle, pWeapon, pBoost, pHint];
+                    uiItems.push(...this._evoReqPopup);
+
+                    // Dismiss on next click anywhere (one-shot)
+                    this.input.once('pointerdown', () => {
+                        if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
+                    });
+                });
             }
         });
 
