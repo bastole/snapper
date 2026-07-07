@@ -214,7 +214,10 @@ export default class GameScene extends Phaser.Scene {
         // --- Collisions ---
         this.physics.add.overlap(this.player, this.crickets, this.collectCricket, null, this);
         this.physics.add.overlap(this.player, this.enemies,  this.enemyHitPlayer, null, this);
-        this.physics.add.collider(this.enemies, this.enemies);
+        this.physics.add.collider(this.enemies, this.enemies, (a, b) => {
+            this.trySpreadFire(a, b);
+            this.trySpreadFire(b, a);
+        }, null, this);
 
         // --- Timers ---
         this.spawnDelay    = 2500; // initial delay between each enemy spawn (ms)
@@ -302,10 +305,10 @@ export default class GameScene extends Phaser.Scene {
                 const wx = Phaser.Math.Between(100, 3100);
                 const wy = Phaser.Math.Between(100, 3100);
                 const item = this.physics.add.image(wx, wy, 'cricket');
-                item.setScale(0.55).setTint(0xff4488).setDepth(4);
+                item.setScale(1.10).setTint(0xff4488).setDepth(4);
                 item.xpValue = 0;
                 item.specialType = 'wormbox';
-                this.tweens.add({ targets: item, scaleX: 0.65, scaleY: 0.65, duration: 350, yoyo: true, loop: -1 });
+                this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 350, yoyo: true, loop: -1 });
                 this.crickets.add(item);
             }
             this.fastUpgrade    = true;
@@ -546,7 +549,7 @@ export default class GameScene extends Phaser.Scene {
         this.crickets.getChildren().forEach(item => {
             if (!item.active) return;
             const type = item.specialType;
-            if (type !== 'treasure' && type !== 'wormbox' && type !== 'fullbox' && type !== 'pupamine_collectible') return;
+            if (type !== 'treasure' && type !== 'wormbox' && type !== 'fullbox') return;
 
             // Convert world coords to screen coords
             const sx = item.x - cam.scrollX;
@@ -822,6 +825,9 @@ export default class GameScene extends Phaser.Scene {
         enemy.setScale(spawnScale);
         enemy.spawnScale = spawnScale;
         enemy.setDepth(5);
+        // Collision/hitbox shrunk to 75% of the visual sprite size (types below with their own
+        // explicit body.setSize(...) already carry the same 75% reduction baked into their numbers).
+        enemy.body.setSize(enemy.body.width * 0.75, enemy.body.height * 0.75);
         enemy.health        = def.health;
         enemy.maxHealth     = def.health;
         enemy.damage        = def.damage;
@@ -848,7 +854,7 @@ export default class GameScene extends Phaser.Scene {
         enemy.spawnsMinion     = def.spawnsMinion     ?? null;
         enemy.isWanderer    = false;
         enemy.wanderTarget  = null;
-        if (enemy.hydra) { enemy.hydraHeads = 3; enemy.body.setSize(110, 110); }
+        if (enemy.hydra) { enemy.hydraHeads = 3; enemy.body.setSize(82.5, 82.5); }
         if (enemy.burrowed) {
             // Carrot Mole: alternates surfaced (stationary, vulnerable) and burrowed (moving, invulnerable)
             // Starts surfaced
@@ -862,7 +868,7 @@ export default class GameScene extends Phaser.Scene {
                     // Go underground
                     enemy.isUnderground = true;
                     enemy.setAlpha(0.25);
-                    enemy.body.setSize(40, 30);
+                    enemy.body.setSize(30, 22.5);
                     enemy.speed = 80;
                     // Move toward player while underground for 3–5s
                     const burrowDur = Phaser.Math.Between(3000, 5000);
@@ -871,7 +877,7 @@ export default class GameScene extends Phaser.Scene {
                         // Resurface
                         enemy.isUnderground = false;
                         enemy.setAlpha(1);
-                        enemy.body.setSize(60, 40);
+                        enemy.body.setSize(45, 30);
                         enemy.speed = 0;
                         if (enemy.body) enemy.body.setVelocity(0, 0);
                         scheduleBurrow();
@@ -937,13 +943,13 @@ export default class GameScene extends Phaser.Scene {
 
         // Oregano Skunk: larger gas-cloud physics body for proximity damage
         if (def.emitsGas) {
-            enemy.body.setSize(88, 88);
+            enemy.body.setSize(66, 66);
             this.tweens.add({ targets: enemy, alpha: 0.55, duration: 900, yoyo: true, loop: -1 });
         }
 
         // Coriander Whip: wider contact hitbox for regular melee, plus a ranged lash attack
         if (def.whips) {
-            enemy.body.setSize(70, 70); // wider hitbox so regular contact hits more reliably
+            enemy.body.setSize(52.5, 52.5); // wider hitbox so regular contact hits more reliably
             const scheduleWhip = () => {
                 if (!enemy.active) return;
                 enemy.whipTimer = this.time.delayedCall(Phaser.Math.Between(1000, 2000), () => {
@@ -1240,17 +1246,17 @@ export default class GameScene extends Phaser.Scene {
                         mini.bomb = false; mini.sweeps = false; mini.phantom = false;
                         mini.spawnsCarrotCori = false; mini.spawnsAnySpinach = false; mini.vineWhip = false; mini.spawnsMinion = null;
                         mini.isWanderer = false;
-                        if (mini.hydra) { mini.hydraHeads = 3; mini.body.setSize(110, 110); }
+                        if (mini.hydra) { mini.hydraHeads = 3; mini.body.setSize(82.5, 82.5); }
                         if (mini.burrowed) {
                             mini.isUnderground = false; mini.speed = 0;
                             const sb = () => {
                                 if (!mini.active) return;
                                 mini.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
                                     if (!mini.active) return;
-                                    mini.isUnderground = true; mini.setAlpha(0.25); mini.body.setSize(40, 30); mini.speed = 80;
+                                    mini.isUnderground = true; mini.setAlpha(0.25); mini.body.setSize(30, 22.5); mini.speed = 80;
                                     mini.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
                                         if (!mini.active) return;
-                                        mini.isUnderground = false; mini.setAlpha(1); mini.body.setSize(60, 40); mini.speed = 0;
+                                        mini.isUnderground = false; mini.setAlpha(1); mini.body.setSize(45, 30); mini.speed = 0;
                                         if (mini.body) mini.body.setVelocity(0, 0); sb();
                                     });
                                 });
@@ -1258,7 +1264,7 @@ export default class GameScene extends Phaser.Scene {
                             sb();
                         }
                         if (mini.whips) {
-                            mini.body.setSize(70, 70);
+                            mini.body.setSize(52.5, 52.5);
                             const sw = () => {
                                 if (!mini.active) return;
                                 mini.whipTimer = this.time.delayedCall(Phaser.Math.Between(1000, 2000), () => {
@@ -1689,6 +1695,41 @@ export default class GameScene extends Phaser.Scene {
         this.maybePolycephaly(() => this.doWormWhip());
     }
 
+    // Spawns a single, regular (non-evolved) Pupa Mine that triggers naturally on enemy
+    // contact or after its fuse — used by Bug Buster kills, which drop one of these
+    // directly at the death spot instead of a walk-over pickup.
+    spawnPupaMine(x, y) {
+        if (!this.pupaGroup) return;
+        const mine = this.physics.add.image(x, y, 'cricket');
+        mine.setTint(0xffdd00).setScale(0.3).setDepth(8).setImmovable(true);
+        mine.body.setAllowGravity(false);
+        mine.exploded = false;
+        const explodeMine = () => {
+            if (mine.exploded || !mine.active || this.isCountdown) return;
+            mine.exploded = true;
+            const ex = mine.x, ey = mine.y;
+            mine.destroy();
+            const expl = this.add.circle(ex, ey, this.pupaRadius, 0xff6600, 0.6).setDepth(15);
+            this.tweens.add({ targets: expl, alpha: 0, scaleX: 1.6, scaleY: 1.6, duration: 280, onComplete: () => expl.destroy() });
+            this.enemies.getChildren().forEach(e => {
+                if (Phaser.Math.Distance.Between(ex, ey, e.x, e.y) <= this.pupaRadius && this.canDamageEnemy(e)) {
+                    this.damageDealt += this.pupaDamage; e.health -= this.pupaDamage;
+                    this.playEnemyHurtSfx();
+                    if (e.health <= 0) this.killEnemy(e);
+                }
+            });
+            if (this.boss?.active && Phaser.Math.Distance.Between(ex, ey, this.boss.x, this.boss.y) <= this.pupaRadius) {
+                this.damageBoss(this.pupaDamage);
+            }
+        };
+        mine.explodeFn = explodeMine;
+        this.pupaGroup.add(mine);
+        this.physics.add.overlap(mine, this.enemies, explodeMine);
+        if (this.boss?.active) this.physics.add.overlap(mine, this.boss, explodeMine);
+        this.tweens.add({ targets: mine, alpha: 0.3, duration: 400, yoyo: true, loop: -1 });
+        this.time.delayedCall(10000, explodeMine);
+    }
+
     doPupaMines() {
         if (this.isPaused || this.isCountdown) return;
         const counts = [1, 3, 5];
@@ -2076,12 +2117,14 @@ export default class GameScene extends Phaser.Scene {
             });
         });
 
-        // Visual: icy ring burst
-        const g = this.add.graphics().setDepth(20);
+        // Visual: icy ring burst. Positioned at (px, py) with the shape drawn at local
+        // (0, 0) so the scale tween below grows it around its own center instead of the
+        // world origin (which is what made the ring appear to drift as it scaled up).
+        const g = this.add.graphics().setDepth(20).setPosition(px, py);
         g.fillStyle(0x88ddff, 0.18);
-        g.fillCircle(px, py, range);
+        g.fillCircle(0, 0, range);
         g.lineStyle(3, 0xaaeeff, 0.9);
-        g.strokeCircle(px, py, range);
+        g.strokeCircle(0, 0, range);
         this.tweens.add({ targets: g, alpha: 0, scaleX: 1.15, scaleY: 1.15, duration: 600,
             onComplete: () => g.destroy() });
 
@@ -2103,7 +2146,7 @@ export default class GameScene extends Phaser.Scene {
             if (idx >= 0) this.handMiniBossArray.splice(idx, 1);
             if (!this.bossSpawned) {
                 const drop = this.physics.add.image(enemy.x, enemy.y, 'cricket');
-                drop.setScale(0.40).setTint(0x44ccff).setDepth(3);
+                drop.setScale(0.80).setTint(0x44ccff).setDepth(3);
                 drop.xpValue = 10;
                 this.crickets.add(drop);
             }
@@ -2163,57 +2206,57 @@ export default class GameScene extends Phaser.Scene {
         if (rand < fullboxChance) {
             // Fullbox — very rare, heals to full
             const item = this.physics.add.image(enemy.x, enemy.y, 'cricket');
-            item.setScale(0.60).setTint(0xff88ff).setDepth(4);
+            item.setScale(1.20).setTint(0xff88ff).setDepth(4);
             item.xpValue = 0;
             item.specialType = 'fullbox';
-            this.tweens.add({ targets: item, scaleX: 0.72, scaleY: 0.72, duration: 250, yoyo: true, loop: -1 });
+            this.tweens.add({ targets: item, scaleX: 1.44, scaleY: 1.44, duration: 250, yoyo: true, loop: -1 });
             this.crickets.add(item);
         } else if (rand < foodboxChance) {
             // Foodbox — always drops, even during the boss fight
             const item = this.physics.add.image(enemy.x, enemy.y, 'cricket');
-            item.setScale(0.55).setTint(0xff4488).setDepth(4);
+            item.setScale(1.10).setTint(0xff4488).setDepth(4);
             item.xpValue = 0;
             item.specialType = 'wormbox';
-            this.tweens.add({ targets: item, scaleX: 0.65, scaleY: 0.65, duration: 350, yoyo: true, loop: -1 });
+            this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 350, yoyo: true, loop: -1 });
             this.crickets.add(item);
         } else if (this.bossSpawned) {
             // No XP insects or Treasure once the boss is on the field
         } else if (rand < treasureChance && this.treasureSpawned < 2) {
             this.treasureSpawned++;
             const item = this.physics.add.image(enemy.x, enemy.y, 'cricket');
-            item.setScale(0.55).setTint(0xffd700).setDepth(4);
+            item.setScale(1.10).setTint(0xffd700).setDepth(4);
             item.xpValue = 0;
             item.specialType = 'treasure';
-            this.tweens.add({ targets: item, scaleX: 0.65, scaleY: 0.65, duration: 250, yoyo: true, loop: -1 });
+            this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 250, yoyo: true, loop: -1 });
             this.crickets.add(item);
         } else {
             // Normal drop
             const dropTable = {
-                lettuce_hopper:       { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
-                lettuce_shooter:      { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                basil_propeller:      { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                rocket_knife:         { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
-                oregano_ghost:        { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                oregano_fan:          { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                rocket_sword:         { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                coriander_whip:       { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
-                carrot_mole:          { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
-                coriander_hydra:      { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                carrot_dart:          { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                carrot_wheel:         { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                mulberry_bat:         { xpValue: 3,  tint: 0x88ff44, scale: 0.30 }, // Vitaworm
-                mulberry_snake:       { xpValue: 5,  tint: 0xffaa00, scale: 0.35 }, // Mealworm
-                spinach_cyclone:      { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                lettuce_hopper:       { xpValue: 3,  tint: 0x88ff44, scale: 0.60 }, // Vitaworm
+                lettuce_shooter:      { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
+                basil_propeller:      { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                rocket_knife:         { xpValue: 3,  tint: 0x88ff44, scale: 0.60 }, // Vitaworm
+                oregano_ghost:        { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
+                oregano_fan:          { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
+                rocket_sword:         { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                coriander_whip:       { xpValue: 3,  tint: 0x88ff44, scale: 0.60 }, // Vitaworm
+                carrot_mole:          { xpValue: 3,  tint: 0x88ff44, scale: 0.60 }, // Vitaworm
+                coriander_hydra:      { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
+                carrot_dart:          { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                carrot_wheel:         { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
+                mulberry_bat:         { xpValue: 3,  tint: 0x88ff44, scale: 0.60 }, // Vitaworm
+                mulberry_snake:       { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
+                spinach_cyclone:      { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
                 // Level 5 exclusives
-                lettuce_trap:         { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                basil_bomb:           { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                rocket_great_sword:   { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                oregano_phantom:      { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                coriander_carrot:     { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                spinach_tempest:      { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
-                mulberry_monstrosity: { xpValue: 10, tint: 0x44ccff, scale: 0.40 }, // Dragonfly
+                lettuce_trap:         { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                basil_bomb:           { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                rocket_great_sword:   { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                oregano_phantom:      { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                coriander_carrot:     { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                spinach_tempest:      { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                mulberry_monstrosity: { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
             };
-            const drop = dropTable[enemy.texture?.key] ?? { xpValue: 1, tint: 0xffffff, scale: 0.25 };
+            const drop = dropTable[enemy.texture?.key] ?? { xpValue: 1, tint: 0xffffff, scale: 0.50 };
 
             if (enemy._killedByStarvedChomp) {
                 // Instant doubled XP, no cricket spawned
@@ -2233,13 +2276,14 @@ export default class GameScene extends Phaser.Scene {
                     this.showLevelUp();
                 }
             } else if (enemy._killedByBugBuster) {
-                // Drop a collectible pupa mine item instead of XP
-                const mine = this.physics.add.image(enemy.x, enemy.y, 'cricket');
-                mine.setScale(0.32).setTint(0xffdd00).setDepth(4);
-                mine.xpValue = 0;
-                mine.specialType = 'pupamine_collectible';
-                this.tweens.add({ targets: mine, scaleX: 0.40, scaleY: 0.40, duration: 300, yoyo: true, loop: -1 });
-                this.crickets.add(mine);
+                // Drop a live, regular (non-evolved) Pupa Mine right where the enemy died —
+                // it triggers naturally like any other mine, no pickup step — AND the normal XP insect
+                this.spawnPupaMine(enemy.x - 8, enemy.y);
+
+                const cricket = this.physics.add.image(enemy.x + 8, enemy.y, 'cricket');
+                cricket.setScale(drop.scale).setTint(drop.tint).setDepth(3);
+                cricket.xpValue = drop.xpValue;
+                this.crickets.add(cricket);
             } else {
                 const cricket = this.physics.add.image(enemy.x, enemy.y, 'cricket');
                 cricket.setScale(drop.scale).setTint(drop.tint).setDepth(3);
@@ -2405,11 +2449,12 @@ export default class GameScene extends Phaser.Scene {
                 return;
             }
             if (enemy.trapArmed || enemy.bugCaught) { enemy.setVelocity(0, 0); return; }
+            if (enemy.knockbackUntil && this.time.now < enemy.knockbackUntil) return;
             this.physics.moveToObject(enemy, this.player, enemy.speed);
         });
 
         this.crickets.getChildren().forEach(cricket => {
-            if (cricket.specialType === 'treasure' || cricket.specialType === 'wormbox' || cricket.specialType === 'fullbox' || cricket.specialType === 'pupamine_collectible') return;
+            if (cricket.specialType === 'treasure' || cricket.specialType === 'wormbox' || cricket.specialType === 'fullbox') return;
             const dist = Phaser.Math.Distance.Between(px, py, cricket.x, cricket.y);
             if (dist < this.magnetRange) {
                 this.physics.moveToObject(cricket, this.player, 220);
@@ -2420,41 +2465,6 @@ export default class GameScene extends Phaser.Scene {
     }
 
     collectCricket(player, cricket) {
-        if (cricket.specialType === 'pupamine_collectible') {
-            cricket.destroy();
-            playSfx(this, 'sfx_item_collect');
-            // Drop a fresh pupa mine at the player position
-            if (this.ownedWeapons.has('bugbuster') && this.pupaGroup) {
-                const ox = this.player.x + Phaser.Math.Between(-30, 30);
-                const oy = this.player.y + Phaser.Math.Between(-30, 30);
-                const mine = this.physics.add.image(ox, oy, 'cricket');
-                mine.setTint(0xffdd00).setScale(0.3).setDepth(8).setImmovable(true);
-                mine.body.setAllowGravity(false);
-                mine.exploded = false;
-                const explodeMine = () => {
-                    if (mine.exploded || !mine.active || this.isCountdown) return;
-                    mine.exploded = true;
-                    const ex = mine.x, ey = mine.y;
-                    mine.destroy();
-                    const expl = this.add.circle(ex, ey, this.pupaRadius * 2, 0xff6600, 0.65).setDepth(15);
-                    this.tweens.add({ targets: expl, alpha: 0, scaleX: 1.8, scaleY: 1.8, duration: 350, onComplete: () => expl.destroy() });
-                    this.enemies.getChildren().forEach(e => {
-                        if (Phaser.Math.Distance.Between(ex, ey, e.x, e.y) <= this.pupaRadius * 2 && this.canDamageEnemy(e)) {
-                            e._killedByBugBuster = true;
-                            this.damageDealt += this.pupaDamage * 2.5; e.health -= this.pupaDamage * 2.5;
-                            this.playEnemyHurtSfx();
-                            if (e.health <= 0) this.killEnemy(e);
-                        }
-                    });
-                };
-                mine.explodeFn = explodeMine;
-                this.pupaGroup.add(mine);
-                this.physics.add.overlap(mine, this.enemies, explodeMine);
-                this.tweens.add({ targets: mine, alpha: 0.3, duration: 400, yoyo: true, loop: -1 });
-                this.time.delayedCall(45000, explodeMine);
-            }
-            return;
-        }
         if (cricket.specialType === 'fullbox') {
             cricket.destroy();
             this.playerHealth = this.playerMaxHealth;
@@ -2515,6 +2525,17 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    // Applies a burst of velocity and briefly locks the enemy out of the chase AI
+    // (attractCrickets() re-issues moveToObject every frame, which would otherwise
+    // overwrite the knockback velocity within a single frame — too fast to read as
+    // a "knock" and instead looking like the enemy just kept walking) so the knock
+    // actually carries the enemy backward for a short, snappy burst instead.
+    applyKnockback(enemy, angle, speed, duration = 150) {
+        if (!enemy.body) return;
+        enemy.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+        enemy.knockbackUntil = this.time.now + duration;
+    }
+
     inflateKnockback() {
         if (this._inInflateKnockback) return;
         this._inInflateKnockback = true;
@@ -2527,7 +2548,7 @@ export default class GameScene extends Phaser.Scene {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
             if (dist < range) {
                 const a = Math.atan2(e.y - this.player.y, e.x - this.player.x);
-                if (e.body) e.body.setVelocity(Math.cos(a) * 220, Math.sin(a) * 220);
+                this.applyKnockback(e, a, 220);
                 this.damageDealt += 15; e.health -= 15;
                 this.playEnemyHurtSfx();
                 if (e.health <= 0) toKill.push(e);
@@ -2645,7 +2666,7 @@ export default class GameScene extends Phaser.Scene {
             this.bossSpawned = true;
             crossfadeBgm(this, this.level === 5 ? 'bgm_finalboss' : 'bgm_boss', 0.45, 1000);
             this.crickets.getChildren().slice().forEach(c => {
-                if (c.specialType !== 'wormbox' && c.specialType !== 'fullbox' && c.specialType !== 'pupamine_collectible') c.destroy();
+                if (c.specialType !== 'wormbox' && c.specialType !== 'fullbox') c.destroy();
             });
 
             const bossX = this.player.x + 450;
@@ -3033,7 +3054,7 @@ export default class GameScene extends Phaser.Scene {
                     mole.lastHitTime = 0; mole.isUnderground = false;
                     mole.splits = false; mole.shoots = false; mole.splitsInto = null;
                     mole.hydra = false; mole.burrowed = true; mole.whips = false; mole.emitsGas = false;
-                    mole.body.setSize(60, 40);
+                    mole.body.setSize(45, 30);
                     const mKey = 'carrot_mole_walk';
                     if (!this.anims.exists(mKey)) {
                         this.anims.create({ key: mKey, frames: this.anims.generateFrameNumbers('carrot_mole', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
@@ -3045,11 +3066,11 @@ export default class GameScene extends Phaser.Scene {
                         mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
                             if (!mole.active) return;
                             mole.isUnderground = true;
-                            mole.setAlpha(0.25); mole.body.setSize(40, 30); mole.speed = 80;
+                            mole.setAlpha(0.25); mole.body.setSize(30, 22.5); mole.speed = 80;
                             mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
                                 if (!mole.active) return;
                                 mole.isUnderground = false;
-                                mole.setAlpha(1); mole.body.setSize(60, 40); mole.speed = 0;
+                                mole.setAlpha(1); mole.body.setSize(45, 30); mole.speed = 0;
                                 if (mole.body) mole.body.setVelocity(0, 0);
                                 scheduleBurrow();
                             });
@@ -3647,7 +3668,7 @@ export default class GameScene extends Phaser.Scene {
             },
             {
                 name: this.weaponCardLabel('tailslap', 'Tail Slap'), desc: 'Sweeping arc attack behind you as you move', type: 'weapon',
-                available: () => !this.ownedWeapons.has('tailslap'),
+                available: () => !this.ownedWeapons.has('tailslap') && !this.ownedWeapons.has('steelslam'),
                 effect: () => {
                     this.ownedWeapons.add('tailslap');
                     this.tailSlapTimer = this.time.addEvent({ delay: 4000, callback: this.doTailSlap, callbackScope: this, loop: true });
@@ -3660,7 +3681,7 @@ export default class GameScene extends Phaser.Scene {
             },
             {
                 name: this.weaponCardLabel('poop', 'Poop'), desc: 'Fires an exploding continuous projectile in a random direction', type: 'weapon',
-                available: () => !this.ownedWeapons.has('poop') && this.playerLevel >= 20,
+                available: () => !this.ownedWeapons.has('poop') && !this.ownedWeapons.has('toxicocean') && this.playerLevel >= 20,
                 effect: () => {
                     this.ownedWeapons.add('poop');
                     this.poopTimer = this.time.addEvent({ delay: 8000, callback: this.doPoop, callbackScope: this, loop: true });
@@ -3673,7 +3694,7 @@ export default class GameScene extends Phaser.Scene {
             },
             {
                 name: this.weaponCardLabel('pebble', 'Pebble Flick'), desc: 'Fires 3 piercing pebbles toward the nearest enemy', type: 'weapon',
-                available: () => !this.ownedWeapons.has('pebble'),
+                available: () => !this.ownedWeapons.has('pebble') && !this.ownedWeapons.has('sunbakedambers'),
                 effect: () => {
                     this.ownedWeapons.add('pebble');
                     this.pebbleTimer = this.time.addEvent({ delay: 8000, callback: this.doPebbleFlick, callbackScope: this, loop: true });
@@ -3699,7 +3720,7 @@ export default class GameScene extends Phaser.Scene {
             },
             {
                 name: this.weaponCardLabel('hiss', 'Hiss'), desc: 'Slow enemies in a 45° cone for 2 seconds', type: 'weapon',
-                available: () => !this.ownedWeapons.has('hiss'),
+                available: () => !this.ownedWeapons.has('hiss') && !this.ownedWeapons.has('ragingroar'),
                 effect: () => {
                     this.ownedWeapons.add('hiss');
                     this.hissTimer = this.time.addEvent({ delay: 5000, callback: this.doHiss, callbackScope: this, loop: true });
@@ -3869,7 +3890,7 @@ export default class GameScene extends Phaser.Scene {
                     return `Slow ${slow}s → ${nextSlow}s  •  cooldown ${cd}s`;
                 })(),
                 type: 'weapon',
-                available: () => !this.coldGlareActive || this.coldGlareCdLevel < 3 || this.coldGlareSlLevel < 3,
+                available: () => !this.ownedWeapons.has('fourchills') && (!this.coldGlareActive || this.coldGlareCdLevel < 3 || this.coldGlareSlLevel < 3),
                 effect: () => {
                     if (!this.coldGlareActive) {
                         this.coldGlareActive = true;
@@ -3896,20 +3917,20 @@ export default class GameScene extends Phaser.Scene {
             { name: this.boostCardLabel('Basking'),         desc: 'Snapper\'s attacks fire faster',      available: () => this.ownedPassives.filter(p => p === 'Basking').length < 5, effect: () => {
                 this.ownedPassives.push('Basking');
                 this.biteRate = Math.max(300, this.biteRate - 150);
-                this.biteTimer.reset({ delay: this.biteRate, callback: this.doBite, callbackScope: this, loop: true });
-                if (this.tailSlapTimer) this.tailSlapTimer.reset({ delay: Math.max(300, this.tailSlapTimer.delay - 150), callback: this.doTailSlap, callbackScope: this, loop: true });
-                if (this.poopTimer)     this.poopTimer.reset({     delay: Math.max(300, this.poopTimer.delay     - 150), callback: this.doPoop,     callbackScope: this, loop: true });
-                if (this.pebbleTimer)   this.pebbleTimer.reset({   delay: Math.max(300, this.pebbleTimer.delay   - 150), callback: this.doPebbleFlick, callbackScope: this, loop: true });
+                this.biteTimer.reset({ delay: this.biteRate, callback: this.ownedWeapons.has('starvechomp') ? this.doStarvedChomp : this.doBite, callbackScope: this, loop: true });
+                if (this.tailSlapTimer) this.tailSlapTimer.reset({ delay: Math.max(300, this.tailSlapTimer.delay - 150), callback: this.ownedWeapons.has('steelslam') ? this.doSteelSlam : this.doTailSlap, callbackScope: this, loop: true });
+                if (this.poopTimer)     this.poopTimer.reset({     delay: Math.max(300, this.poopTimer.delay     - 150), callback: this.ownedWeapons.has('toxicocean') ? this.doToxicOcean : this.doPoop,     callbackScope: this, loop: true });
+                if (this.pebbleTimer)   this.pebbleTimer.reset({   delay: Math.max(300, this.pebbleTimer.delay   - 150), callback: this.ownedWeapons.has('sunbakedambers') ? this.doSunbakedAmbers : this.doPebbleFlick, callbackScope: this, loop: true });
                 if (this.hissTimer)     this.hissTimer.reset({     delay: Math.max(300, this.hissTimer.delay     - 150), callback: this.doHiss,        callbackScope: this, loop: true });
-                if (this.lickTimer)       this.lickTimer.reset({     delay: Math.max(300, this.lickTimer.delay     - 150), callback: this.doLick,          callbackScope: this, loop: true });
-                if (this.wormWhipTimer)   this.wormWhipTimer.reset({ delay: Math.max(300, this.wormWhipTimer.delay - 150), callback: this.doWormWhip,       callbackScope: this, loop: true });
-                if (this.pupaTimer)       this.pupaTimer.reset({     delay: Math.max(300, this.pupaTimer.delay     - 150), callback: this.doPupaMines,      callbackScope: this, loop: true });
-                if (this.skinTimer)         this.skinTimer.reset({         delay: Math.max(300, this.skinTimer.delay         - 150), callback: this.doSkinShed,               callbackScope: this, loop: true });
-                if (this.woodieTimer)       this.woodieTimer.reset({       delay: Math.max(300, this.woodieTimer.delay       - 150), callback: this.doWoodieBounce,           callbackScope: this, loop: true });
-                if (this.poisonClawTimer)   this.poisonClawTimer.reset({   delay: Math.max(300, this.poisonClawTimer.delay   - 150), callback: this.doPoisonClaw,             callbackScope: this, loop: true });
-                if (this.branchTimer)       this.branchTimer.reset({       delay: Math.max(300, this.branchTimer.delay       - 150), callback: this.doBranchThrow,            callbackScope: this, loop: true });
-                if (this.dustKickTimer)     this.dustKickTimer.reset({     delay: Math.max(300, this.dustKickTimer.delay     - 150), callback: this.doDustKick,               callbackScope: this, loop: true });
-                if (this.scratchTimer)      this.scratchTimer.reset({      delay: Math.max(300, this.scratchTimer.delay      - 150), callback: this.doLuckyScratch, callbackScope: this, loop: true });
+                if (this.lickTimer)       this.lickTimer.reset({     delay: Math.max(300, this.lickTimer.delay     - 150), callback: this.ownedWeapons.has('stickyshot') ? this.doStickyShot : this.doLick,          callbackScope: this, loop: true });
+                if (this.wormWhipTimer)   this.wormWhipTimer.reset({ delay: Math.max(300, this.wormWhipTimer.delay - 150), callback: this.ownedWeapons.has('acidsnake') ? this.doAcidSnake : this.doWormWhip,       callbackScope: this, loop: true });
+                if (this.pupaTimer)       this.pupaTimer.reset({     delay: Math.max(300, this.pupaTimer.delay     - 150), callback: this.ownedWeapons.has('bugbuster') ? this.doBugBuster : this.doPupaMines,      callbackScope: this, loop: true });
+                if (this.skinTimer)         this.skinTimer.reset({         delay: Math.max(300, this.skinTimer.delay         - 150), callback: this.ownedWeapons.has('spikeshedder') ? this.doSpikeShedder : this.doSkinShed,               callbackScope: this, loop: true });
+                if (this.woodieTimer)       this.woodieTimer.reset({       delay: Math.max(300, this.woodieTimer.delay       - 150), callback: this.ownedWeapons.has('shiningshells') ? this.doShiningShells : this.doWoodieBounce,           callbackScope: this, loop: true });
+                if (this.poisonClawTimer)   this.poisonClawTimer.reset({   delay: Math.max(300, this.poisonClawTimer.delay   - 150), callback: this.ownedWeapons.has('flashclaw') ? this.doFlashclaw : this.doPoisonClaw,             callbackScope: this, loop: true });
+                if (this.branchTimer)       this.branchTimer.reset({       delay: Math.max(300, this.branchTimer.delay       - 150), callback: this.ownedWeapons.has('loglob') ? this.doLogLob : this.doBranchThrow,            callbackScope: this, loop: true });
+                if (this.dustKickTimer)     this.dustKickTimer.reset({     delay: Math.max(300, this.dustKickTimer.delay     - 150), callback: this.ownedWeapons.has('duststorm') ? this.doDuststorm : this.doDustKick,               callbackScope: this, loop: true });
+                if (this.scratchTimer)      this.scratchTimer.reset({      delay: Math.max(300, this.scratchTimer.delay      - 150), callback: this.ownedWeapons.has('thrash') ? this.doLuckyThrash : this.doLuckyScratch, callbackScope: this, loop: true });
                 if (this.coldGlareActive) { this.coldGlareCooldown = Math.max(5000, this.coldGlareCooldown - 1500); this.scheduleColdGlare(); }
             } },
             { name: this.boostCardLabel('Bug Bucket'),      desc: 'Snapper\'s max health increases by 25',  available: () => this.ownedPassives.filter(p => p === 'Bug Bucket').length     < 5, effect: () => { this.ownedPassives.push('Bug Bucket');      this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
@@ -4041,9 +4062,13 @@ export default class GameScene extends Phaser.Scene {
             padHandler  && this.input.gamepad.off('down', padHandler);
             cardEls.forEach(el => el.destroy());
             ui.forEach(el => el.destroy());
-            // Unpause time so the 3-2-1 countdown delayedCalls can fire;
-            // physics stays paused until resume() is called below
-            this.time.paused = false;
+            // Keep time.paused / physics.pause() (set when the level-up screen opened) in
+            // effect for the whole countdown too, exactly like the regular pause menu — so
+            // weapon cooldowns, enemy spawns, poison ticks, boss timers, etc. stay frozen
+            // instead of silently ticking (and burning a cycle for nothing, since every
+            // do*() function early-returns on isCountdown). The countdown label ticks via
+            // real setTimeout, which runs independently of Phaser's paused clock.
+            const isActive = () => this.scene.isActive();
 
             const countLabel = this.add.text(W / 2, H / 2, '3', {
                 fontSize: '72px', fontFamily: 'Arial Black, Arial',
@@ -4053,6 +4078,7 @@ export default class GameScene extends Phaser.Scene {
             this.isCountdown = true;
 
             const resume = () => {
+                if (!isActive()) return;
                 countLabel.destroy();
                 this.physics.resume();
                 this.time.paused = false;
@@ -4067,10 +4093,10 @@ export default class GameScene extends Phaser.Scene {
             };
 
             if (!this.fastUpgrade) {
-                this.time.delayedCall(500,  () => { if (countLabel.active) countLabel.setText('2'); });
-                this.time.delayedCall(1000, () => { if (countLabel.active) countLabel.setText('1'); });
+                setTimeout(() => { if (isActive() && countLabel.active) countLabel.setText('2'); }, 500);
+                setTimeout(() => { if (isActive() && countLabel.active) countLabel.setText('1'); }, 1000);
             }
-            this.time.delayedCall(this.fastUpgrade ? 0 : 1500, resume);
+            setTimeout(resume, this.fastUpgrade ? 0 : 1500);
         };
 
         const applyCardHighlight = () => {
@@ -4253,7 +4279,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     evolveToFourChills() {
-        this.ownedWeapons.add('fourchills');
+        this.ownedWeapons.delete('coldglare'); this.ownedWeapons.add('fourchills');
         // Stop the cold glare schedule — Four Chills uses its own cooldown
         this.coldGlareTimer?.remove();
         this.coldGlareActive = false;
@@ -4301,7 +4327,7 @@ export default class GameScene extends Phaser.Scene {
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 // Knockback
                 const a = Math.atan2(enemy.y - this.player.y, enemy.x - this.player.x);
-                if (enemy.body) enemy.body.setVelocity(Math.cos(a) * 400, Math.sin(a) * 400);
+                this.applyKnockback(enemy, a, 400);
                 // Immobilise (500ms, 8s cooldown per enemy)
                 const lastSlam = enemy._lastSteelSlam ?? 0;
                 if (now - lastSlam >= 8000 && !enemy.bugCaught) {
@@ -4383,6 +4409,33 @@ export default class GameScene extends Phaser.Scene {
         this.maybePolycephaly(() => this.doToxicOcean());
     }
 
+    // Sets an enemy on fire for `duration` ms (red tint, 6 dmg every 300ms). No-ops if
+    // already burning. Used both by Sunbaked Ambers' direct hit and by burn-on-contact spread.
+    igniteEnemy(enemy, duration) {
+        if (!enemy.active || enemy.burned) return;
+        enemy.burned = true; enemy.setTint(0xff2200);
+        const ticks = Math.ceil(duration / 300);
+        let done = 0;
+        const bt = this.time.addEvent({ delay: 300, loop: true, callback: () => {
+            if (!enemy.active) { bt.remove(); return; }
+            this.damageDealt += 6; enemy.health -= 6; done++;
+            this.playEnemyHurtSfx();
+            if (enemy.health <= 0) { this.killEnemy(enemy); bt.remove(); return; }
+            if (done >= ticks) { bt.remove(); if (enemy.active) { enemy.burned = false; enemy.clearTint(); } }
+        } });
+    }
+
+    // Burning enemies set fire to enemies they physically collide with, for a short 1s
+    // burn — and each enemy can only catch fire this way once every 3s, so two enemies
+    // stuck touching each other don't re-ignite one another every physics step.
+    trySpreadFire(source, target) {
+        if (!source.burned || target.burned || !target.active) return;
+        const now = this.time.now;
+        if (target._nextBurnContagionAt && now < target._nextBurnContagionAt) return;
+        target._nextBurnContagionAt = now + 3000;
+        this.igniteEnemy(target, 1000);
+    }
+
     // ─── Evolved weapon: Sunbaked Ambers ──────────────────────────────────────
     doSunbakedAmbers() {
         if (this.isPaused || this.isCountdown) return;
@@ -4398,19 +4451,7 @@ export default class GameScene extends Phaser.Scene {
                 this.damageDealt += dmg; enemy.health -= dmg;
                 this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
-                // Apply burn: red tint, ticks harder/faster than poison (6 dmg / 300ms)
-                if (!enemy.burned) {
-                    enemy.burned = true; enemy.setTint(0xff2200);
-                    const ticks = Math.ceil(burnDur / 300);
-                    let done = 0;
-                    const bt = this.time.addEvent({ delay: 300, loop: true, callback: () => {
-                        if (!enemy.active) { bt.remove(); return; }
-                        this.damageDealt += 6; enemy.health -= 6; done++;
-                        this.playEnemyHurtSfx();
-                        if (enemy.health <= 0) { this.killEnemy(enemy); bt.remove(); return; }
-                        if (done >= ticks) { bt.remove(); if (enemy.active) { enemy.burned = false; enemy.clearTint(); } }
-                    } });
-                }
+                this.igniteEnemy(enemy, burnDur);
                 if (enemy.health <= 0) this.killEnemy(enemy);
             });
             if (this.boss?.active) this.physics.add.overlap(amber, this.boss, (am) => { if (!am.active) return; am.destroy(); this.damageBoss(dmg); });
@@ -4524,7 +4565,7 @@ export default class GameScene extends Phaser.Scene {
     doBugBuster() {
         if (this.isPaused || this.isCountdown) return;
         const count  = Phaser.Math.Between(8, 12);
-        const busDmg = this.pupaDamage * 2.5;
+        const busDmg = 65;
         for (let i = 0; i < count; i++) {
             const a  = Phaser.Math.FloatBetween(0, Math.PI * 2);
             const dr = Phaser.Math.FloatBetween(30, 80);
@@ -4727,7 +4768,7 @@ export default class GameScene extends Phaser.Scene {
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 // Slight knockback
                 const a = Math.atan2(enemy.y - l.y, enemy.x - l.x);
-                if (enemy.body) enemy.body.setVelocity(Math.cos(a) * 60, Math.sin(a) * 60);
+                this.applyKnockback(enemy, a, 60);
                 if (enemy.health <= 0) this.killEnemy(enemy);
             });
             if (this.boss?.active) this.physics.add.overlap(log, this.boss, (l) => { if (!l.active) return; this.damageBoss(dmg); });
@@ -4847,15 +4888,16 @@ export default class GameScene extends Phaser.Scene {
             this.tweens.add({ targets: enemy, alpha: 0.1, duration: 100, yoyo: true, repeat: 3 });
             this.time.delayedCall(2000, () => { if (enemy.active) enemy.bugCaught = false; });
         });
-        // Visual: large icy ring
-        const g = this.add.graphics().setDepth(20);
-        g.fillStyle(0x88ddff, 0.10); g.fillCircle(px, py, range);
-        g.lineStyle(4, 0xaaeeff, 0.9); g.strokeCircle(px, py, range);
+        // Visual: large icy ring — same fix as Cold Glare: position the Graphics object
+        // at (px, py) and draw at local (0, 0) so it scales in place, not from the origin.
+        const g = this.add.graphics().setDepth(20).setPosition(px, py);
+        g.fillStyle(0x88ddff, 0.10); g.fillCircle(0, 0, range);
+        g.lineStyle(4, 0xaaeeff, 0.9); g.strokeCircle(0, 0, range);
         // Four arcing sparks
         for (let i = 0; i < 4; i++) {
             const a = (i / 4) * Math.PI * 2;
             g.lineStyle(2, 0xffffff, 0.7);
-            g.beginPath(); g.arc(px, py, range * 0.5, a, a + Math.PI * 0.4); g.strokePath();
+            g.beginPath(); g.arc(0, 0, range * 0.5, a, a + Math.PI * 0.4); g.strokePath();
         }
         this.tweens.add({ targets: g, alpha: 0, scaleX: 1.12, scaleY: 1.12, duration: 800, onComplete: () => g.destroy() });
         this.maybePolycephaly(() => this.doFourChills());
@@ -5693,6 +5735,7 @@ export default class GameScene extends Phaser.Scene {
 
         const mb = this.physics.add.sprite(sx, sy, cfg.key);
         mb.setScale(cfg.scale).setDepth(8);
+        mb.body.setSize(mb.body.width * 0.75, mb.body.height * 0.75);
         mb.health      = cfg.health;
         mb.maxHealth   = cfg.health;
         mb.damage      = cfg.damage;
@@ -6001,7 +6044,7 @@ export default class GameScene extends Phaser.Scene {
                     mole.lastHitTime = 0; mole.isUnderground = false;
                     mole.splits = false; mole.shoots = false; mole.splitsInto = null;
                     mole.hydra = false; mole.burrowed = true; mole.whips = false; mole.emitsGas = false;
-                    mole.body.setSize(60, 40);
+                    mole.body.setSize(45, 30);
                     const mKey = 'carrot_mole_walk';
                     if (!this.anims.exists(mKey)) {
                         this.anims.create({ key: mKey, frames: this.anims.generateFrameNumbers('carrot_mole', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
@@ -6012,11 +6055,11 @@ export default class GameScene extends Phaser.Scene {
                         mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
                             if (!mole.active) return;
                             mole.isUnderground = true;
-                            mole.setAlpha(0.25); mole.body.setSize(40, 30); mole.speed = 80;
+                            mole.setAlpha(0.25); mole.body.setSize(30, 22.5); mole.speed = 80;
                             mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
                                 if (!mole.active) return;
                                 mole.isUnderground = false;
-                                mole.setAlpha(1); mole.body.setSize(60, 40); mole.speed = 0;
+                                mole.setAlpha(1); mole.body.setSize(45, 30); mole.speed = 0;
                                 if (mole.body) mole.body.setVelocity(0, 0);
                                 scheduleBurrow();
                             });
