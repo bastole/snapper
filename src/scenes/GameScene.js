@@ -81,8 +81,12 @@ export default class GameScene extends Phaser.Scene {
         this.topBossHpBar    = null;
         this.topBossHpBarBg  = null;
         this.topBossLabel    = null;
+        this.bossPhaseLines    = [];
+        this.topBossPhaseLines = [];
         this.handFireZones   = [];
         this.handMiniBossArray = [];
+        this.handVacuumActive  = false;
+        this.handVacuumOverlay = null;
 
         // --- Passive boost flags ---
         this.inflateActive  = false;
@@ -161,7 +165,7 @@ export default class GameScene extends Phaser.Scene {
         this.bigFangsHeal      = 0;
         // Hyperactivity
         this.hyperactivityLevel    = 0;
-        this.hyperactivityKillGoal = 35;
+        this.hyperactivityKillGoal = 70;
         this.hyperactivityKillsSince = 0;
         // Bug Catcher
         this.bugCatcherChance  = 0;
@@ -181,15 +185,29 @@ export default class GameScene extends Phaser.Scene {
             { id: 'acid_snake',            weaponKey: 'wormwhip',    weaponLabel: 'Worm Whip',             boostName: 'Venom',                evolvedName: 'Acid Snake',            desc: 'Both sides, 160° arc every 3.5s — poisons 6s, slows 2s.',                   effect() { this.evolveToAcidSnake(); } },
             { id: 'bug_buster',            weaponKey: 'pupamines',   weaponLabel: 'Pupa Mines',            boostName: 'Bug Catcher',          evolvedName: 'Bug Buster',            desc: 'Sprays 8-12 mines lasting 45s — huge blasts drop collectible pupa mines.',   effect() { this.evolveToBugBuster(); } },
             { id: 'spike_shedder',         weaponKey: 'skinshed',    weaponLabel: 'Skin Shed',             boostName: 'Big Fangs',            evolvedName: 'Spike Shedder',         desc: 'Drops 3 spiky skins every 8s — far more damage, heals 1 HP per 10 kills.',   effect() { this.evolveToSpikeShedder(); } },
-            { id: 'shining_shells',        weaponKey: 'woodiebounce',weaponLabel: 'Woodie Bounce',         boostName: 'Shiny Scales',         evolvedName: 'Shining Shells',        desc: '3 shells every 4s, 300px/s, unlimited ricochets 25s, auto-aim, kills explode.', effect() { this.evolveToShiningShells(); } },
+            { id: 'shining_shells',        weaponKey: 'woodiebounce',weaponLabel: 'Woodie Bounce',         boostName: 'Shiny Scales',         evolvedName: 'Shining Shells',        desc: '3 fast-moving shells every 4s, unlimited ricochets 25s, auto-aim, kills explode.', effect() { this.evolveToShiningShells(); } },
             { id: 'dubia_defenders',       weaponKey: 'dubiashields',weaponLabel: 'Dubia Shields',         boostName: 'Bug Bucket',           evolvedName: 'Dubia Defenders',       desc: 'Shields spin faster — each fires a strong projectile every 5s.',             effect() { this.evolveToDubiaDefenders(); } },
             { id: 'flashclaw',             weaponKey: 'poisonclaw',  weaponLabel: 'Poison Claw',           boostName: 'Hunter Instinct',      evolvedName: 'Flashclaw',             desc: 'Double claw strike — immobilises 1s (10s cd per enemy), poisons 6s.',        effect() { this.evolveToFlashclaw(); } },
             { id: 'log_lob',               weaponKey: 'branchthrow', weaponLabel: 'Branch Throw',          boostName: 'Aura Farming',         evolvedName: 'Log Lob',               desc: '2 logs rolling opposite ways — unbreakable 25s, high damage, knockback.',     effect() { this.evolveToLogLob(); } },
             { id: 'duststorm',             weaponKey: 'dustkick',    weaponLabel: 'Dust Kick',             boostName: 'Inflate',              evolvedName: 'Duststorm',             desc: 'Huge area — medium damage, slows all, immobilises nearest for 1.5s.',        effect() { this.evolveToDuststorm(); } },
-            { id: 'transmutational_thrash',weaponKey: 'scratch',     weaponLabel: 'Trans. Scratch',        boostName: 'Hyperactivity',        evolvedName: 'Trans. Thrash',         desc: 'Many scratches in a huge radius — greatly raises item drop chance + Fullbox.', effect() { this.evolveToTransmutationalThrash(); } },
+            { id: 'lucky_thrash',          weaponKey: 'scratch',     weaponLabel: 'Lucky Scratch',         boostName: 'Hyperactivity',        evolvedName: 'Lucky Thrash',          desc: 'Many scratches in a huge radius — greatly raises item drop chance + Fullbox.', effect() { this.evolveToLuckyThrash(); } },
             { id: 'four_chills',           weaponKey: 'coldglare',   weaponLabel: 'Cold Glare',            boostName: 'Polycephaly',          evolvedName: 'Four Chills',           desc: 'Huge ring — slows all 8s, immobilises closest 8s, halves their HP.',         effect() { this.evolveToFourChills(); } },
         ];
         this.appliedEvolutions = new Set();
+
+        // Canonical max-level tables, used for evolution checks and for the "current/max" displays
+        // in the level-up cards and pause menu loadout.
+        this.weaponMaxLevel = {
+            bite: 4, tailslap: 2, poop: 2, pebble: 2, hiss: 2, lick: 3,
+            wormwhip: 2, pupamines: 3, skinshed: 2, woodiebounce: 3,
+            dubiashields: 4, poisonclaw: 4, branchthrow: 4, dustkick: 5, scratch: 3, coldglare: 7,
+        };
+        this.boostMaxLevel = {
+            'Inflate': 1, 'Shiny Scales': 2, 'Angry': 5, 'Aura Farming': 5,
+            'Hunter Instinct': 5, 'Basking': 5, 'Bug Bucket': 5, 'Well Fed': 3,
+            'Hungry Forager': 4, 'Hard Scales': 4, 'Polycephaly': 4, 'Venom': 3,
+            'Vitamin Supplements': 4, 'Big Fangs': 4, 'Hyperactivity': 3, 'Bug Catcher': 3,
+        };
 
         // --- Collisions ---
         this.physics.add.overlap(this.player, this.crickets, this.collectCricket, null, this);
@@ -262,7 +280,7 @@ export default class GameScene extends Phaser.Scene {
           .setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-20, -10, 120, 50), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
 
         pauseBtn.on('pointerover', () => pauseBtn.setColor('#ffff00'));
-        pauseBtn.on('pointerout',  () => pauseBtn.setColor('#ffffff'));
+        pauseBtn.on('pointerout',  () => pauseBtn.setColor(this._pauseBtnGlowTween ? '#ffdd00' : '#ffffff'));
         pauseBtn.on('pointerdown', () => this.togglePause(pauseBtn));
 
         // ESC and P also toggle pause (blocked in countdown, level clear, game over, upgrade screen)
@@ -303,6 +321,7 @@ export default class GameScene extends Phaser.Scene {
         });
 
         this.pauseBtn = pauseBtn;
+        this.updatePauseBtnGlow();
     }
 
     togglePause(btn) {
@@ -339,26 +358,31 @@ export default class GameScene extends Phaser.Scene {
                 align: 'center', wordWrap: { width: W - 80 },
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5, 0);
 
-            // EVOLUTIONS button
+            // EVOLUTIONS and QUIT sit side by side on one row (instead of stacked) so the
+            // Boosts line above has room to wrap without running into either button. The
+            // row's y is derived from the Boosts line's actual rendered height so a long,
+            // wrapped loadout never overlaps it.
             const hasEvo = this.getAvailableEvolutions().length > 0;
-            this._evoBtnText = this.add.text(W / 2, H / 2 + 148, '✦ EVOLUTIONS ✦', {
+            const evoQuitY = Math.min(H - 50, this.pauseBoostLine.y + this.pauseBoostLine.height + 20);
+            this._evoBtnText = this.add.text(0, evoQuitY, '✦ EVOLUTIONS ✦', {
                 fontSize: '14px', fontFamily: 'Arial Black, Arial',
                 color: hasEvo ? '#ffff00' : '#444444',
                 backgroundColor: hasEvo ? '#2a2200' : '#111111',
                 padding: { x: 18, y: 7 },
-            }).setScrollFactor(0).setDepth(151).setOrigin(0.5);
+            }).setScrollFactor(0).setDepth(151).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
             if (hasEvo) {
-                this._evoBtnText.setInteractive({ useHandCursor: true });
                 this._evoFlashTween = this.tweens.add({ targets: this._evoBtnText, alpha: 0.3, duration: 400, yoyo: true, repeat: -1 });
-                this._evoBtnText.on('pointerdown', () => {
-                    if (this._pauseQuitting) return;
-                    this.showEvolutionMenu();
-                });
             }
+            this._evoBtnText.on('pointerdown', () => {
+                if (this._pauseQuitting) return;
+                this._evoMenuOpen = true;
+                this.showEvolutionMenu();
+            });
 
             this._pauseQuitting = false;
-            this.pauseQuitBtn = this.add.text(W / 2, H / 2 + 185, '[ QUIT TO MAIN MENU ]', {
+            this._evoMenuOpen   = false;
+            this.pauseQuitBtn = this.add.text(0, evoQuitY, '[ QUIT TO MAIN MENU ]', {
                 fontSize: '13px', fontFamily: 'Arial', color: '#ff8888',
                 backgroundColor: '#330000', padding: { x: 16, y: 8 },
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -369,17 +393,30 @@ export default class GameScene extends Phaser.Scene {
                 this.scene.start('LevelSelectScene');
             });
 
+            // Lay the pair out side by side, centred as a group, using their actual
+            // rendered widths so they never overlap regardless of font metrics.
+            const evoQuitGap = 16;
+            const evoQuitTotalW = this._evoBtnText.width + evoQuitGap + this.pauseQuitBtn.width;
+            const evoQuitStartX = W / 2 - evoQuitTotalW / 2;
+            this._evoBtnText.setX(evoQuitStartX + this._evoBtnText.width / 2);
+            this.pauseQuitBtn.setX(evoQuitStartX + this._evoBtnText.width + evoQuitGap + this.pauseQuitBtn.width / 2);
+
             // Any key resumes (exclude P/ESC which already have their own toggle handlers)
             this.pauseAnyKey = this.input.keyboard.on('keydown', (e) => {
+                if (this._evoMenuOpen) return;
                 if (this.isPaused && e.key !== 'Escape' && e.key !== 'p' && e.key !== 'P') this.togglePause(btn);
             });
             // Register resume handlers on the next animation frame so the event
             // that triggered pause doesn't immediately re-fire and unpause
             requestAnimationFrame(() => {
                 this.input.on('pointerdown', this._pausePointerHandler = () => {
+                    if (this._evoMenuOpen) return;
                     if (this.isPaused && !this._pauseQuitting) this.togglePause(btn);
                 });
                 this.input.gamepad.on('down', this._pauseGamepadHandler = (pad, button) => {
+                    if (this._evoMenuOpen) return;
+                    // X opens the EVOLUTIONS menu instead of resuming (always openable)
+                    if (button.index === 2) { this._evoMenuOpen = true; this.showEvolutionMenu(); return; }
                     if (this.isPaused && button.index !== 9 && !this._pauseQuitting) this.togglePause(btn);
                 });
             });
@@ -397,6 +434,7 @@ export default class GameScene extends Phaser.Scene {
             this.pauseQuitBtn?.destroy();
             this._evoBtnText?.destroy(); this._evoBtnText = null;
             if (this._evoFlashTween) { this._evoFlashTween.stop(); this._evoFlashTween = null; }
+            this._evoMenuOpen = false;
             this.input.keyboard.off('keydown', this.pauseAnyKey);
             this.input.off('pointerdown', this._pausePointerHandler);
             this.input.gamepad.off('down', this._pauseGamepadHandler);
@@ -1961,8 +1999,8 @@ export default class GameScene extends Phaser.Scene {
         this.maybePolycephaly(() => this.doDustKick());
     }
 
-    // ─── Transmutational Scratch ─────────────────────────────────────────────────
-    doTransmutationalScratch() {
+    // ─── Lucky Scratch ────────────────────────────────────────────────────────────
+    doLuckyScratch() {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
         const a   = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -1995,7 +2033,7 @@ export default class GameScene extends Phaser.Scene {
         g.beginPath(); g.moveTo(sx + s, sy - s); g.lineTo(sx - s, sy + s); g.strokePath();
         this.tweens.add({ targets: g, alpha: 0, duration: 2000, onComplete: () => g.destroy() });
 
-        this.maybePolycephaly(() => this.doTransmutationalScratch());
+        this.maybePolycephaly(() => this.doLuckyScratch());
     }
 
     // ─── Cold Glare ──────────────────────────────────────────────────────────────
@@ -2050,9 +2088,11 @@ export default class GameScene extends Phaser.Scene {
             if (enemy.shootTimer)  enemy.shootTimer.remove();
             if (enemy.whipTimer)   enemy.whipTimer.remove();
             if (enemy.burrowTimer) enemy.burrowTimer.remove();
+            this.cleanupMiniBossTimers(enemy);
             enemy.hpBarBg?.destroy();
             enemy.hpBar?.destroy();
             enemy.hpLabel?.destroy();
+            enemy.phaseLine?.destroy();
             enemy.destroy();
             return;
         }
@@ -2080,8 +2120,8 @@ export default class GameScene extends Phaser.Scene {
             this.hyperactivityKillsSince++;
             if (this.hyperactivityKillsSince >= this.hyperactivityKillGoal) {
                 this.hyperactivityKillsSince = 0;
-                const boost  = this.hyperactivityLevel === 1 ? 50  : 150;
-                const dur    = this.hyperactivityLevel === 1 ? 5000 : 20000;
+                const boost  = this.hyperactivityLevel === 1 ? 25 : this.hyperactivityLevel === 2 ? 50  : 75;
+                const dur    = this.hyperactivityLevel === 1 ? 5000 : this.hyperactivityLevel === 2 ? 12000 : 20000;
                 this.playerSpeed += boost;
                 this.time.delayedCall(dur, () => { this.playerSpeed -= boost; });
                 // Brief tint flash to signal activation
@@ -2423,7 +2463,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     canDamageEnemy(enemy) {
-        return enemy.active && !enemy.isUnderground;
+        return enemy.active && !enemy.isUnderground && !enemy.mantisVanishing;
     }
 
     checkHydraPhase(enemy) {
@@ -2545,7 +2585,7 @@ export default class GameScene extends Phaser.Scene {
         const H = this.cameras.main.height;
 
         const bossCfg = this.level === 5
-            ? { key: 'the_hand',        label: 'THE HAND',        health: 10000, damage: 30, scale: 0.8 }
+            ? { key: 'the_hand',        label: 'THE HAND',        health: 5000, damage: 30, scale: 0.8 }
             : this.level === 4
             ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 8000, damage: Phaser.Math.Between(5, 15), scale: 0.6 }
             : this.level === 3
@@ -2602,14 +2642,20 @@ export default class GameScene extends Phaser.Scene {
             this.topBossHpBar   = this.add.rectangle(20, 12, W - 40, 14, 0xff2222).setScrollFactor(0).setDepth(101).setOrigin(0, 0.5);
             this.topBossLabel   = this.add.text(W / 2, 12, bossCfg.label, {
                 fontSize: '10px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
-            }).setScrollFactor(0).setDepth(102).setOrigin(0.5, 0.5);
+            }).setScrollFactor(0).setDepth(104).setOrigin(0.5, 0.5);
 
             // Damage + overlap
             this.physics.add.overlap(this.player, this.boss, this.bossHitPlayer, null, this);
             this.physics.add.overlap(this.boss, this.pupaGroup, (boss, mine) => { if (mine.explodeFn) mine.explodeFn(); });
 
             if (this.level === 5) {
-                // The Hand: multi-phase boss
+                // The Hand: multi-phase boss — one continuous health bar covering all 4
+                // phases, with divider lines instead of resetting to full each transition.
+                const { total, boundaries } = this.computePhasedHealth(bossCfg.health, 4);
+                this.boss.health      = total;
+                this.boss.maxHealth   = total;
+                this.boss.phaseBoundaries = boundaries;
+                this.createBossPhaseLines(boundaries);
                 this.boss.handPhase            = 1;
                 this.boss.handImmobile         = false;
                 this.boss.handWanderTarget     = null;
@@ -2619,7 +2665,14 @@ export default class GameScene extends Phaser.Scene {
                 this.handMiniBossArray         = [];
                 this.scheduleHandSlap();
             } else if (this.level === 4) {
-                // Mulberry Mantis: chases at high speed; vanishes every 5–10s
+                // Mulberry Mantis: chases at high speed; vanishes every 5–10s.
+                // One continuous health bar covering both phases, with a divider line
+                // instead of resetting to full at the phase-2 transition.
+                const { total, boundaries } = this.computePhasedHealth(bossCfg.health, 2);
+                this.boss.health      = total;
+                this.boss.maxHealth   = total;
+                this.boss.phaseBoundaries = boundaries;
+                this.createBossPhaseLines(boundaries);
                 this.boss.mantisPhase          = 1;
                 this.boss.mantisVanishing      = false;
                 this.boss.mantisResting        = false;
@@ -2659,6 +2712,35 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
+    // Bosses with health-reset phases instead get one continuous bar sized to cover every
+    // phase, with vertical divider lines marking where each phase transition occurs — the
+    // bar just keeps draining through the marks instead of snapping back to full.
+    // Each non-final phase historically ended (and reset) once 90% of its health was dealt;
+    // the final phase drains all the way to 0. This returns the same total damage-to-kill.
+    computePhasedHealth(baseHealth, phaseCount) {
+        const segments = [];
+        for (let i = 0; i < phaseCount - 1; i++) segments.push(baseHealth * 0.9);
+        segments.push(baseHealth);
+        const total = segments.reduce((a, b) => a + b, 0);
+        const boundaries = [];
+        let cumulative = 0;
+        for (let i = 0; i < segments.length - 1; i++) {
+            cumulative += segments[i];
+            boundaries.push(total - cumulative);
+        }
+        return { total, boundaries };
+    }
+
+    createBossPhaseLines(boundaries) {
+        this.bossPhaseLines = boundaries.map(() =>
+            this.add.rectangle(this.boss.x, this.boss.y + 30, 2, 12, 0xbb66ff, 0.9).setDepth(11)
+        );
+        const W = this.cameras.main.width;
+        this.topBossPhaseLines = boundaries.map(() =>
+            this.add.rectangle(W / 2, 12, 2, 16, 0xbb66ff, 0.9).setScrollFactor(0).setDepth(103)
+        );
+    }
+
     updateBossHealthBar() {
         if (!this.boss || !this.bossHpBar) return;
         const pct = Math.max(0, this.boss.health / this.boss.maxHealth);
@@ -2672,6 +2754,18 @@ export default class GameScene extends Phaser.Scene {
         if (this.topBossHpBar) {
             const W = this.cameras.main.width;
             this.topBossHpBar.width = (W - 40) * pct;
+        }
+        this.bossPhaseLines.forEach((line, i) => {
+            const f = this.boss.phaseBoundaries[i] / this.boss.maxHealth;
+            line.x = this.boss.x - 40 + f * 80;
+            line.y = this.boss.y + 30;
+        });
+        if (this.topBossPhaseLines.length) {
+            const W = this.cameras.main.width;
+            this.topBossPhaseLines.forEach((line, i) => {
+                const f = this.boss.phaseBoundaries[i] / this.boss.maxHealth;
+                line.x = 20 + f * (W - 40);
+            });
         }
     }
 
@@ -2992,6 +3086,7 @@ export default class GameScene extends Phaser.Scene {
             this.bossHpBarBg?.setVisible(false);
             this.bossHpBar?.setVisible(false);
             this.bossHpLabel?.setVisible(false);
+            this.bossPhaseLines.forEach(l => l.setVisible(false));
 
             // Wait 3–5s then reappear next to player
             const hideDuration = Phaser.Math.Between(3000, 5000);
@@ -3020,6 +3115,7 @@ export default class GameScene extends Phaser.Scene {
         this.bossHpBarBg?.setVisible(true);
         this.bossHpBar?.setVisible(true);
         this.bossHpLabel?.setVisible(true);
+        this.bossPhaseLines.forEach(l => l.setVisible(true));
 
         // Flash in
         this.tweens.add({ targets: boss, alpha: 1, duration: 150, onComplete: () => {
@@ -3100,10 +3196,8 @@ export default class GameScene extends Phaser.Scene {
         this.damageDealt += amount; this.boss.health -= amount;
         this.tweens.add({ targets: this.boss, alpha: 0.2, duration: 80, yoyo: true });
         this.updateBossHealthBar();
-        if (this.level === 4 && this.boss.mantisPhase === 1 && this.boss.health <= this.boss.maxHealth * 0.1) {
+        if (this.level === 4 && this.boss.mantisPhase === 1 && this.boss.health <= this.boss.phaseBoundaries[0]) {
             this.boss.mantisPhase = 2;
-            this.boss.health      = this.boss.maxHealth;
-            this.updateBossHealthBar();
             this.spawnMantisPhase2Ring();
         }
         if (this.level === 2 && !this.boss.phaseTriggered && this.boss.health <= this.boss.maxHealth * 0.5) {
@@ -3111,10 +3205,9 @@ export default class GameScene extends Phaser.Scene {
             this.triggerRocketSpiderPhase2();
         }
         if (this.level === 5 && this.boss && !this.boss.handPhaseTransitioned) {
-            if (this.boss.handPhase < 4 && this.boss.health <= this.boss.maxHealth * 0.1) {
+            const nextBoundary = this.boss.phaseBoundaries[this.boss.handPhase - 1];
+            if (this.boss.handPhase < 4 && nextBoundary !== undefined && this.boss.health <= nextBoundary) {
                 this.boss.handPhaseTransitioned = true;
-                this.boss.health = this.boss.maxHealth;
-                this.updateBossHealthBar();
                 this.triggerHandNextPhase();
                 return;
             }
@@ -3214,17 +3307,23 @@ export default class GameScene extends Phaser.Scene {
         if (this.handBossSpawnTimer) this.handBossSpawnTimer.remove();
         if (this.handRingsTimer)     this.handRingsTimer.remove();
         if (this.handVacuumTimer)    this.handVacuumTimer.remove();
+        if (this.handProjTimer)      this.handProjTimer.remove();
+        this.handVacuumActive = false;
+        this.handVacuumOverlay?.destroy(); this.handVacuumOverlay = null;
         this.handFireZones?.forEach(z => { z.damageTimer?.remove(); z.graphics?.destroy(); });
         this.handFireZones = [];
         this.handMiniBossArray?.forEach(b => {
             if (!b.active) return;
-            b.hpBarBg?.destroy(); b.hpBar?.destroy(); b.hpLabel?.destroy();
+            this.cleanupMiniBossTimers(b);
+            b.hpBarBg?.destroy(); b.hpBar?.destroy(); b.hpLabel?.destroy(); b.phaseLine?.destroy();
             b.destroy();
         });
         this.handMiniBossArray = [];
         this.bossHpBar?.destroy();
         this.bossHpBarBg?.destroy();
         this.bossHpLabel?.destroy();
+        this.bossPhaseLines.forEach(l => l.destroy());    this.bossPhaseLines    = [];
+        this.topBossPhaseLines.forEach(l => l.destroy()); this.topBossPhaseLines = [];
         if (this.topBossHpBar)   { this.topBossHpBar.width = 0; }
         if (this.topBossLabel)   { this.topBossLabel.setText('BOSS DEFEATED'); }
         this.timerText.setVisible(true);
@@ -3475,7 +3574,7 @@ export default class GameScene extends Phaser.Scene {
         // Weapons — only offered if not yet owned; upgrades offered if already owned
         const weaponUpgrades = [
             {
-                name: 'Bite', desc: 'Faster bite — fires every 2s, +15 range, +10 damage', type: 'weapon',
+                name: this.weaponCardLabel('bite', 'Bite'), desc: 'Faster bite — fires every 2s, +15 range, +10 damage', type: 'weapon',
                 available: () => this.biteLevel === 1,
                 effect: () => {
                     this.biteLevel = 2;
@@ -3485,7 +3584,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Bite', desc: 'Stronger bite — +20 range, +15 damage', type: 'weapon',
+                name: this.weaponCardLabel('bite', 'Bite'), desc: 'Stronger bite — +20 range, +15 damage', type: 'weapon',
                 available: () => this.biteLevel === 2,
                 effect: () => {
                     this.biteLevel = 3;
@@ -3493,7 +3592,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Bite', desc: 'Venomous bite — +20 range, +15 damage, slows enemies for 2s', type: 'weapon',
+                name: this.weaponCardLabel('bite', 'Bite'), desc: 'Venomous bite — +20 range, +15 damage, slows enemies for 2s', type: 'weapon',
                 available: () => this.biteLevel === 3,
                 effect: () => {
                     this.biteLevel = 4;
@@ -3501,7 +3600,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Tail Slap', desc: 'Sweeping arc attack behind you as you move', type: 'weapon',
+                name: this.weaponCardLabel('tailslap', 'Tail Slap'), desc: 'Sweeping arc attack behind you as you move', type: 'weapon',
                 available: () => !this.ownedWeapons.has('tailslap'),
                 effect: () => {
                     this.ownedWeapons.add('tailslap');
@@ -3509,12 +3608,12 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Tail Slap', desc: 'Widen the arc behind you to 180°', type: 'weapon',
+                name: this.weaponCardLabel('tailslap', 'Tail Slap'), desc: 'Widen the arc behind you to 180°', type: 'weapon',
                 available: () => this.ownedWeapons.has('tailslap') && !this.tailSlapUpgraded,
                 effect: () => { this.tailSlapUpgraded = true; },
             },
             {
-                name: 'Poop', desc: 'Fires an exploding continuous projectile in a random direction', type: 'weapon',
+                name: this.weaponCardLabel('poop', 'Poop'), desc: 'Fires an exploding continuous projectile in a random direction', type: 'weapon',
                 available: () => !this.ownedWeapons.has('poop') && this.playerLevel >= 20,
                 effect: () => {
                     this.ownedWeapons.add('poop');
@@ -3522,12 +3621,12 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Poop', desc: 'Field lasts 6 seconds instead of 3', type: 'weapon',
+                name: this.weaponCardLabel('poop', 'Poop'), desc: 'Field lasts 6 seconds instead of 3', type: 'weapon',
                 available: () => this.ownedWeapons.has('poop') && !this.poopUpgraded,
                 effect: () => { this.poopUpgraded = true; this.poopDuration = 6000; },
             },
             {
-                name: 'Pebble Flick', desc: 'Fires 3 piercing pebbles toward the nearest enemy', type: 'weapon',
+                name: this.weaponCardLabel('pebble', 'Pebble Flick'), desc: 'Fires 3 piercing pebbles toward the nearest enemy', type: 'weapon',
                 available: () => !this.ownedWeapons.has('pebble'),
                 effect: () => {
                     this.ownedWeapons.add('pebble');
@@ -3535,12 +3634,12 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Pebble Flick', desc: 'Fire 9 pebbles that pierce 3 enemies', type: 'weapon',
+                name: this.weaponCardLabel('pebble', 'Pebble Flick'), desc: 'Fire 9 pebbles that pierce 3 enemies', type: 'weapon',
                 available: () => this.ownedWeapons.has('pebble') && this.pebbleCount < 9,
                 effect: () => { this.pebbleCount = 9; this.pebblePierce = 3; },
             },
             {
-                name: 'Lick',
+                name: this.weaponCardLabel('lick', 'Lick'),
                 desc: ['High-damage tongue at nearest enemy', '2 tongues, longer reach', '3 tongues, even longer reach'][this.lickLevel] ?? 'High-damage tongue at nearest enemy',
                 type: 'weapon',
                 available: () => this.lickLevel < 3,
@@ -3553,7 +3652,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Hiss', desc: 'Slow enemies in a 45° cone for 2 seconds', type: 'weapon',
+                name: this.weaponCardLabel('hiss', 'Hiss'), desc: 'Slow enemies in a 45° cone for 2 seconds', type: 'weapon',
                 available: () => !this.ownedWeapons.has('hiss'),
                 effect: () => {
                     this.ownedWeapons.add('hiss');
@@ -3561,12 +3660,12 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Hiss', desc: 'Widen cone to 90°', type: 'weapon',
+                name: this.weaponCardLabel('hiss', 'Hiss'), desc: 'Widen cone to 90°', type: 'weapon',
                 available: () => this.ownedWeapons.has('hiss') && !this.hissUpgraded,
                 effect: () => { this.hissUpgraded = true; },
             },
             {
-                name: 'Worm Whip',
+                name: this.weaponCardLabel('wormwhip', 'Worm Whip'),
                 desc: ['Whip left or right, alternating each strike', 'Whip both sides at once, longer range'][this.wormWhipLevel] ?? 'Whip left or right',
                 type: 'weapon',
                 available: () => this.wormWhipLevel < 2,
@@ -3581,7 +3680,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Pupa Mines',
+                name: this.weaponCardLabel('pupamines', 'Pupa Mines'),
                 desc: ['Drop 1 exploding pupa mine', 'Drop 3 pupa mines', 'Drop 5 pupa mines'][this.pupaLevel] ?? 'Drop exploding pupa mines',
                 type: 'weapon',
                 available: () => this.pupaLevel < 3,
@@ -3594,7 +3693,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Skin Shed',
+                name: this.weaponCardLabel('skinshed', 'Skin Shed'),
                 desc: ['Fling a piece of shed skin that arcs downward', 'Fling 2 pieces of shed skin'][this.skinLevel] ?? 'Fling shed skin outward',
                 type: 'weapon',
                 available: () => this.skinLevel < 2,
@@ -3607,7 +3706,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Woodie Bounce',
+                name: this.weaponCardLabel('woodiebounce', 'Woodie Bounce'),
                 desc: ['Launch 1 bouncing woodlouse (2 bounces)', 'Launch 2 woodlice (3 bounces)', 'Launch 3 woodlice (5 bounces each)'][this.woodieLevel] ?? 'Launch a bouncing woodlouse',
                 type: 'weapon',
                 available: () => this.woodieLevel < 3,
@@ -3620,7 +3719,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Dubia Shields',
+                name: this.weaponCardLabel('dubiashields', 'Dubia Shields'),
                 desc: [
                     'Two roach shields orbit you, damaging anything they touch',
                     'Three shields orbit faster',
@@ -3647,7 +3746,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Poison Claw',
+                name: this.weaponCardLabel('poisonclaw', 'Poison Claw'),
                 desc: [
                     'Lunge a venomous claw at nearest enemy (80px) — poisons for 3s',
                     'Longer reach (110px) — poisons for 5s',
@@ -3665,7 +3764,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Branch Throw',
+                name: this.weaponCardLabel('branchthrow', 'Branch Throw'),
                 desc: ['Hurl a wide branch at the nearest enemy (breaks after 15 hits)', 'Wider branch', 'Even wider branch', 'Breaks after 30 hits instead'][this.branchLevel] ?? 'Branch Throw',
                 type: 'weapon',
                 available: () => this.branchLevel < 4,
@@ -3680,7 +3779,7 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Dust Kick',
+                name: this.weaponCardLabel('dustkick', 'Dust Kick'),
                 desc: ['Fire a short beam of dust — deals low damage and slows enemies 2s', 'Stronger kick', 'Stronger kick', 'Stronger kick', 'Much longer beam, slows for 10s'][this.dustKickLevel] ?? 'Dust Kick',
                 type: 'weapon',
                 available: () => this.dustKickLevel < 5,
@@ -3696,20 +3795,20 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Transmutational Scratch',
-                desc: ['Scratch mark near you — damaged enemies have a higher Foodbox drop chance', 'Damaged enemies also have a higher Treasure drop chance', 'Bigger scratch, larger area'][this.scratchLevel] ?? 'Transmutational Scratch',
+                name: this.weaponCardLabel('scratch', 'Lucky Scratch'),
+                desc: ['Scratch mark near you — damaged enemies have a higher Foodbox drop chance', 'Damaged enemies also have a higher Treasure drop chance', 'Bigger scratch, larger area'][this.scratchLevel] ?? 'Lucky Scratch',
                 type: 'weapon',
                 available: () => this.scratchLevel < 3,
                 effect: () => {
                     this.scratchLevel++;
                     if (this.scratchLevel === 1) {
                         this.ownedWeapons.add('scratch');
-                        this.scratchTimer = this.time.addEvent({ delay: 12000, callback: this.doTransmutationalScratch, callbackScope: this, loop: true });
+                        this.scratchTimer = this.time.addEvent({ delay: 12000, callback: this.doLuckyScratch, callbackScope: this, loop: true });
                     }
                 },
             },
             {
-                name: 'Cold Glare',
+                name: this.weaponCardLabel('coldglare', 'Cold Glare'),
                 desc: (() => {
                     if (!this.coldGlareActive)
                         return 'Freeze nearby enemies for 1s every 30s';
@@ -3743,12 +3842,12 @@ export default class GameScene extends Phaser.Scene {
 
         // Passives — always available
         const passiveUpgrades = [
-            { name: 'Inflate',      desc: 'Taking damage knocks back and hurts nearby enemies', effect: () => { this.ownedPassives.push('Inflate');      this.inflateActive = true; } },
-            { name: 'Shiny Scales', desc: this.deflectChance === 0 ? '30% chance to deflect enemy projectiles back at them' : '60% chance to deflect enemy projectiles back at them', available: () => this.deflectChance < 0.60, effect: () => { this.ownedPassives.push('Shiny Scales'); this.deflectChance = this.deflectChance === 0 ? 0.30 : 0.60; } },
-            { name: 'Angry',           desc: 'Snapper moves faster',                available: () => this.ownedPassives.filter(p => p === 'Angry').length           < 5, effect: () => { this.ownedPassives.push('Angry');           this.playerSpeed += 30; } },
-            { name: 'Aura Farming',    desc: 'Snapper\'s attacks do more damage',   available: () => this.ownedPassives.filter(p => p === 'Aura Farming').length    < 5, effect: () => { this.ownedPassives.push('Aura Farming');    this.biteDamage += 10; this.tailSlapDamage += 10; this.poopDamage += 10; this.pebbleDamage += 10; this.lickDamage += 10; this.wormWhipDamage += 10; this.pupaDamage += 10; this.skinDamage += 10; this.woodieDamage += 10; this.dubiaShieldDamage += 10; } },
-            { name: 'Hunter Instinct', desc: 'Snapper\'s attacks reach further',    available: () => this.ownedPassives.filter(p => p === 'Hunter Instinct').length < 5, effect: () => { this.ownedPassives.push('Hunter Instinct'); this.biteRange += 25; this.tailSlapRange += 25; this.hissRange += 25; this.lickRangeBonus += 25; this.wormWhipRange += 25; this.pupaRadius += 15; this.dustKickLength += 40; } },
-            { name: 'Basking',         desc: 'Snapper\'s attacks fire faster',      effect: () => {
+            { name: this.boostCardLabel('Inflate'),      desc: 'Taking damage knocks back and hurts nearby enemies', available: () => this.ownedPassives.filter(p => p === 'Inflate').length < 1, effect: () => { this.ownedPassives.push('Inflate');      this.inflateActive = true; } },
+            { name: this.boostCardLabel('Shiny Scales'), desc: this.deflectChance === 0 ? '30% chance to deflect enemy projectiles back at them' : '60% chance to deflect enemy projectiles back at them', available: () => this.deflectChance < 0.60, effect: () => { this.ownedPassives.push('Shiny Scales'); this.deflectChance = this.deflectChance === 0 ? 0.30 : 0.60; } },
+            { name: this.boostCardLabel('Angry'),           desc: 'Snapper moves faster',                available: () => this.ownedPassives.filter(p => p === 'Angry').length           < 5, effect: () => { this.ownedPassives.push('Angry');           this.playerSpeed += 30; } },
+            { name: this.boostCardLabel('Aura Farming'),    desc: 'Snapper\'s attacks do more damage',   available: () => this.ownedPassives.filter(p => p === 'Aura Farming').length    < 5, effect: () => { this.ownedPassives.push('Aura Farming');    this.biteDamage += 10; this.tailSlapDamage += 10; this.poopDamage += 10; this.pebbleDamage += 10; this.lickDamage += 10; this.wormWhipDamage += 10; this.pupaDamage += 10; this.skinDamage += 10; this.woodieDamage += 10; this.dubiaShieldDamage += 10; } },
+            { name: this.boostCardLabel('Hunter Instinct'), desc: 'Snapper\'s attacks reach further',    available: () => this.ownedPassives.filter(p => p === 'Hunter Instinct').length < 5, effect: () => { this.ownedPassives.push('Hunter Instinct'); this.biteRange += 25; this.tailSlapRange += 25; this.hissRange += 25; this.lickRangeBonus += 25; this.wormWhipRange += 25; this.pupaRadius += 15; this.dustKickLength += 40; } },
+            { name: this.boostCardLabel('Basking'),         desc: 'Snapper\'s attacks fire faster',      available: () => this.ownedPassives.filter(p => p === 'Basking').length < 5, effect: () => {
                 this.ownedPassives.push('Basking');
                 this.biteRate = Math.max(300, this.biteRate - 150);
                 this.biteTimer.reset({ delay: this.biteRate, callback: this.doBite, callbackScope: this, loop: true });
@@ -3764,26 +3863,28 @@ export default class GameScene extends Phaser.Scene {
                 if (this.poisonClawTimer)   this.poisonClawTimer.reset({   delay: Math.max(300, this.poisonClawTimer.delay   - 150), callback: this.doPoisonClaw,             callbackScope: this, loop: true });
                 if (this.branchTimer)       this.branchTimer.reset({       delay: Math.max(300, this.branchTimer.delay       - 150), callback: this.doBranchThrow,            callbackScope: this, loop: true });
                 if (this.dustKickTimer)     this.dustKickTimer.reset({     delay: Math.max(300, this.dustKickTimer.delay     - 150), callback: this.doDustKick,               callbackScope: this, loop: true });
-                if (this.scratchTimer)      this.scratchTimer.reset({      delay: Math.max(300, this.scratchTimer.delay      - 150), callback: this.doTransmutationalScratch, callbackScope: this, loop: true });
+                if (this.scratchTimer)      this.scratchTimer.reset({      delay: Math.max(300, this.scratchTimer.delay      - 150), callback: this.doLuckyScratch, callbackScope: this, loop: true });
                 if (this.coldGlareActive) { this.coldGlareCooldown = Math.max(5000, this.coldGlareCooldown - 1500); this.scheduleColdGlare(); }
             } },
-            { name: 'Bug Bucket',      desc: 'Snapper\'s max health increases by 25',  available: () => this.ownedPassives.filter(p => p === 'Bug Bucket').length     < 5, effect: () => { this.ownedPassives.push('Bug Bucket');      this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
-            { name: 'Well Fed',        desc: (() => { const d = Math.round(this.regenDelay * 0.8 / 100) / 10; return `Speed up regen to 1 HP every ${d}s`; })(), available: () => this.ownedPassives.filter(p => p === 'Well Fed').length < 3, effect: () => { this.ownedPassives.push('Well Fed'); this.startRegen(); } },
-            { name: 'Hungry Forager',  desc: 'Insects attract to Snapper from further', available: () => this.ownedPassives.filter(p => p === 'Hungry Forager').length < 4, effect: () => { this.ownedPassives.push('Hungry Forager'); this.magnetRange += 80; } },
-            { name: 'Hard Scales',     desc: 'Enemies deal less damage to Snapper',    available: () => this.ownedPassives.filter(p => p === 'Hard Scales').length    < 4, effect: () => { this.ownedPassives.push('Hard Scales');    this.enemies.getChildren().forEach(e => { e.damage = Math.max(1, e.damage - 2); }); } },
+            { name: this.boostCardLabel('Bug Bucket'),      desc: 'Snapper\'s max health increases by 25',  available: () => this.ownedPassives.filter(p => p === 'Bug Bucket').length     < 5, effect: () => { this.ownedPassives.push('Bug Bucket');      this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
+            { name: this.boostCardLabel('Well Fed'),        desc: (() => { const d = Math.round(this.regenDelay * 0.8 / 100) / 10; return `Speed up regen to 1 HP every ${d}s`; })(), available: () => this.ownedPassives.filter(p => p === 'Well Fed').length < 3, effect: () => { this.ownedPassives.push('Well Fed'); this.startRegen(); } },
+            { name: this.boostCardLabel('Hungry Forager'),  desc: 'Insects attract to Snapper from further', available: () => this.ownedPassives.filter(p => p === 'Hungry Forager').length < 4, effect: () => { this.ownedPassives.push('Hungry Forager'); this.magnetRange += 80; } },
+            { name: this.boostCardLabel('Hard Scales'),     desc: 'Enemies deal less damage to Snapper',    available: () => this.ownedPassives.filter(p => p === 'Hard Scales').length    < 4, effect: () => { this.ownedPassives.push('Hard Scales');    this.enemies.getChildren().forEach(e => { e.damage = Math.max(1, e.damage - 2); }); } },
             {
-                name: 'Polycephaly',
+                name: this.boostCardLabel('Polycephaly'),
                 desc: `${Math.round((this.polycephalyChance + 0.10) * 100)}% chance for each attack to fire twice`,
+                available: () => this.ownedPassives.filter(p => p === 'Polycephaly').length < 4,
                 effect: () => { this.ownedPassives.push('Polycephaly'); this.polycephalyChance += 0.10; },
             },
             {
-                name: 'Venom',
+                name: this.boostCardLabel('Venom'),
                 desc: (() => {
                     const first = this.venomChance === 0;
                     const nextChance = first ? 15 : Math.round((this.venomChance + 0.10) * 100);
                     const nextDur   = first ? '2.0' : ((this.venomDuration + 500) / 1000).toFixed(1);
                     return `${nextChance}% chance to poison enemies for ${nextDur}s`;
                 })(),
+                available: () => this.ownedPassives.filter(p => p === 'Venom').length < 3,
                 effect: () => {
                     const first = this.venomChance === 0;
                     this.ownedPassives.push('Venom');
@@ -3791,9 +3892,9 @@ export default class GameScene extends Phaser.Scene {
                     if (!first) this.venomDuration += 500;
                 },
             },
-            { name: 'Vitamin Supplements', desc: 'Higher chance of Foodbox and Treasure drops', available: () => this.ownedPassives.filter(p => p === 'Vitamin Supplements').length < 4, effect: () => { this.ownedPassives.push('Vitamin Supplements'); this.vitaminBonus += 0.02; } },
+            { name: this.boostCardLabel('Vitamin Supplements'), desc: 'Higher chance of Foodbox and Treasure drops', available: () => this.ownedPassives.filter(p => p === 'Vitamin Supplements').length < 4, effect: () => { this.ownedPassives.push('Vitamin Supplements'); this.vitaminBonus += 0.02; } },
             {
-                name: 'Big Fangs',
+                name: this.boostCardLabel('Big Fangs'),
                 desc: (() => {
                     const lvl = this.ownedPassives.filter(p => p === 'Big Fangs').length;
                     const chances = [5, 9, 14, 18];
@@ -3812,25 +3913,25 @@ export default class GameScene extends Phaser.Scene {
                 },
             },
             {
-                name: 'Hyperactivity',
+                name: this.boostCardLabel('Hyperactivity'),
                 desc: (() => {
                     const lvl = this.ownedPassives.filter(p => p === 'Hyperactivity').length;
-                    if (lvl === 0) return 'Every 35 kills: +50px/s for 5s';
-                    if (lvl === 1) return 'Every 20 kills: +100px/s for 12s → fully upgrade to 12 kills / +150px/s / 20s';
-                    return 'Every 12 kills: +150px/s for 20s';
+                    if (lvl === 0) return 'Every 70 kills: move faster for 5s';
+                    if (lvl === 1) return 'Every 40 kills: move much faster for 12s';
+                    return 'Every 24 kills: move very fast for 20s';
                 })(),
                 available: () => this.ownedPassives.filter(p => p === 'Hyperactivity').length < 3,
                 effect: () => {
                     this.ownedPassives.push('Hyperactivity');
                     const lvl = this.ownedPassives.filter(p => p === 'Hyperactivity').length;
                     this.hyperactivityLevel = lvl;
-                    if (lvl === 1) { this.hyperactivityKillGoal = 35; }
-                    else if (lvl === 2) { this.hyperactivityKillGoal = 20; }
-                    else { this.hyperactivityKillGoal = 12; }
+                    if (lvl === 1) { this.hyperactivityKillGoal = 70; }
+                    else if (lvl === 2) { this.hyperactivityKillGoal = 40; }
+                    else { this.hyperactivityKillGoal = 24; }
                 },
             },
             {
-                name: 'Bug Catcher',
+                name: this.boostCardLabel('Bug Catcher'),
                 desc: (() => {
                     const lvl = this.ownedPassives.filter(p => p === 'Bug Catcher').length;
                     const chances = [10, 17, 25];
@@ -3852,7 +3953,8 @@ export default class GameScene extends Phaser.Scene {
 
         // Build the pool: all available weapons first, then passives
         const availableWeapons  = weaponUpgrades.filter(w => w.available());
-        const allUpgrades = [...availableWeapons, ...passiveUpgrades];
+        const availablePassives = passiveUpgrades.filter(p => !p.available || p.available());
+        const allUpgrades = [...availableWeapons, ...availablePassives];
 
         // Loadout panel — shown below the cards
         const { weaponLine, boostLine } = this.buildLoadoutText();
@@ -3871,7 +3973,6 @@ export default class GameScene extends Phaser.Scene {
         const startX = W / 2 - (cardW * 1.5 + gap);
 
         // Reroll button (above cards, top-right area)
-        let rerollCooldown = false;
         const rerollBtn = this.add.text(W / 2, H / 2 - 73, `🎲 Reroll  (${this.rerolls})`, {
             fontSize: '13px', fontFamily: 'Arial', color: this.rerolls > 0 ? '#ffdd55' : '#666666',
             backgroundColor: '#222222', padding: { x: 12, y: 6 },
@@ -3888,6 +3989,7 @@ export default class GameScene extends Phaser.Scene {
 
         const pickCard = (upgrade) => {
             upgrade.effect();
+            this.updatePauseBtnGlow();
             rKeyHandler && this.input.keyboard.off('keydown-R', rKeyHandler);
             padHandler  && this.input.gamepad.off('down', padHandler);
             cardEls.forEach(el => el.destroy());
@@ -3977,16 +4079,14 @@ export default class GameScene extends Phaser.Scene {
         }; // end drawCards
 
         const doReroll = () => {
-            if (this.rerolls <= 0 || rerollCooldown) return;
+            if (this.rerolls <= 0) return;
             this.rerolls--;
-            rerollCooldown = true;
             rerollBtn.setText(`🎲 Reroll  (${this.rerolls})`);
             if (this.rerolls === 0) {
                 rerollBtn.setColor('#666666');
                 rerollBtn.disableInteractive();
             }
             drawCards();
-            this.time.delayedCall(1000, () => { rerollCooldown = false; });
         };
 
         rerollBtn.on('pointerdown', doReroll);
@@ -4100,9 +4200,9 @@ export default class GameScene extends Phaser.Scene {
         this.dustKickTimer.reset({ delay: this.dustKickTimer.delay, callback: this.doDuststorm, callbackScope: this, loop: true });
     }
 
-    evolveToTransmutationalThrash() {
+    evolveToLuckyThrash() {
         this.ownedWeapons.delete('scratch'); this.ownedWeapons.add('thrash');
-        this.scratchTimer.reset({ delay: this.scratchTimer.delay, callback: this.doTransmutationalThrash, callbackScope: this, loop: true });
+        this.scratchTimer.reset({ delay: this.scratchTimer.delay, callback: this.doLuckyThrash, callbackScope: this, loop: true });
     }
 
     evolveToFourChills() {
@@ -4627,8 +4727,8 @@ export default class GameScene extends Phaser.Scene {
         this.maybePolycephaly(() => this.doDuststorm());
     }
 
-    // ─── Evolved weapon: Transmutational Thrash ───────────────────────────────
-    doTransmutationalThrash() {
+    // ─── Evolved weapon: Lucky Thrash ─────────────────────────────────────────
+    doLuckyThrash() {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
         const scratchCount = Phaser.Math.Between(8, 14);
@@ -4656,7 +4756,7 @@ export default class GameScene extends Phaser.Scene {
             g.beginPath(); g.moveTo(sx + s, sy - s); g.lineTo(sx - s, sy + s); g.strokePath();
             this.tweens.add({ targets: g, alpha: 0, duration: 1800, onComplete: () => g.destroy() });
         }
-        this.maybePolycephaly(() => this.doTransmutationalThrash());
+        this.maybePolycephaly(() => this.doLuckyThrash());
     }
 
     // ─── Evolved weapon: Four Chills ──────────────────────────────────────────
@@ -4704,88 +4804,15 @@ export default class GameScene extends Phaser.Scene {
 
     // ─── Evolution system ──────────────────────────────────────────────────────
 
-    isWeaponMaxed(weaponKey) {
-        const maxLevels = {
-            bite:        () => this.biteLevel >= 4,
-            tailslap:    () => this.ownedWeapons.has('tailslap')  && this.tailSlapUpgraded,
-            poop:        () => this.ownedWeapons.has('poop')       && this.poopUpgraded,
-            pebble:      () => this.ownedWeapons.has('pebble')     && this.pebbleCount >= 9,
-            hiss:        () => this.ownedWeapons.has('hiss')       && this.hissUpgraded,
-            lick:        () => this.lickLevel >= 3,
-            wormwhip:    () => this.wormWhipLevel >= 2,
-            pupamines:   () => this.pupaLevel >= 3,
-            skinshed:    () => this.skinLevel >= 2,
-            woodiebounce:() => this.woodieLevel >= 3,
-            dubiashields:() => this.dubiaLevel >= 4,
-            poisonclaw:  () => this.poisonClawLevel >= 4,
-            branchthrow: () => this.branchLevel >= 4,
-            dustkick:    () => this.dustKickLevel >= 5,
-            scratch:     () => this.scratchLevel >= 3,
-            coldglare:   () => this.coldGlareCdLevel >= 3 && this.coldGlareSlLevel >= 3,
-        };
-        return (maxLevels[weaponKey] ?? (() => false))();
-    }
-
-    isBoostMaxed(boostName) {
-        const counts = {
-            'Inflate':              { max: 1 },
-            'Shiny Scales':         { max: 2 },
-            'Angry':                { max: 5 },
-            'Aura Farming':         { max: 5 },
-            'Hunter Instinct':      { max: 5 },
-            'Basking':              { max: 5 },
-            'Bug Bucket':           { max: 5 },
-            'Well Fed':             { max: 3 },
-            'Hungry Forager':       { max: 4 },
-            'Hard Scales':          { max: 4 },
-            'Polycephaly':          { max: 4 },
-            'Venom':                { max: 3 },
-            'Vitamin Supplements':  { max: 4 },
-            'Big Fangs':            { max: 4 },
-            'Hyperactivity':        { max: 3 },
-            'Bug Catcher':          { max: 3 },
-        };
-        const def = counts[boostName];
-        if (!def) return false;
-        return this.ownedPassives.filter(p => p === boostName).length >= def.max;
-    }
-
-    getAvailableEvolutions() {
-        return this.evolutionDefs.filter(ev =>
-            !this.appliedEvolutions.has(ev.id) &&
-            this.isWeaponMaxed(ev.weaponKey) &&
-            this.isBoostMaxed(ev.boostName)
-        );
-    }
-
-    applyEvolution(ev) {
-        this.appliedEvolutions.add(ev.id);
-        ev.effect.call(this);
-    }
-
-    _getEvoReqLines(ev) {
-        // Returns { weaponLine, boostLine } describing current vs required progress
-        const boostCounts = {
-            'Inflate': 1, 'Shiny Scales': 2, 'Angry': 5, 'Aura Farming': 5,
-            'Hunter Instinct': 5, 'Basking': 5, 'Bug Bucket': 5, 'Well Fed': 3,
-            'Hungry Forager': 4, 'Hard Scales': 4, 'Polycephaly': 4, 'Venom': 3,
-            'Vitamin Supplements': 4, 'Big Fangs': 4, 'Hyperactivity': 3, 'Bug Catcher': 3,
-        };
-        const weaponMaxed = this.isWeaponMaxed(ev.weaponKey);
-        const boostMaxed  = this.isBoostMaxed(ev.boostName);
-
-        // Weapon: build "Label ×N" description
-        const weaponMaxLevels = {
-            bite: 4, tailslap: 2, poop: 2, pebble: 2, hiss: 2, lick: 3,
-            wormwhip: 2, pupamines: 3, skinshed: 2, woodiebounce: 3,
-            dubiashields: 4, poisonclaw: 4, branchthrow: 4, dustkick: 5, scratch: 3, coldglare: 6,
-        };
-        const weaponCurrentLevels = {
+    // Current level/count for a weapon or boost, and the "current/max" fraction text used
+    // by the level-up cards and pause menu loadout.
+    getWeaponLevel(weaponKey) {
+        const levels = {
             bite:         this.biteLevel,
-            tailslap:     1 + (this.tailSlapUpgraded ? 1 : 0),
-            poop:         1 + (this.poopUpgraded ? 1 : 0),
-            pebble:       1 + (this.pebbleCount > 3 ? 1 : 0),
-            hiss:         1 + (this.hissUpgraded ? 1 : 0),
+            tailslap:     this.ownedWeapons.has('tailslap')     ? 1 + (this.tailSlapUpgraded ? 1 : 0) : 0,
+            poop:         this.ownedWeapons.has('poop')         ? 1 + (this.poopUpgraded     ? 1 : 0) : 0,
+            pebble:       this.ownedWeapons.has('pebble')       ? 1 + (this.pebbleCount > 3  ? 1 : 0) : 0,
+            hiss:         this.ownedWeapons.has('hiss')         ? 1 + (this.hissUpgraded     ? 1 : 0) : 0,
             lick:         this.lickLevel,
             wormwhip:     this.wormWhipLevel,
             pupamines:    this.pupaLevel,
@@ -4796,25 +4823,81 @@ export default class GameScene extends Phaser.Scene {
             branchthrow:  this.branchLevel,
             dustkick:     this.dustKickLevel,
             scratch:      this.scratchLevel,
-            coldglare:    1 + this.coldGlareCdLevel + this.coldGlareSlLevel,
+            coldglare:    this.coldGlareActive ? 1 + this.coldGlareCdLevel + this.coldGlareSlLevel : 0,
         };
-        const wMax = weaponMaxLevels[ev.weaponKey] ?? 1;
-        const wCur = weaponCurrentLevels[ev.weaponKey] ?? (this.ownedWeapons.has(ev.weaponKey) ? 1 : 0);
-        const weaponSuffix = wMax > 1 ? ` ×${wMax}` : '';
-        const weaponCurSuffix = wCur > 1 ? ` ×${wCur}` : (wCur === 0 ? ' (not owned)' : '');
+        return levels[weaponKey] ?? (this.ownedWeapons.has(weaponKey) ? 1 : 0);
+    }
+
+    getBoostLevel(boostName) {
+        return this.ownedPassives.filter(p => p === boostName).length;
+    }
+
+    // "Label (cur/max)" for an owned/partially-owned weapon or boost
+    weaponFractionLabel(weaponKey, label) {
+        const max = this.weaponMaxLevel[weaponKey];
+        if (!max) return label;
+        const cur = Math.min(this.getWeaponLevel(weaponKey), max);
+        return `${label} (${cur}/${max})`;
+    }
+
+    boostFractionLabel(boostName) {
+        const max = this.boostMaxLevel[boostName];
+        if (!max) return boostName;
+        const cur = Math.min(this.getBoostLevel(boostName), max);
+        return `${boostName} (${cur}/${max})`;
+    }
+
+    // "Label (would-be/max)" for a card offering the NEXT level of a weapon or boost
+    weaponCardLabel(weaponKey, label) {
+        const max = this.weaponMaxLevel[weaponKey];
+        if (!max) return label;
+        const wouldBe = Math.min(this.getWeaponLevel(weaponKey) + 1, max);
+        return `${label} (${wouldBe}/${max})`;
+    }
+
+    boostCardLabel(boostName) {
+        const max = this.boostMaxLevel[boostName];
+        if (!max) return boostName;
+        const wouldBe = Math.min(this.getBoostLevel(boostName) + 1, max);
+        return `${boostName} (${wouldBe}/${max})`;
+    }
+
+    isWeaponMaxed(weaponKey) {
+        const max = this.weaponMaxLevel[weaponKey];
+        if (!max) return false;
+        return this.getWeaponLevel(weaponKey) >= max;
+    }
+
+    isBoostMaxed(boostName) {
+        const max = this.boostMaxLevel[boostName];
+        if (!max) return false;
+        return this.getBoostLevel(boostName) >= max;
+    }
+
+    getAvailableEvolutions() {
+        // Only the weapon needs to be fully maxed — the paired boost is a thematic
+        // suggestion, not a hard requirement.
+        return this.evolutionDefs.filter(ev =>
+            !this.appliedEvolutions.has(ev.id) &&
+            this.isWeaponMaxed(ev.weaponKey)
+        );
+    }
+
+    applyEvolution(ev) {
+        this.appliedEvolutions.add(ev.id);
+        ev.effect.call(this);
+    }
+
+    _getEvoReqLines(ev) {
+        // Returns { weaponLine } describing current vs required progress
+        const weaponMaxed = this.isWeaponMaxed(ev.weaponKey);
+        const max = this.weaponMaxLevel[ev.weaponKey] ?? 1;
+        const cur = Math.min(this.getWeaponLevel(ev.weaponKey), max);
         const weaponLine = weaponMaxed
-            ? `✓ ${ev.weaponLabel}${weaponSuffix} — READY`
-            : `✗ ${ev.weaponLabel}${weaponSuffix} — you have${weaponCurSuffix || ' ×1'}`;
+            ? `✓ ${ev.weaponLabel} (${cur}/${max}) — READY`
+            : `✗ ${ev.weaponLabel} (${cur}/${max}) — not fully upgraded`;
 
-        // Boost: build "BoostName ×N" description
-        const bMax = boostCounts[ev.boostName] ?? 1;
-        const bCur = this.ownedPassives.filter(p => p === ev.boostName).length;
-        const boostSuffix = bMax > 1 ? ` ×${bMax}` : '';
-        const boostLine = boostMaxed
-            ? `✓ ${ev.boostName}${boostSuffix} — READY`
-            : `✗ ${ev.boostName}${boostSuffix} — you have ×${bCur}`;
-
-        return { weaponLine, boostLine };
+        return { weaponLine };
     }
 
     showEvolutionMenu() {
@@ -4835,6 +4918,38 @@ export default class GameScene extends Phaser.Scene {
         const startY = 75;
         const uiItems = [overlay, title];
 
+        // Scrollable viewport — below the title, above the CLOSE button/hint.
+        // Cards beyond this range are reachable by dragging the tab on the right
+        // edge, the right stick, or (if ever needed) a mouse wheel.
+        const viewportTop    = 62;
+        const viewportBottom = H - 42;
+        const trackHeight    = viewportBottom - viewportTop;
+        const rows           = Math.max(1, Math.ceil(evos.length / cols));
+        const contentBottom  = startY + (rows - 1) * (cardH + 12) + cardH;
+        const maxScroll       = Math.max(0, contentBottom - viewportBottom);
+        let scrollY = 0;
+        let thumb   = null;
+        const scrollables = []; // { obj, baseY }
+
+        const applyScroll = (y) => {
+            scrollY = Phaser.Math.Clamp(y, 0, maxScroll);
+            scrollables.forEach(s => { s.obj.y = s.baseY - scrollY; });
+            if (thumb) {
+                thumb.y = viewportTop + (maxScroll > 0 ? (scrollY / maxScroll) * (trackHeight - thumb.height) : 0);
+            }
+        };
+
+        // Closes this menu (any method) without letting the same input also fall through
+        // to the pause menu's "any input resumes" handlers.
+        const closeMenu = () => {
+            uiItems.forEach(o => o.destroy());
+            if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
+            this.input.keyboard.off('keydown', escHandler);
+            this.input.gamepad.off('down', padHandler);
+            this.events.off('update', scrollUpdateHandler);
+            requestAnimationFrame(() => { this._evoMenuOpen = false; });
+        };
+
         evos.forEach((ev, i) => {
             const isAvail = available.includes(ev);
             const col = i % cols;
@@ -4853,7 +4968,7 @@ export default class GameScene extends Phaser.Scene {
                 fontSize: '12px', fontFamily: 'Arial Black, Arial',
                 color: isAvail ? '#ffff44' : '#555555',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
-            const recipeText = this.add.text(cx, cy + 30, `${ev.weaponLabel} + ${ev.boostName}`, {
+            const recipeText = this.add.text(cx, cy + 30, `Requires: ${ev.weaponLabel} maxed`, {
                 fontSize: '9px', fontFamily: 'Arial', color: isAvail ? '#aaaaaa' : '#333333',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
             const descText = this.add.text(cx, cy + 46, ev.desc, {
@@ -4862,13 +4977,20 @@ export default class GameScene extends Phaser.Scene {
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
 
             uiItems.push(bg, border, nameText, recipeText, descText);
+            scrollables.push(
+                { obj: bg,         baseY: cy },
+                { obj: border,     baseY: cy },
+                { obj: nameText,   baseY: cy + 10 },
+                { obj: recipeText, baseY: cy + 30 },
+                { obj: descText,   baseY: cy + 46 },
+            );
 
             if (isAvail) {
                 bg.setInteractive({ useHandCursor: true });
                 bg.on('pointerover',  () => bg.setFillStyle(0x554400));
                 bg.on('pointerout',   () => bg.setFillStyle(0x3a3000));
                 bg.on('pointerdown',  () => {
-                    uiItems.forEach(o => o.destroy());
+                    closeMenu();
                     if (this._evoFlashTween) { this._evoFlashTween.stop(); this._evoFlashTween = null; }
                     this.applyEvolution(ev);
                     this._updateEvoBtnAppearance();
@@ -4884,30 +5006,27 @@ export default class GameScene extends Phaser.Scene {
                     // Remove any existing req popup
                     if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
 
-                    const { weaponLine, boostLine } = this._getEvoReqLines(ev);
-                    const popW = 310, popH = 104;
+                    const { weaponLine } = this._getEvoReqLines(ev);
+                    const popW = 310, popH = 84;
                     const px = Phaser.Math.Clamp(cx, popW / 2 + 8, W - popW / 2 - 8);
-                    const py = Phaser.Math.Clamp(cy + cardH + 10, popH / 2 + 8, H - popH / 2 - 30);
+                    const py = Phaser.Math.Clamp((cy - scrollY) + cardH + 10, popH / 2 + 8, H - popH / 2 - 30);
 
                     const pbg = this.add.rectangle(px, py, popW, popH, 0x111111, 0.96)
                         .setScrollFactor(0).setDepth(depth + 10).setOrigin(0.5);
                     const pborder = this.add.rectangle(px, py, popW, popH)
                         .setScrollFactor(0).setDepth(depth + 10).setOrigin(0.5)
                         .setStrokeStyle(2, 0x888888);
-                    const pTitle = this.add.text(px, py - 38, `Requirements — ${ev.evolvedName}`, {
+                    const pTitle = this.add.text(px, py - 28, `Requirements — ${ev.evolvedName}`, {
                         fontSize: '10px', fontFamily: 'Arial Black, Arial', color: '#dddddd',
                     }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
-                    const pWeapon = this.add.text(px, py - 14, weaponLine, {
+                    const pWeapon = this.add.text(px, py - 2, weaponLine, {
                         fontSize: '11px', fontFamily: 'Arial', color: weaponLine.startsWith('✓') ? '#88ff88' : '#ff8888',
                     }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
-                    const pBoost = this.add.text(px, py + 10, boostLine, {
-                        fontSize: '11px', fontFamily: 'Arial', color: boostLine.startsWith('✓') ? '#88ff88' : '#ff8888',
-                    }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
-                    const pHint = this.add.text(px, py + 34, 'Click anywhere to dismiss', {
+                    const pHint = this.add.text(px, py + 24, 'Click anywhere to dismiss', {
                         fontSize: '9px', fontFamily: 'Arial', color: '#555555',
                     }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
 
-                    this._evoReqPopup = [pbg, pborder, pTitle, pWeapon, pBoost, pHint];
+                    this._evoReqPopup = [pbg, pborder, pTitle, pWeapon, pHint];
                     uiItems.push(...this._evoReqPopup);
 
                     // Dismiss on next click anywhere (one-shot)
@@ -4924,17 +5043,52 @@ export default class GameScene extends Phaser.Scene {
         }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
         closeBtn.on('pointerover',  () => closeBtn.setColor('#ffffff'));
         closeBtn.on('pointerout',   () => closeBtn.setColor('#aaaaaa'));
-        closeBtn.on('pointerdown',  () => uiItems.forEach(o => o.destroy()) || closeBtn.destroy());
+        closeBtn.on('pointerdown',  () => closeMenu());
         uiItems.push(closeBtn);
 
-        // Close on ESC
-        const escHandler = (e) => {
-            if (e.key === 'Escape') { uiItems.forEach(o => o.destroy()); closeBtn.destroy(); this.input.keyboard.off('keydown', escHandler); }
+        uiItems.push(this.add.text(W / 2, H - 6, maxScroll > 0 ? '🎮  B  Close   •   RS  Scroll' : '🎮  B  Close', {
+            fontSize: '10px', fontFamily: 'Arial', color: '#888888',
+        }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
+
+        // Scrollbar — a draggable tab on the far right edge, only shown if content overflows
+        if (maxScroll > 0) {
+            const track = this.add.rectangle(W - 10, viewportTop + trackHeight / 2, 8, trackHeight, 0x000000, 0.35)
+                .setScrollFactor(0).setDepth(depth + 3);
+            uiItems.push(track);
+
+            const thumbHeight = Math.max(30, trackHeight * (trackHeight / (trackHeight + maxScroll)));
+            thumb = this.add.rectangle(W - 10, viewportTop, 14, thumbHeight, 0xffdd55, 0.9)
+                .setScrollFactor(0).setDepth(depth + 4).setOrigin(0.5, 0)
+                .setInteractive({ useHandCursor: true });
+            this.input.setDraggable(thumb);
+            uiItems.push(thumb);
+
+            thumb.on('drag', (pointer, dragX, dragY) => {
+                const clampedTop = Phaser.Math.Clamp(dragY, viewportTop, viewportBottom - thumb.height);
+                const ratio = (clampedTop - viewportTop) / (trackHeight - thumb.height);
+                applyScroll(ratio * maxScroll);
+            });
+        }
+
+        // Right-stick scroll (continuous, scaled by frame delta)
+        const scrollUpdateHandler = (_, delta) => {
+            if (maxScroll <= 0) return;
+            const pad = this.input.gamepad.getPad(0);
+            if (!pad) return;
+            const ry = pad.rightStick.y;
+            if (Math.abs(ry) > 0.2) applyScroll(scrollY + ry * 400 * (delta / 1000));
         };
+        this.events.on('update', scrollUpdateHandler);
+
+        // Close on ESC or gamepad B
+        const escHandler = (e) => { if (e.key === 'Escape') closeMenu(); };
         this.input.keyboard.on('keydown', escHandler);
+        const padHandler = (pad, button) => { if (button.index === 1) closeMenu(); };
+        this.input.gamepad.on('down', padHandler);
     }
 
     _updateEvoBtnAppearance() {
+        this.updatePauseBtnGlow();
         if (!this._evoBtnText) return;
         const hasAny = this.getAvailableEvolutions().length > 0;
         if (hasAny) {
@@ -4949,45 +5103,64 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    // Flashes the in-game "⏸ PAUSE" button gold whenever an evolution is ready,
+    // so players get a signal without needing to open the pause menu.
+    updatePauseBtnGlow() {
+        if (!this.pauseBtn) return;
+        const hasEvo = this.getAvailableEvolutions().length > 0;
+        if (hasEvo) {
+            if (!this._pauseBtnGlowTween) {
+                this.pauseBtn.setColor('#ffdd00');
+                this._pauseBtnGlowTween = this.tweens.add({ targets: this.pauseBtn, alpha: 0.3, duration: 400, yoyo: true, repeat: -1 });
+            }
+        } else if (this._pauseBtnGlowTween) {
+            this._pauseBtnGlowTween.stop(); this._pauseBtnGlowTween = null;
+            this.pauseBtn.setAlpha(1);
+            this.pauseBtn.setColor('#ffffff');
+        }
+    }
+
     buildLoadoutText() {
         const weapons = [];
-        const lv = (n) => n > 1 ? ` ×${n}` : '';
-        if (this.ownedWeapons.has('starvechomp'))      weapons.push('Starved Chomp');
-        else if (this.ownedWeapons.has('bite'))        weapons.push('Bite'           + lv(this.biteLevel));
-        if (this.ownedWeapons.has('steelslam'))        weapons.push('Steel Slam');
-        else if (this.ownedWeapons.has('tailslap'))    weapons.push('Tail Slap'      + lv(1 + (this.tailSlapUpgraded ? 1 : 0)));
-        if (this.ownedWeapons.has('toxicocean'))       weapons.push('Toxic Ocean');
-        else if (this.ownedWeapons.has('poop'))        weapons.push('Poop'           + lv(1 + (this.poopUpgraded     ? 1 : 0)));
-        if (this.ownedWeapons.has('sunbakedambers'))   weapons.push('Sunbaked Ambers');
-        else if (this.ownedWeapons.has('pebble'))      weapons.push('Pebble Flick'   + lv(1 + (this.pebbleCount > 3  ? 1 : 0)));
-        if (this.ownedWeapons.has('ragingroar'))       weapons.push('Raging Roar');
-        else if (this.ownedWeapons.has('hiss'))        weapons.push('Hiss'           + lv(1 + (this.hissUpgraded     ? 1 : 0)));
-        if (this.ownedWeapons.has('stickyshot'))       weapons.push('Sticky Shot');
-        else if (this.ownedWeapons.has('lick'))        weapons.push('Lick'           + lv(this.lickLevel));
-        if (this.ownedWeapons.has('acidsnake'))        weapons.push('Acid Snake');
-        else if (this.ownedWeapons.has('wormwhip'))    weapons.push('Worm Whip'      + lv(this.wormWhipLevel));
-        if (this.ownedWeapons.has('bugbuster'))        weapons.push('Bug Buster');
-        else if (this.ownedWeapons.has('pupamines'))   weapons.push('Pupa Mines'     + lv(this.pupaLevel));
-        if (this.ownedWeapons.has('spikeshedder'))     weapons.push('Spike Shedder');
-        else if (this.ownedWeapons.has('skinshed'))    weapons.push('Skin Shed'      + lv(this.skinLevel));
-        if (this.ownedWeapons.has('shiningshells'))    weapons.push('Shining Shells');
-        else if (this.ownedWeapons.has('woodiebounce'))weapons.push('Woodie Bounce'  + lv(this.woodieLevel));
-        if (this.ownedWeapons.has('dubiadefenders'))   weapons.push('Dubia Defenders');
-        else if (this.ownedWeapons.has('dubiashields'))weapons.push('Dubia Shields'  + lv(this.dubiaLevel));
-        if (this.ownedWeapons.has('flashclaw'))        weapons.push('Flashclaw');
-        else if (this.ownedWeapons.has('poisonclaw'))  weapons.push('Poison Claw'    + lv(this.poisonClawLevel));
-        if (this.ownedWeapons.has('loglob'))           weapons.push('Log Lob');
-        else if (this.ownedWeapons.has('branchthrow')) weapons.push('Branch Throw'   + lv(this.branchLevel));
-        if (this.ownedWeapons.has('duststorm'))        weapons.push('Duststorm');
-        else if (this.ownedWeapons.has('dustkick'))    weapons.push('Dust Kick'      + lv(this.dustKickLevel));
-        if (this.ownedWeapons.has('thrash'))           weapons.push('Trans. Thrash');
-        else if (this.ownedWeapons.has('scratch'))     weapons.push('Trans. Scratch' + lv(this.scratchLevel));
-        if (this.ownedWeapons.has('fourchills'))       weapons.push('Four Chills');
-        else if (this.coldGlareActive)                 weapons.push('Cold Glare'     + lv(1 + this.coldGlareCdLevel + this.coldGlareSlLevel));
+        const wl = (key, label) => this.weaponFractionLabel(key, label);
+        // Evolved weapons are a terminal form beyond any level — tag them "(MAX)" so the
+        // loadout line stays consistent with the "(cur/max)" fraction shown on everything else.
+        if (this.ownedWeapons.has('starvechomp'))      weapons.push('Starved Chomp (MAX)');
+        else if (this.ownedWeapons.has('bite'))        weapons.push(wl('bite', 'Bite'));
+        if (this.ownedWeapons.has('steelslam'))        weapons.push('Steel Slam (MAX)');
+        else if (this.ownedWeapons.has('tailslap'))    weapons.push(wl('tailslap', 'Tail Slap'));
+        if (this.ownedWeapons.has('toxicocean'))       weapons.push('Toxic Ocean (MAX)');
+        else if (this.ownedWeapons.has('poop'))        weapons.push(wl('poop', 'Poop'));
+        if (this.ownedWeapons.has('sunbakedambers'))   weapons.push('Sunbaked Ambers (MAX)');
+        else if (this.ownedWeapons.has('pebble'))      weapons.push(wl('pebble', 'Pebble Flick'));
+        if (this.ownedWeapons.has('ragingroar'))       weapons.push('Raging Roar (MAX)');
+        else if (this.ownedWeapons.has('hiss'))        weapons.push(wl('hiss', 'Hiss'));
+        if (this.ownedWeapons.has('stickyshot'))       weapons.push('Sticky Shot (MAX)');
+        else if (this.ownedWeapons.has('lick'))        weapons.push(wl('lick', 'Lick'));
+        if (this.ownedWeapons.has('acidsnake'))        weapons.push('Acid Snake (MAX)');
+        else if (this.ownedWeapons.has('wormwhip'))    weapons.push(wl('wormwhip', 'Worm Whip'));
+        if (this.ownedWeapons.has('bugbuster'))        weapons.push('Bug Buster (MAX)');
+        else if (this.ownedWeapons.has('pupamines'))   weapons.push(wl('pupamines', 'Pupa Mines'));
+        if (this.ownedWeapons.has('spikeshedder'))     weapons.push('Spike Shedder (MAX)');
+        else if (this.ownedWeapons.has('skinshed'))    weapons.push(wl('skinshed', 'Skin Shed'));
+        if (this.ownedWeapons.has('shiningshells'))    weapons.push('Shining Shells (MAX)');
+        else if (this.ownedWeapons.has('woodiebounce'))weapons.push(wl('woodiebounce', 'Woodie Bounce'));
+        if (this.ownedWeapons.has('dubiadefenders'))   weapons.push('Dubia Defenders (MAX)');
+        else if (this.ownedWeapons.has('dubiashields'))weapons.push(wl('dubiashields', 'Dubia Shields'));
+        if (this.ownedWeapons.has('flashclaw'))        weapons.push('Flashclaw (MAX)');
+        else if (this.ownedWeapons.has('poisonclaw'))  weapons.push(wl('poisonclaw', 'Poison Claw'));
+        if (this.ownedWeapons.has('loglob'))           weapons.push('Log Lob (MAX)');
+        else if (this.ownedWeapons.has('branchthrow')) weapons.push(wl('branchthrow', 'Branch Throw'));
+        if (this.ownedWeapons.has('duststorm'))        weapons.push('Duststorm (MAX)');
+        else if (this.ownedWeapons.has('dustkick'))    weapons.push(wl('dustkick', 'Dust Kick'));
+        if (this.ownedWeapons.has('thrash'))           weapons.push('Lucky Thrash (MAX)');
+        else if (this.ownedWeapons.has('scratch'))     weapons.push(wl('scratch', 'Lucky Scratch'));
+        if (this.ownedWeapons.has('fourchills'))       weapons.push('Four Chills (MAX)');
+        else if (this.coldGlareActive)                 weapons.push(wl('coldglare', 'Cold Glare'));
 
-        const counts = {};
-        this.ownedPassives.forEach(p => { counts[p] = (counts[p] || 0) + 1; });
-        const boosts = Object.entries(counts).map(([name, n]) => n > 1 ? name + ' \xd7' + n : name);
+        const seen = new Set();
+        const boosts = this.ownedPassives.filter(p => !seen.has(p) && seen.add(p))
+            .map(name => this.boostFractionLabel(name));
 
         return {
             weaponLine: '⚔  ' + (weapons.length ? weapons.join('  •  ') : 'none yet'),
@@ -5039,8 +5212,35 @@ export default class GameScene extends Phaser.Scene {
                 mb.hpBar.y = mb.y + 30;
                 mb.hpBar.width = 60 * Math.max(0, mb.health / mb.maxHealth);
                 mb.hpLabel.setPosition(mb.x, mb.y - 44);
+                if (mb.phaseLine) {
+                    const f = mb.phaseBoundaries[0] / mb.maxHealth;
+                    mb.phaseLine.setPosition(mb.x - 30 + f * 60, mb.y + 30);
+                }
             }
         });
+
+        // Mini-bosses keep fighting independently even while The Hand itself is immobile
+        // (mid-slap, teleporting, vacuuming, etc.) — identical to their original level boss.
+        this.handMiniBossArray?.forEach(mb => {
+            if (!mb.active) return;
+            switch (mb.miniType) {
+                case 'lettuce_beetle':  this.updateMiniBeetleAI(mb);   break;
+                case 'rocket_spider':   this.updateMiniSpiderAI(mb);   break;
+                case 'carrot_scorpion': this.updateMiniScorpionAI(mb); break;
+                case 'mulberry_mantis': this.updateMiniMantisAI(mb);   break;
+                default: this.physics.moveToObject(mb, this.player, mb.speed ?? 90);
+            }
+        });
+
+        // Vacuum: continuously override everyone's velocity every frame for the whole
+        // duration, since their own AI would otherwise re-claim it the very next frame.
+        if (this.handVacuumActive) {
+            const vacTargets = [
+                ...this.enemies.getChildren().filter(e => e.active && !e.isBossMini),
+                ...(this.handMiniBossArray?.filter(b => b.active) ?? []),
+            ];
+            vacTargets.forEach(e => { if (e.body) this.physics.moveTo(e, boss.x, boss.y, 600); });
+        }
 
         if (boss.handImmobile) return;
 
@@ -5049,14 +5249,13 @@ export default class GameScene extends Phaser.Scene {
         if (dist < 40) {
             boss.handWanderTarget = this.pickHandWanderTarget();
         } else {
-            this.physics.moveTo(boss, boss.handWanderTarget.x, boss.handWanderTarget.y, 200);
+            this.physics.moveTo(boss, boss.handWanderTarget.x, boss.handWanderTarget.y, 200 * this.getHandSpeedMultiplier());
         }
+    }
 
-        // Chase mini-bosses toward player
-        this.handMiniBossArray?.forEach(mb => {
-            if (!mb.active) return;
-            this.physics.moveToObject(mb, this.player, mb.speed ?? 90);
-        });
+    // The Hand gets 20% faster with each phase it enters (phase 1 = baseline)
+    getHandSpeedMultiplier() {
+        return 1.2 ** ((this.boss?.handPhase ?? 1) - 1);
     }
 
     pickHandWanderTarget() {
@@ -5119,14 +5318,31 @@ export default class GameScene extends Phaser.Scene {
         boss.handPhase++;
         this.tweens.add({ targets: boss, alpha: 0.1, duration: 200, yoyo: true, repeat: 2 });
 
-        const phase = boss.handPhase;
-        if (phase === 2) this.triggerHandPhase2();
-        if (phase === 3) this.triggerHandPhase3();
-        if (phase === 4) this.triggerHandPhase4();
+        // Freeze completely for 3s before the new phase's behaviour kicks in — the only
+        // motion visible is a violent trembling in place, no wandering/attacking.
+        boss.handImmobile = true;
+        boss.setVelocity(0, 0);
+        const baseX = boss.x, baseY = boss.y;
+        const trembleTimer = this.time.addEvent({
+            delay: 40, loop: true,
+            callback: () => {
+                if (!boss.active) return;
+                boss.x = baseX + Phaser.Math.Between(-3, 3);
+                boss.y = baseY + Phaser.Math.Between(-3, 3);
+            },
+        });
 
-        // Reset transition flag after short delay so next phase can trigger
-        this.time.delayedCall(600, () => {
-            if (boss.active) boss.handPhaseTransitioned = false;
+        const phase = boss.handPhase;
+        this.time.delayedCall(3000, () => {
+            trembleTimer.remove();
+            if (!boss.active) return;
+            boss.x = baseX;
+            boss.y = baseY;
+            boss.handImmobile = false;
+            boss.handPhaseTransitioned = false;
+            if (phase === 2) this.triggerHandPhase2();
+            if (phase === 3) this.triggerHandPhase3();
+            if (phase === 4) this.triggerHandPhase4();
         });
     }
 
@@ -5144,6 +5360,40 @@ export default class GameScene extends Phaser.Scene {
         this.scheduleHandBossRespawn();
         this.scheduleHandPhase4Rings();
         this.scheduleHandVacuum();
+        this.scheduleHandPhase4Projectiles();
+    }
+
+    // Every 5s, a 1/4 chance to fire a ring of 10 projectiles — phase 4 only
+    scheduleHandPhase4Projectiles() {
+        if (!this.boss?.active) return;
+        this.handProjTimer = this.time.addEvent({
+            delay: 5000, loop: true,
+            callback: () => { if (Math.random() < 0.25) this.doHandPhase4Projectiles(); },
+        });
+    }
+
+    doHandPhase4Projectiles() {
+        const boss = this.boss;
+        if (!boss?.active) return;
+
+        const COUNT = 10;
+        for (let i = 0; i < COUNT; i++) {
+            const a    = (i / COUNT) * Math.PI * 2;
+            const proj = this.physics.add.image(boss.x, boss.y, 'iceberg_lettuce');
+            proj.setScale(0.18).setDepth(7).setTint(0xff8800);
+            proj.setVelocity(Math.cos(a) * 220, Math.sin(a) * 220);
+            proj.damage = 15;
+            this.physics.add.overlap(proj, this.player, () => {
+                if (!proj.active || this.player.reviveInvincible) return;
+                this.playerHealth -= proj.damage;
+                this.updateHPBar();
+                this.playerDamageFlash();
+                if (this.inflateActive) this.inflateKnockback();
+                if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
+                proj.destroy();
+            });
+            this.scheduleProjectileDespawn(proj, 5000);
+        }
     }
 
     scheduleHandTeleport() {
@@ -5222,7 +5472,8 @@ export default class GameScene extends Phaser.Scene {
             warn.destroy();
             if (!boss.active) return;
             const chargeAngle = Math.atan2(targetY - boss.y, targetX - boss.x);
-            boss.body.setVelocity(Math.cos(chargeAngle) * 420, Math.sin(chargeAngle) * 420);
+            const chargeSpeed = 420 * this.getHandSpeedMultiplier();
+            boss.body.setVelocity(Math.cos(chargeAngle) * chargeSpeed, Math.sin(chargeAngle) * chargeSpeed);
             this.time.delayedCall(450, () => {
                 if (!boss.active) return;
                 boss.body.setVelocity(0, 0);
@@ -5394,6 +5645,7 @@ export default class GameScene extends Phaser.Scene {
         mb.spawnsCarrotCori = false; mb.spawnsAnySpinach = false;
         mb.vineWhip = false; mb.spawnsMinion = null;
         mb.isWanderer = false;
+        mb.isCharging = false; mb.mantisVanishing = false;
 
         const animKey = `${cfg.key}_walk`;
         if (!this.anims.exists(animKey)) {
@@ -5411,6 +5663,516 @@ export default class GameScene extends Phaser.Scene {
         this.enemies.add(mb);
         this.handMiniBossArray = this.handMiniBossArray || [];
         this.handMiniBossArray.push(mb);
+
+        // Give each mini-boss the same AI/attack pattern as its original level boss
+        mb.miniType = cfg.key;
+        switch (cfg.key) {
+            case 'lettuce_beetle':
+                mb.miniChargeTimer = this.time.addEvent({ delay: 3500, callback: () => this.miniBeetleCharge(mb), loop: true });
+                break;
+            case 'rocket_spider':
+                mb.aiMode         = 'circle';
+                mb.aiSpeed        = mb.speed;
+                mb.phaseTriggered = false;
+                this.scheduleMiniSpiderSlam(mb);
+                break;
+            case 'carrot_scorpion':
+                mb.isStinging        = false;
+                mb.scorpionClawTimer = this.time.addEvent({ delay: 4000, callback: () => this.miniScorpionClawSwipe(mb), loop: true });
+                this.scheduleMiniScorpionSting(mb);
+                break;
+            case 'mulberry_mantis': {
+                // One continuous health bar covering both phases, with a divider line
+                // instead of resetting to full at the phase-2 transition.
+                const { total, boundaries } = this.computePhasedHealth(cfg.health, 2);
+                mb.health      = total;
+                mb.maxHealth   = total;
+                mb.phaseBoundaries = boundaries;
+                mb.phaseLine = this.add.rectangle(sx, sy + 30, 2, 10, 0xffffff, 0.9).setDepth(10);
+                mb.mantisPhase          = 1;
+                mb.mantisResting        = false;
+                mb.mantisChasing        = false;
+                mb.mantisVanishCycles   = 0;
+                mb.mantisChaseThreshold = Phaser.Math.Between(5, 25);
+                this.scheduleMiniMantisVanish(mb);
+                break;
+            }
+        }
+    }
+
+    cleanupMiniBossTimers(mb) {
+        mb.miniChargeTimer?.remove();
+        mb.miniSlamTimer?.remove();
+        mb.scorpionClawTimer?.remove();
+        mb.miniStingTimer?.remove();
+        mb.miniVanishTimer?.remove();
+        mb.miniChaseRunTimer?.remove();
+    }
+
+    // ─── Lettuce Beetle mini-boss AI ──────────────────────────────────────────────
+
+    updateMiniBeetleAI(mb) {
+        if (!mb.isCharging) this.physics.moveToObject(mb, this.player, mb.speed);
+    }
+
+    miniBeetleCharge(mb) {
+        if (!mb?.active || mb.isCharging) return;
+        mb.isCharging = true;
+        mb.setVelocity(0, 0);
+
+        const targetX = this.player.x;
+        const targetY = this.player.y;
+        const warn = this.add.graphics().setDepth(18);
+        warn.fillStyle(0xff0000, 0.25);
+        const angle = Math.atan2(targetY - mb.y, targetX - mb.x);
+        const dist  = Phaser.Math.Distance.Between(mb.x, mb.y, targetX, targetY) + 60;
+        warn.fillRect(0, -30, dist, 60);
+        warn.setPosition(mb.x, mb.y);
+        warn.setRotation(angle);
+
+        this.tweens.add({ targets: mb, alpha: 0.3, duration: 75, yoyo: true, repeat: 1 });
+
+        this.time.delayedCall(150, () => {
+            warn.destroy();
+            if (!mb.active) return;
+            const chargeAngle = Math.atan2(targetY - mb.y, targetX - mb.x);
+            mb.setVelocity(Math.cos(chargeAngle) * 320, Math.sin(chargeAngle) * 320);
+            this.time.delayedCall(800, () => {
+                if (!mb.active) return;
+                mb.setVelocity(0, 0);
+                mb.isCharging = false;
+            });
+        });
+    }
+
+    // ─── Rocket Spider mini-boss AI ───────────────────────────────────────────────
+
+    updateMiniSpiderAI(mb) {
+        if (!mb.phaseTriggered && mb.health <= mb.maxHealth * 0.5) {
+            mb.phaseTriggered = true;
+            this.triggerMiniSpiderPhase2(mb);
+        }
+
+        const now   = this.time.now;
+        const speed = mb.aiSpeed ?? mb.speed ?? 95;
+
+        if (!mb.aiSwitchAt || now >= mb.aiSwitchAt) {
+            const modes = ['circle', 'circle', 'wander', 'chase'];
+            mb.aiMode = Phaser.Utils.Array.GetRandom(modes);
+            if (mb.aiMode === 'wander') {
+                const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                mb.wanderVX = Math.cos(a) * speed;
+                mb.wanderVY = Math.sin(a) * speed;
+            }
+            mb.aiSwitchAt = now + Phaser.Math.Between(2000, 4000);
+        }
+
+        if (mb.aiMode === 'circle') {
+            const dx   = mb.x - this.player.x;
+            const dy   = mb.y - this.player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const targetDist = 190;
+            const tx = -dy / dist;
+            const ty =  dx / dist;
+            const radial = (dist - targetDist) / 120;
+            const rx = -(dx / dist) * radial;
+            const ry = -(dy / dist) * radial;
+            mb.setVelocity((tx + rx) * speed, (ty + ry) * speed);
+        } else if (mb.aiMode === 'wander') {
+            mb.setVelocity(mb.wanderVX, mb.wanderVY);
+        } else {
+            this.physics.moveToObject(mb, this.player, speed * 0.7);
+        }
+    }
+
+    scheduleMiniSpiderSlam(mb) {
+        if (!mb?.active) return;
+        mb.miniSlamTimer = this.time.delayedCall(Phaser.Math.Between(5000, 10000), () => {
+            this.miniSpiderLegSlam(mb);
+            this.scheduleMiniSpiderSlam(mb);
+        });
+    }
+
+    miniSpiderLegSlam(mb) {
+        if (!mb?.active) return;
+        this.tweens.add({ targets: mb, alpha: 0.3, duration: 100, yoyo: true });
+        for (let i = 0; i < 3; i++) {
+            const ox = this.player.x + Phaser.Math.Between(-130, 130);
+            const oy = this.player.y + Phaser.Math.Between(-130, 130);
+            const sword = this.physics.add.sprite(ox, oy, 'rocket_sword');
+            sword.setScale(0.25).setDepth(5);
+            sword.health = 30; sword.maxHealth = 30;
+            sword.damage = 15; sword.speed = 100;
+            sword.lastHitTime = 0;
+            sword.splits = false; sword.shoots = false; sword.splitsInto = null; sword.hydra = false; sword.burrowed = false; sword.whips = false; sword.emitsGas = false;
+            if (!this.anims.exists('rocket_sword_walk')) {
+                this.anims.create({ key: 'rocket_sword_walk', frames: this.anims.generateFrameNumbers('rocket_sword', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+            }
+            sword.play('rocket_sword_walk');
+            this.enemies.add(sword);
+        }
+    }
+
+    triggerMiniSpiderPhase2(mb) {
+        mb.aiSpeed = (mb.aiSpeed ?? mb.speed ?? 95) * 2.32; // mirrors the 95→220 boost ratio from the original boss
+
+        this.tweens.add({ targets: mb, alpha: 0.1, duration: 120, yoyo: true, repeat: 3 });
+
+        const RING = 5; // scaled down from the original boss's ring of 20
+        for (let i = 0; i < RING; i++) {
+            const a  = (i / RING) * Math.PI * 2;
+            const ox = mb.x + Math.cos(a) * 90;
+            const oy = mb.y + Math.sin(a) * 90;
+            const sword = this.physics.add.sprite(ox, oy, 'rocket_sword');
+            sword.setScale(0.25).setDepth(5);
+            sword.health = 30; sword.maxHealth = 30;
+            sword.damage = 15; sword.speed = 155;
+            sword.lastHitTime = 0;
+            sword.splits = false; sword.shoots = false; sword.splitsInto = null; sword.hydra = false; sword.burrowed = false; sword.whips = false; sword.emitsGas = false;
+            if (!this.anims.exists('rocket_sword_walk')) {
+                this.anims.create({ key: 'rocket_sword_walk', frames: this.anims.generateFrameNumbers('rocket_sword', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+            }
+            sword.play('rocket_sword_walk');
+            this.enemies.add(sword);
+        }
+    }
+
+    // ─── Carrot Scorpion mini-boss AI ─────────────────────────────────────────────
+
+    updateMiniScorpionAI(mb) {
+        if (!mb.active || mb.isCharging || mb.isStinging) return;
+        const now = this.time.now;
+
+        if (!mb.scorpionPhase) {
+            mb.scorpionPhase    = 'chase';
+            mb.scorpionSwitchAt = now + Phaser.Math.Between(3000, 8000);
+            mb.wanderTarget     = null;
+        }
+
+        if (now >= mb.scorpionSwitchAt) {
+            if (mb.scorpionPhase === 'chase') {
+                mb.scorpionPhase    = 'wander';
+                mb.wanderTarget     = this.pickScorpionWanderTarget();
+                mb.scorpionSwitchAt = now + Phaser.Math.Between(15000, 25000);
+            } else {
+                mb.scorpionPhase    = 'chase';
+                mb.wanderTarget     = null;
+                mb.scorpionSwitchAt = now + Phaser.Math.Between(3000, 8000);
+            }
+        }
+
+        if (mb.scorpionPhase === 'chase') {
+            this.physics.moveToObject(mb, this.player, 220);
+        } else {
+            if (!mb.wanderTarget) mb.wanderTarget = this.pickScorpionWanderTarget();
+            const dist = Phaser.Math.Distance.Between(mb.x, mb.y, mb.wanderTarget.x, mb.wanderTarget.y);
+            if (dist < 40) {
+                mb.wanderTarget = this.pickScorpionWanderTarget();
+            } else {
+                this.physics.moveTo(mb, mb.wanderTarget.x, mb.wanderTarget.y, 200);
+            }
+        }
+    }
+
+    scheduleMiniScorpionSting(mb) {
+        if (!mb?.active) return;
+        mb.miniStingTimer = this.time.delayedCall(Phaser.Math.Between(10000, 15000), () => {
+            this.miniScorpionStingerBury(mb);
+            this.scheduleMiniScorpionSting(mb);
+        });
+    }
+
+    miniScorpionClawSwipe(mb) {
+        if (!mb?.active || mb.isStinging) return;
+        mb.isCharging = true;
+
+        const angle = Phaser.Math.Angle.Between(mb.x, mb.y, this.player.x, this.player.y);
+        const warn = this.add.graphics().setDepth(19);
+        warn.fillStyle(0xff8800, 0.25);
+        warn.fillTriangle(
+            mb.x, mb.y,
+            mb.x + Math.cos(angle - 0.5) * 160, mb.y + Math.sin(angle - 0.5) * 160,
+            mb.x + Math.cos(angle + 0.5) * 160, mb.y + Math.sin(angle + 0.5) * 160,
+        );
+        this.tweens.add({ targets: warn, alpha: 0, delay: 140, duration: 200, onComplete: () => warn.destroy() });
+
+        this.time.delayedCall(150, () => {
+            if (!mb.active) return;
+            const tx = this.player.x; const ty = this.player.y;
+            this.physics.moveTo(mb, tx, ty, 480);
+            this.tweens.add({ targets: mb, alpha: 0.4, duration: 80, yoyo: true });
+            this.time.delayedCall(300, () => {
+                if (mb.active) mb.body?.setVelocity(0, 0);
+                mb.isCharging = false;
+            });
+        });
+    }
+
+    miniScorpionStingerBury(mb) {
+        if (!mb?.active || mb.isStinging) return;
+        mb.isStinging = true;
+        mb.isCharging = true;
+        if (mb.body) mb.body.setVelocity(0, 0);
+
+        const buryTween = this.tweens.add({ targets: mb, alpha: 0.5, duration: 400, yoyo: true, loop: -1 });
+        mb.setTint(0xff8800);
+
+        // Reduced from the original boss's 20 moles + 10 thugs
+        const spawnList = [
+            ...Array(5).fill('mole'),
+            ...Array(3).fill('thug'),
+        ];
+        Phaser.Utils.Array.Shuffle(spawnList);
+
+        spawnList.forEach((type, i) => {
+            this.time.delayedCall(i * 200, () => {
+                if (!mb.active) return;
+                const ox = this.player.x + Phaser.Math.Between(-220, 220);
+                const oy = this.player.y + Phaser.Math.Between(-220, 220);
+
+                if (type === 'mole') {
+                    const mole = this.physics.add.sprite(ox, oy, 'carrot_mole');
+                    mole.setScale(0.26).setDepth(5).setAlpha(0.35);
+                    mole.health = 75; mole.maxHealth = 75;
+                    mole.damage = 12; mole.speed = 0;
+                    mole.lastHitTime = 0; mole.isUnderground = false;
+                    mole.splits = false; mole.shoots = false; mole.splitsInto = null;
+                    mole.hydra = false; mole.burrowed = true; mole.whips = false; mole.emitsGas = false;
+                    mole.body.setSize(60, 40);
+                    const mKey = 'carrot_mole_walk';
+                    if (!this.anims.exists(mKey)) {
+                        this.anims.create({ key: mKey, frames: this.anims.generateFrameNumbers('carrot_mole', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+                    }
+                    mole.play(mKey);
+                    const scheduleBurrow = () => {
+                        if (!mole.active) return;
+                        mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
+                            if (!mole.active) return;
+                            mole.isUnderground = true;
+                            mole.setAlpha(0.25); mole.body.setSize(40, 30); mole.speed = 80;
+                            mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
+                                if (!mole.active) return;
+                                mole.isUnderground = false;
+                                mole.setAlpha(1); mole.body.setSize(60, 40); mole.speed = 0;
+                                if (mole.body) mole.body.setVelocity(0, 0);
+                                scheduleBurrow();
+                            });
+                        });
+                    };
+                    scheduleBurrow();
+                    this.enemies.add(mole);
+                } else {
+                    const thug = this.physics.add.sprite(ox, oy, 'carrot_thug');
+                    thug.setScale(0.30).setDepth(5);
+                    thug.health = 300; thug.maxHealth = 300;
+                    thug.damage = 15; thug.speed = 180;
+                    thug.lastHitTime = 0;
+                    thug.splits = false; thug.shoots = false; thug.splitsInto = null;
+                    thug.hydra = false; thug.burrowed = false; thug.whips = false; thug.emitsGas = false;
+                    thug.isUnderground = false; thug.isCharging = false;
+                    const tKey = 'carrot_thug_walk';
+                    if (!this.anims.exists(tKey)) {
+                        this.anims.create({ key: tKey, frames: this.anims.generateFrameNumbers('carrot_thug', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+                    }
+                    thug.play(tKey);
+                    this.enemies.add(thug);
+                }
+            });
+        });
+
+        this.time.delayedCall(spawnList.length * 200 + 200, () => {
+            if (!mb.active) return;
+            buryTween.stop();
+            mb.setAlpha(1).clearTint();
+            mb.isStinging = false;
+            mb.isCharging = false;
+        });
+    }
+
+    // ─── Mulberry Mantis mini-boss AI ─────────────────────────────────────────────
+
+    updateMiniMantisAI(mb) {
+        if (mb.mantisPhase === 1 && mb.health <= mb.phaseBoundaries[0]) {
+            mb.mantisPhase = 2;
+            this.spawnMiniMantisPhase2Ring(mb);
+        }
+
+        if (!mb.active || mb.mantisVanishing || mb.mantisResting) return;
+        if (mb.mantisPhase === 1 || mb.mantisChasing) {
+            this.physics.moveToObject(mb, this.player, 210);
+        }
+    }
+
+    scheduleMiniMantisVanish(mb) {
+        if (!mb?.active) return;
+        const chaseTime = mb.mantisPhase === 1
+            ? Phaser.Math.Between(5000, 10000)
+            : 0;
+        mb.miniVanishTimer = this.time.delayedCall(chaseTime, () => {
+            if (!mb?.active) return;
+            this.miniMantisVanish(mb);
+        });
+    }
+
+    miniMantisVanish(mb) {
+        if (!mb?.active || mb.mantisChasing) return;
+        mb.mantisVanishing = true;
+        mb.isCharging       = true;
+        mb.setVelocity(0, 0);
+
+        this.tweens.add({ targets: mb, alpha: 0, duration: 200, onComplete: () => {
+            if (!mb.active) return;
+            mb.setVisible(false);
+            mb.body.enable = false;
+            mb.hpBarBg?.setVisible(false);
+            mb.hpBar?.setVisible(false);
+            mb.hpLabel?.setVisible(false);
+
+            const hideDuration = Phaser.Math.Between(3000, 5000);
+            this.time.delayedCall(hideDuration, () => {
+                if (!mb.active) return;
+                this.miniMantisReappear(mb);
+            });
+        }});
+    }
+
+    miniMantisReappear(mb) {
+        if (!mb?.active) return;
+
+        const angle  = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const offset = 80;
+        mb.x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * offset, 64, 3136);
+        mb.y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * offset, 64, 3136);
+
+        mb.setVisible(true).setAlpha(0);
+        mb.body.enable     = true;
+        mb.mantisVanishing = false;
+        mb.isCharging       = false;
+
+        mb.hpBarBg?.setVisible(true);
+        mb.hpBar?.setVisible(true);
+        mb.hpLabel?.setVisible(true);
+
+        this.tweens.add({ targets: mb, alpha: 1, duration: 150, onComplete: () => {
+            if (!mb.active) return;
+            this.time.delayedCall(400, () => {
+                if (!mb.active) return;
+                this.miniMantisStrike(mb);
+            });
+        }});
+    }
+
+    miniMantisStrike(mb) {
+        if (!mb?.active) return;
+        if (this.player.reviveInvincible) {
+            mb.mantisResting = true;
+            const restTime = mb.mantisPhase === 2 ? 2000 : 0;
+            this.time.delayedCall(restTime, () => {
+                if (!mb.active) return;
+                mb.mantisResting = false;
+                this.scheduleMiniMantisVanish(mb);
+            });
+            return;
+        }
+
+        this.tweens.add({ targets: mb, alpha: 0.2, duration: 80, yoyo: true, repeat: 1 });
+
+        const dist = Phaser.Math.Distance.Between(mb.x, mb.y, this.player.x, this.player.y);
+        if (dist < 80) {
+            this.playerHealth -= 25;
+            this.playerDamageFlash();
+            this.updateHPBar();
+            if (this.playerHealth <= 0) {
+                this.playerHealth = 0;
+                this.showDeathOverlay();
+            }
+        }
+
+        if (mb.mantisPhase === 2) {
+            mb.mantisVanishCycles++;
+            mb.mantisResting = true;
+            this.time.delayedCall(2000, () => {
+                if (!mb.active) return;
+                mb.mantisResting = false;
+                if (mb.mantisVanishCycles >= mb.mantisChaseThreshold) {
+                    mb.mantisVanishCycles   = 0;
+                    mb.mantisChaseThreshold = Phaser.Math.Between(5, 25);
+                    this.startMiniMantisChaseRun(mb);
+                } else {
+                    this.scheduleMiniMantisVanish(mb);
+                }
+            });
+        } else {
+            this.scheduleMiniMantisVanish(mb);
+        }
+    }
+
+    startMiniMantisChaseRun(mb) {
+        if (!mb?.active) return;
+        mb.mantisChasing = true;
+        const duration = Phaser.Math.Between(15000, 45000);
+        mb.miniChaseRunTimer = this.time.delayedCall(duration, () => {
+            if (!mb.active) return;
+            mb.mantisChasing = false;
+            mb.setVelocity(0, 0);
+            this.scheduleMiniMantisVanish(mb);
+        });
+    }
+
+    spawnMiniMantisPhase2Ring(mb) {
+        const COUNT  = 6; // scaled down from the original boss's ring of 25
+        const RADIUS = 350;
+        for (let i = 0; i < COUNT; i++) {
+            const angle = (i / COUNT) * Math.PI * 2;
+            const cx = Phaser.Math.Clamp(mb.x + Math.cos(angle) * RADIUS, 64, 3136);
+            const cy = Phaser.Math.Clamp(mb.y + Math.sin(angle) * RADIUS, 64, 3136);
+
+            const cyclone = this.physics.add.sprite(cx, cy, 'spinach_cyclone');
+            cyclone.setScale(0.30).setDepth(5);
+            cyclone.health      = 200;
+            cyclone.maxHealth   = 200;
+            cyclone.damage      = 20;
+            cyclone.speed       = 35;
+            cyclone.lastHitTime = 0;
+            cyclone.splits = false; cyclone.shoots = false; cyclone.splitsInto = null;
+            cyclone.hydra = false; cyclone.burrowed = false; cyclone.whips = false;
+            cyclone.emitsGas = false; cyclone.snakeWhip = false;
+            cyclone.isWanderer = true;
+
+            const animKey = 'spinach_cyclone_walk';
+            if (!this.anims.exists(animKey)) {
+                this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers('spinach_cyclone', { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
+            }
+            cyclone.play(animKey);
+            this.tweens.add({ targets: cyclone, angle: 360, duration: 900, loop: -1 });
+
+            const scheduleSpawn = () => {
+                if (!cyclone.active) return;
+                cyclone.cycloneTimer = this.time.delayedCall(Phaser.Math.Between(6000, 12000), () => {
+                    if (!cyclone.active) return;
+                    const sx = cyclone.x + Phaser.Math.Between(-80, 80);
+                    const sy = cyclone.y + Phaser.Math.Between(-80, 80);
+                    const mini = this.physics.add.sprite(sx, sy, 'small_spinach');
+                    mini.setScale(0.22).setDepth(5);
+                    mini.health = 18; mini.maxHealth = 18;
+                    mini.damage = 9;  mini.speed = 110;
+                    mini.lastHitTime = 0;
+                    mini.splits = false; mini.shoots = false; mini.splitsInto = null;
+                    mini.hydra = false; mini.burrowed = false; mini.whips = false;
+                    mini.emitsGas = false; mini.snakeWhip = false;
+                    const miniAnim = 'small_spinach_walk';
+                    if (!this.anims.exists(miniAnim)) {
+                        this.anims.create({ key: miniAnim, frames: this.anims.generateFrameNumbers('small_spinach', { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
+                    }
+                    mini.play(miniAnim);
+                    this.physics.moveToObject(mini, this.player, mini.speed);
+                    this.enemies.add(mini);
+                    scheduleSpawn();
+                });
+            };
+            scheduleSpawn();
+            this.enemies.add(cyclone);
+        }
     }
 
     scheduleHandPhase3Ring() {
@@ -5544,24 +6306,35 @@ export default class GameScene extends Phaser.Scene {
         const boss = this.boss;
         if (!boss?.active) return;
 
+        // Longer build-up (was 4s) so the pull has time to actually read as a vacuum
+        // instead of enemies snapping to the boss and the kill feeling instant.
+        const VACUUM_DURATION = 5000;
+
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
 
-        // Flash warning
-        this.tweens.add({ targets: boss, alpha: 0.1, duration: 150, yoyo: true, repeat: 3 });
+        // Boss pulses continuously for the whole build-up, not just a brief initial flash,
+        // so it visibly reads as "channeling" the whole time.
+        const chargeFlash = this.tweens.add({ targets: boss, alpha: 0.3, duration: 250, yoyo: true, repeat: -1 });
 
-        // Suck all enemies and mini-bosses toward the boss
-        const targets = [
-            ...this.enemies.getChildren().filter(e => e.active && !e.isBossMini),
-            ...(this.handMiniBossArray?.filter(b => b.active) ?? []),
-        ];
-        targets.forEach(e => {
-            if (e.body) this.physics.moveTo(e, boss.x, boss.y, 600);
-        });
+        // Map slowly reddens for the whole vacuum build-up
+        const W = this.cameras.main.width;
+        const H = this.cameras.main.height;
+        const redOverlay = this.add.rectangle(W / 2, H / 2, W, H, 0xff0000, 1)
+            .setScrollFactor(0).setDepth(25).setAlpha(0);
+        this.handVacuumOverlay = redOverlay;
+        this.tweens.add({ targets: redOverlay, alpha: 0.55, duration: VACUUM_DURATION, ease: 'Sine.In' });
 
-        // After 10000ms: kill them all, then explode
-        this.time.delayedCall(10000, () => {
-            if (!boss.active) return;
+        // Continuously suck all enemies and mini-bosses toward the boss — the actual pull
+        // happens every frame in updateHandAI() so their own AI can't re-claim velocity.
+        this.handVacuumActive = true;
+
+        // After the vacuum finishes: kill them all, then explode
+        this.time.delayedCall(VACUUM_DURATION, () => {
+            this.handVacuumActive = false;
+            chargeFlash.stop();
+            boss.setAlpha(1);
+            if (!boss.active) { redOverlay.destroy(); this.handVacuumOverlay = null; return; }
 
             // Kill every sucked target
             const toKill = [
@@ -5573,10 +6346,14 @@ export default class GameScene extends Phaser.Scene {
             // Screenshake
             this.cameras.main.shake(600, 0.04);
 
-            // Explosion visual — circle grows from 0 → 1500px in 400ms
+            // Fade the red tint back out
+            this.tweens.add({ targets: redOverlay, alpha: 0, duration: 300, onComplete: () => { redOverlay.destroy(); this.handVacuumOverlay = null; } });
+
+            // Explosion visual — circle grows from 0 → 750px in 400ms (blast radius halved)
+            const BLAST_RADIUS = 750;
             const g = this.add.graphics().setDepth(26);
             g.fillStyle(0xffffff, 0.9);
-            g.fillCircle(0, 0, 1500);
+            g.fillCircle(0, 0, BLAST_RADIUS);
             g.setPosition(boss.x, boss.y);
             g.setScale(0);
 
@@ -5585,7 +6362,7 @@ export default class GameScene extends Phaser.Scene {
                 targets: g, scaleX: 1, scaleY: 1, duration: 400, ease: 'Quad.Out',
                 onUpdate: () => {
                     if (playerHit || this.player.reviveInvincible) return;
-                    const currentR = 1500 * g.scaleX;
+                    const currentR = BLAST_RADIUS * g.scaleX;
                     const d = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
                     if (d <= currentR) {
                         playerHit = true;

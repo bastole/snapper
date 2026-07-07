@@ -22,7 +22,7 @@ export default class TitleScene extends Phaser.Scene {
             fontStyle: 'italic',
         }).setOrigin(0.5);
 
-        const prompt = this.add.text(cx, cy + 60, 'PRESS ANY KEY, CLICK, OR  🎮 A  TO START', {
+        const prompt = this.add.text(cx, cy + 60, 'PRESS ANY BUTTON TO BEGIN', {
             fontSize: '16px',
             fontFamily: 'Arial',
             color: '#ffff00',

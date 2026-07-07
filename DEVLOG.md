@@ -316,3 +316,212 @@ Both the weapon AND the matching boost must be fully maxed to unlock an evolutio
 ### Fullbox off-screen arrow
 - Fullbox items now have a pink off-screen arrow (matching the item's pink colour)
 - Treasure = gold arrow, Foodbox = red arrow, Fullbox = pink arrow
+
+---
+
+## Session 6 — 2026-07-07
+
+### The Hand mini-bosses now use specialised AI
+Previously, the 4 mini-bosses summoned during The Hand fight (Salad Bowl attack in phase 3, and the phase 4 respawn cycle) just walked straight at the player with no special attacks. Each now runs the same AI as its original level boss:
+- **Lettuce Beetle mini** — charges at the player every 3.5s, identical telegraph + dash
+- **Rocket Spider mini** — circle-strafes/wanders/chases (mode switches every 2–4s), leg slam every 5–10s (spawns 3 Rocket Swords); at 50% HP, speed boosts and spawns a ring of 5 Rocket Swords (scaled down from the original boss's 20)
+- **Carrot Scorpion mini** — alternates chase/wander phases, claw swipe every 4s, stinger bury every 10–15s spawning 5 Carrot Moles + 3 Carrot Thugs (scaled down from 20+10)
+- **Mulberry Mantis mini** — vanish → reappear → strike cycle identical to the original; at 10% HP heals to full and spawns a ring of 6 Spinach Cyclones (scaled down from 25), same phase-2 chase-run behaviour after enough cycles
+
+Mini-bosses keep running their own AI even while The Hand itself is immobile (mid-slap, teleport, vacuum, etc.) — a bug caught during testing where the mini-boss update was accidentally gated behind The Hand's own immobility flag, fixed before landing.
+
+Mulberry Mantis mini invulnerability while vanished is enforced via `canDamageEnemy` (new `mantisVanishing` check), matching how Carrot Mole invulnerability works while burrowed.
+
+Verified directly in-browser via devtools by spawning all 4 mini-boss types and manually triggering each attack/phase function — confirmed correct enemy counts, state resets, and zero console errors.
+
+---
+
+## Session 7 — 2026-07-07
+
+### Rerolls no longer have a cooldown
+Removed the artificial 1-second delay between rerolls on the level-up screen — with banked rerolls you can now use them all back-to-back instantly instead of waiting a second between each click.
+
+### Evolutions only require the weapon maxed
+Previously an evolution needed both its weapon AND its paired boost fully upgraded. Now only the weapon needs to be maxed — the boost pairing is just a thematic suggestion, shown in the evolution menu as "Requires: Weapon maxed". The locked-card requirements popup now shows a single weapon line instead of two.
+
+### "Current/max" displays everywhere
+- Pause menu loadout and the level-up loadout panel now show `Bite (3/4)` instead of `Bite ×3`, for both weapons and boosts.
+- Level-up cards now show what the pick would become if acquired — e.g. the very first Bite upgrade card reads `Bite (2/4)`, and a first-time Hiss unlock reads `Hiss (1/2)`.
+- Added canonical `weaponMaxLevel`/`boostMaxLevel` tables plus `getWeaponLevel`/`getBoostLevel`/`weaponCardLabel`/`boostCardLabel` helpers so every display pulls from one source of truth instead of duplicated max-level maps.
+
+### Hyperactivity description fix
+The second Hyperactivity pick's description used to also preview its third (fully-upgraded) tier ("→ fully upgrade to 12 kills..."). That preview is removed — each card now only describes what picking it does, since the next tier's card shows its own info when offered.
+
+### Bugs fixed along the way
+- **Cold Glare max was off by one** — its max level was listed as 6 but the actual formula (1 unlock + 3 cooldown upgrades + 3 slow upgrades) reaches 7. Would have shown a broken `7/6` once the new fraction displays landed, so corrected to 7.
+- **Passive boost caps weren't actually enforced** — boost `available()` gates (e.g. Angry capped at ×5) were defined but never checked when building the level-up card pool, only weapons were filtered. Capped boosts could theoretically keep appearing past their max forever. Fixed so passives are filtered the same way weapons are.
+
+Verified directly in-browser via devtools: rapid-fired 5 reroll clicks with no delay between them, confirmed evolution availability with an unmaxed/unowned boost, read back rendered card/pause text to confirm exact fraction formatting at every tier, and confirmed a maxed boost's `available()` check now correctly returns false. Zero console errors throughout.
+
+---
+
+## Session 8 — 2026-07-07
+
+### Transmutational Scratch → Lucky Scratch (and Trans. Thrash → Lucky Thrash)
+Renamed the weapon and its evolution everywhere: evolution definition (id, weaponLabel, evolvedName), the level-up card, the pause/loadout display, and the internal function names (`doTransmutationalScratch` → `doLuckyScratch`, `doTransmutationalThrash` → `doLuckyThrash`, `evolveToTransmutationalThrash` → `evolveToLuckyThrash`). Internal state keys (`scratchLevel`, `scratchTimer`, `ownedWeapons` key `'scratch'`/`'thrash'`) were left as-is since they're not player-facing.
+
+### Hyperactivity rebalanced
+Speed buff halved and kill requirement doubled at every tier:
+- Tier 1: 35 kills → 70 kills, +50px/s → +25px/s
+- Tier 2: 20 kills → 40 kills, +100px/s → +50px/s
+- Tier 3: 12 kills → 24 kills, +150px/s → +75px/s
+
+Durations (5s/12s/20s) unchanged. Descriptions updated to match.
+
+### Bug fixed: Hyperactivity tier 2 was giving tier 3's effect
+The kill-handler only special-cased level 1 (`level === 1 ? 50 : 150`), so tier 2 and tier 3 silently gave the *same* speed boost and duration even though their descriptions promised different numbers — this is almost certainly why Hyperactivity "kept coming up" feeling like it did nothing new. Fixed to give each of the 3 tiers its own distinct boost/duration.
+
+### All previously-uncapped boosts now have caps
+Inflate, Basking, Polycephaly, and Venom had no `available` gate at all (unlike every other boost), meaning they could theoretically be picked forever past their documented max. Added `available` gates matching their existing `boostMaxLevel` entries (Inflate ×1, Basking ×5, Polycephaly ×4, Venom ×3), consistent with how every other capped boost already works.
+
+### Title screen prompt text changed
+"PRESS ANY KEY, CLICK, OR 🎮 A TO START" → "PRESS ANY BUTTON TO BEGIN".
+
+### Bug fixed: evolved weapons showed no fraction in the loadout, breaking display consistency
+This was the cause of "only some of the upgrades show a 1/3 next to the name" — evolved weapons (Starved Chomp, Steel Slam, etc.) pushed into the loadout line with just their bare name while every other weapon/boost showed a `(cur/max)` fraction, since an evolved weapon has no further levels to show. Fixed by tagging every evolved weapon with `(MAX)` instead, so the loadout line is now consistently `Name (cur/max)` or `Name (MAX)` for every entry, never bare.
+
+Verified directly in-browser via devtools: dumped the full 31/27-card upgrade pool before/after maxing the 4 previously-uncapped boosts to confirm they now drop out, killed real enemies at all 3 Hyperactivity tiers to confirm distinct speed boosts (25/50/75), ran the Lucky Scratch → Lucky Thrash evolution end-to-end to confirm the weapon swap and retimed callback, and read back the loadout text with both an evolved and non-evolved weapon present to confirm the `(MAX)` fix. Zero console errors throughout.
+
+---
+
+## Session 9 — 2026-07-07
+
+### Bug fixed: opening EVOLUTIONS from the pause menu also unpaused the game
+The pause menu has three global "any input resumes" listeners (keyboard, mouse, gamepad) so that pressing almost anything while paused resumes play. Clicking the EVOLUTIONS button fired its own handler (open the menu) *and* the global pointerdown handler (resume) for the same click, leaving physics running underneath the evolutions overlay. Fixed with an `_evoMenuOpen` flag that the three global handlers now check before resuming. Every way of closing the evolutions menu (CLOSE button, ESC, picking an evolution, or the new gamepad B) now consistently drops you back to the paused pause-screen rather than resuming — the flag clears one frame after closing so the same click/press that closed the menu can't also fall through to the resume handlers.
+
+### EVOLUTIONS menu now accessible via gamepad
+Pressing **X** while paused opens the EVOLUTIONS menu (only when at least one evolution is available, same as the mouse button). Pressing **B** closes it, matching this project's existing "B = back" convention from the level-select screen. Added an on-screen "🎮 B Close" hint.
+
+Verified directly in-browser via devtools: simulated the EVOLUTIONS button click together with the global pointerdown handler firing for the same event and confirmed the game stayed paused; simulated closing via the CLOSE button the same way and confirmed it returns to the paused screen (not resumed) both immediately and one frame later; simulated gamepad X-open and B-close directly through the input plugin and confirmed the same pause-preserving behavior. Zero console errors throughout.
+
+---
+
+## Session 10 — 2026-07-07
+
+### EVOLUTIONS menu is now always openable
+Previously the pause menu's EVOLUTIONS button was only clickable (and the gamepad X shortcut only worked) when at least one evolution was ready. Now the button and the X shortcut always open the menu, so players can browse locked evolutions and see requirements at any time. The button still stays dark/dormant (`#444444`, no glow) whenever nothing is available — only its appearance is gated, not access.
+
+### The "⏸ PAUSE" button now flashes gold when an evolution is ready
+Added `updatePauseBtnGlow()`, which starts the same gold flash tween used on the in-pause EVOLUTIONS button whenever `getAvailableEvolutions()` is non-empty, and stops it (back to plain white) when nothing is available. It's called after every upgrade pick and after applying an evolution, so players get a signal mid-run without needing to open pause first. The button's hover handlers now respect the glow state (hovering away returns to gold instead of resetting to white while an evolution is still pending).
+
+Verified directly in-browser via devtools: confirmed the EVOLUTIONS button is clickable and opens a fully-locked menu with zero evolutions available; picked a real upgrade card that maxes a weapon and confirmed the pause button immediately starts glowing gold; applied the resulting evolution through the menu and confirmed the glow correctly turns back off. Zero console errors throughout.
+
+---
+
+## Session 11 — 2026-07-07
+
+### EVOLUTIONS menu is now scrollable
+With 16 evolutions in a 3-column grid, the list overflowed the 450px-tall screen and the bottom rows were unreachable. Added a scrollable viewport (between the title and the CLOSE button):
+- A draggable gold tab on the far-right edge, sized proportionally to how much content overflows (like a normal scrollbar thumb) — only appears when there's actually something to scroll.
+- **Right stick** scrolls continuously while the menu is open, scaled by frame delta.
+- The "🎮 B Close" hint gains a "• RS Scroll" suffix only when scrolling is relevant.
+- Locked-card requirement popups now account for the current scroll offset when positioning themselves, instead of using each card's original unscrolled position.
+
+Scrolling is driven by directly repositioning each card's game objects (`y = baseY - scrollY`) rather than a Phaser Container+mask, since the scroll range is clamped so content never scrolls past the title or CLOSE button — no masking needed to avoid stray clickable/visible overlap.
+
+The existing `_evoMenuOpen` pause-guard (from Session 9) already covers the new drag/scroll interactions for free, since dragging the tab starts with the same kind of pointerdown event the guard already intercepts, and right-stick movement never fires the gamepad "down"/pointer events the resume handlers listen for in the first place.
+
+Verified directly in-browser via devtools: dragged the tab to the bottom of the track and confirmed the last row (Four Chills) became visible and the tab landed exactly at the track's bottom edge; simulated a full-deflection right-stick input and confirmed the tab scrolled back up; confirmed the scroll-update listener is properly removed when the menu closes; confirmed the game stayed paused throughout every drag/scroll interaction; and confirmed a locked-card popup opened at the correct on-screen position after scrolling. Zero console errors throughout.
+
+---
+
+## Session 12 — 2026-07-07
+
+### Phase bosses now use one continuous health bar with divider lines instead of resetting to full
+Mulberry Mantis (level 4 boss + its Hand-fight mini-boss) and The Hand (level 5) used to snap their health bar back to 100% every time a phase transition triggered at 10% HP, making it look like a fresh new bar each phase. Replaced with a single bar sized to cover every phase's health up front, with thin vertical white lines marking exactly where each phase transition occurs — the bar just drains straight through the marks now instead of jumping back up.
+
+Added `computePhasedHealth(baseHealth, phaseCount)`: each non-final phase historically ended once 90% of its own health pool was dealt (then reset to full), and the final phase drains all the way to 0 — so the new total is `0.9×base` per non-final phase plus one full `base` for the last, which nets out to the *same total damage-to-kill* as before (e.g. Mulberry Mantis 8000 → 15200 total with a divider at the 8000 mark; The Hand 10000 → 37000 total with dividers at 28000/19000/10000).
+
+`damageBoss()` and the mini-Mantis AI no longer reset `health` back to `maxHealth` at each transition — they just compare against the next entry in `boss.phaseBoundaries` and trigger the same phase-transition behavior (ring spawns, `triggerHandNextPhase()`, etc.) without touching health. Divider lines are created once at spawn (`createBossPhaseLines()`), repositioned every frame alongside the existing bar-follow logic on both the world-space and top-screen bars, hidden/shown in sync with Mantis's vanish/reappear, and cleaned up in `killBoss()`/`killEnemy()`.
+
+Verified directly in-browser via devtools: spawned the real Mulberry Mantis and The Hand and confirmed `maxHealth`/`phaseBoundaries` match the expected totals (15200/[8000] and 37000/[28000,19000,10000]); confirmed the divider line's on-screen x-position matches the math exactly; drove damage across every phase boundary for both bosses and confirmed health keeps draining continuously (no jump back to full) while the phase/mantisPhase/handPhase state still advances correctly; confirmed both bosses still die cleanly when drained to 0; and confirmed the mini-Mantis in the Hand fight behaves identically, including its own divider line tracking and cleanup on death. Zero console errors throughout.
+
+---
+
+## Session 13 — 2026-07-07
+
+### Pause menu: EVOLUTIONS and QUIT TO MAIN MENU moved side by side
+Previously stacked as two separate rows below the Boosts line, they could get overlapped by the Boosts text once it wrapped to multiple lines with a big loadout. Now they sit on one row, laid out side by side and centred as a pair using their actual rendered widths (so they never overlap each other regardless of font metrics), and that row's y-position is derived from the Boosts line's real rendered height (`pauseBoostLine.y + pauseBoostLine.height + 20`, clamped to the screen) instead of a fixed offset — so it always sits just below the Boosts text no matter how many lines that wraps to.
+
+Verified directly in-browser via devtools: tested with a maxed-out loadout (all 15 weapons + all 16 boosts, wrapping the Boosts line to 3 lines) and confirmed a positive gap between the Boosts text and the button row with no overlap; confirmed the two buttons never overlap each other; confirmed both a fresh minimal loadout and the maxed-out one look correct via screenshot; confirmed both EVOLUTIONS and QUIT TO MAIN MENU still work. Zero console errors throughout.
+
+---
+
+## Session 14 — 2026-07-07
+
+### The Hand's health halved per phase
+Changed its base health from 10000 to 5000 (the `computePhasedHealth` input), which halves every phase segment uniformly — new total 18500 (down from 37000) with dividers at 14000/9500/5000.
+
+### Bug fixed: the vacuum supermove didn't actually pull anything
+`doHandVacuum()` called `physics.moveTo(enemy, boss, 600)` exactly once when the vacuum started, but every enemy's own movement AI runs every frame afterward (`attractCrickets()` for regular enemies, the mini-boss AI dispatch for Hand-fight minis) and immediately overwrote that velocity on the very next frame. So nothing visibly moved for the whole duration — enemies just behaved normally until the timer fired and killed everyone in one instant burst, which is exactly what was reported ("doesn't vacuum anything, just instantly wipes everything").
+
+Fixed by re-applying the pull velocity every single frame for the whole vacuum window, via a new `this.handVacuumActive` flag checked inside `updateHandAI()` (which already runs after both `attractCrickets()` and the mini-boss AI dispatch each frame, so it correctly wins the last word on velocity for that frame regardless of what any individual enemy's own AI wanted to do).
+
+### Vacuum duration reduced to 4000ms
+Down from 10000ms.
+
+### Map slowly reddens during the vacuum
+Added a full-screen red overlay (`scrollFactor(0)`, above the world but below UI) that fades in from alpha 0 to 0.35 linearly across the vacuum's duration, then fades back out once it resolves. Tracked via `this.handVacuumOverlay` and cleaned up both in the normal resolution path and in `killBoss()` in case the boss dies mid-vacuum.
+
+### Upgrade descriptions no longer show raw px/s
+Hyperactivity's three tiers used to read "+25px/s", "+50px/s", "+75px/s" — replaced with "move faster", "move much faster", "move very fast" respectively. Also reworded the Shining Shells evolution's "300px/s" flavor text to "fast-moving shells".
+
+Verified directly in-browser via devtools: confirmed The Hand's new `maxHealth`/`phaseBoundaries` (18500/[14000,9500,5000]); proved the vacuum fix directly by manually stomping a mini-boss's velocity mid-vacuum and confirming `updateHandAI()` immediately re-asserts the pull toward the boss (previously the stomped velocity would have stuck); confirmed the red overlay starts at alpha 0 and ramps toward 0.35; pulled a live Hyperactivity card at all 3 tiers and confirmed the new wording; confirmed the Shining Shells evolution text no longer mentions px/s. Zero console errors throughout.
+
+### New phase-4 attack: 10-projectile ring
+Every 5s during phase 4, a 1/4 chance to fire a ring of 10 projectiles outward from the boss (evenly spaced, 15 damage each, 5s lifetime) — a lighter, more frequent attack layered alongside the existing phase-4 set-pieces (the two-ring 30-projectile volley, the vacuum, the mini-boss respawn checks). New `handProjTimer` cleaned up in `killBoss()` alongside the others.
+
+Verified directly in-browser via devtools: confirmed the timer is created with the right delay/loop settings when phase 4 triggers; called the fire function directly and confirmed exactly 10 projectiles spawn, evenly spaced in a full circle (velocity magnitude ~220 each) with 15 damage; mocked `Math.random()` to force both the success and failure paths of the 1/4 roll and confirmed it fires exactly 10 projectiles on success and zero on failure; confirmed the timer is properly removed when the boss dies. Zero console errors throughout.
+
+---
+
+## Session 15 — 2026-07-07
+
+### Boss name (on the top bar, above where the XP bar used to be) is now purple
+Was plain white.
+
+### The Hand gets 20% faster with every phase
+Added `getHandSpeedMultiplier()` — `1.2^(handPhase-1)`, so phase 1 is baseline, phase 2 is ×1.2, phase 3 ×1.44, phase 4 ×1.728. Applied to its regular wander speed (200 base) and the tweezers-charge dash speed (420 base).
+
+### The Hand freezes and trembles for 3s after every phase transition
+Previously the next phase's behavior (teleport scheduling, ring scheduling, the phase-4 vacuum/projectiles, etc.) kicked off immediately when a phase boundary was crossed. Now `triggerHandNextPhase()` immobilizes the boss, jitters its position by ±3px every 40ms (a violent trembling in place, no real movement) for 3 seconds, restores its exact position, and only then starts the new phase's behavior — giving the transition a distinct "recovering" beat instead of instantly resuming full aggression.
+
+Verified directly in-browser via devtools: confirmed the top boss label renders in `#bb66ff`; confirmed the speed multiplier compounds correctly across all 4 phases (1, 1.2, 1.44, 1.728) and that both the wander velocity and the tweezers-charge velocity scale by the expected exact amounts at a given phase; confirmed `handImmobile` flips true the instant a phase transition starts, and that the new phase's behavior (e.g. `handTeleportTimer` for phase 2) only appears after the freeze resolves, with `handImmobile` back to false and `handPhaseTransitioned` correctly reset at that point. Zero console errors throughout.
+
+### Bug fixed: boss name on the top bar was rendered behind the phase divider lines
+The top-bar phase divider lines were added at depth 103, one higher than the boss name label's depth 102 — so the lines rendered on top of (through) the text, hurting readability right where a divider happened to cross a letter. Bumped the label to depth 104 so it always renders above the lines. The world-space label above the boss sprite didn't have this problem (it sits ~65px above where its divider line is drawn), so only the top-bar label needed the fix.
+
+Verified directly in-browser via devtools: confirmed the top boss label's depth (104) is now above all of its phase divider lines' depth (103); confirmed via screenshot that "THE HAND" renders cleanly on top of both divider lines on the top bar. Zero console errors throughout.
+
+### Boss name and phase divider line colours swapped
+The boss name label (top bar) is now white (`#ffffff`); the phase divider lines (both the top bar and the world-space bar above the boss) are now purple (`0xbb66ff`) — the reverse of what they were.
+
+---
+
+## Session 16 — 2026-07-07
+
+### Vacuum supermove made more perceptible
+Health-halving and the vacuum's continuous pull-every-frame fix were already in place from Session 14 — verified both directly in-browser this session (The Hand's `maxHealth`/`phaseBoundaries` already reflect the halved 5000 base, and instrumented timing confirmed the pull genuinely re-asserts every frame and the kill fires exactly at the configured duration, not early). But the user reported it still *feels* instant during real play, and the numbers explain why: a 4-second window plus a fast 600px/s pull means anything already close to the boss (the common case — bosses and minis both cluster near the player) snaps in almost immediately, leaving a long dead pause before the payoff, and the red tint topped out at only 0.35 alpha against a dark green background.
+
+Strengthened both:
+- Vacuum duration 4000ms → 6500ms, giving the pull more time to actually read as dragging things in rather than snapping them.
+- Red overlay max alpha 0.35 → 0.55 (confirmed via screenshot at both low and peak alpha — genuinely hard to miss at 0.55).
+- The Hand's own warning flash was previously just a brief 600ms blip at the very start; it now pulses continuously for the entire build-up (stopped and alpha reset to 1 when the vacuum resolves), so the boss visibly reads as "channeling" the whole time instead of flashing once and going quiet.
+
+Verified directly in-browser via devtools: instrumented `killEnemy`/`physics.moveTo` calls to confirm timing precisely (ruled out an earlier false alarm caused by the test player dying mid-test, which freezes `time.paused` independently of the pause menu and was corrupting the readings); used a 10×-slowed timer/tween harness to safely inspect the visual mid-ramp without racing real time, confirming a mini-boss gets pulled from 500px away down to ~15px and the red overlay is barely visible early on but unmistakably red by the end. Zero console errors throughout.
+
+Verified directly in-browser via devtools and screenshot: confirmed the label's style color and both line arrays' fill colors after the swap; visually confirmed "THE HAND" reads in white with purple dividers on both bars. Zero console errors throughout.
+
+---
+
+## Session 17 — 2026-07-07
+
+### Vacuum supermove: blast radius halved, buildup set to exactly 5 seconds
+Explosion radius 1500 → 750 (both the visual circle and the player-hit-detection radius now share one `BLAST_RADIUS` constant instead of the value being repeated). Vacuum buildup duration set to 5000ms (was 6500ms from last session's tuning).
+
+Verified directly in-browser via devtools: instrumented the vacuum's own `delayedCall` and confirmed it fires at 5020ms elapsed (essentially exact); intercepted `Graphics.fillCircle` to confirm the explosion is actually drawn at radius 750. Zero console errors throughout.
