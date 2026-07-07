@@ -1,9 +1,13 @@
+import { playBgm, playSfx } from '../audio.js';
+
 export default class LevelSelectScene extends Phaser.Scene {
     constructor() {
         super('LevelSelectScene');
     }
 
     create() {
+        playBgm(this, 'bgm_title');
+
         const cx = this.cameras.main.width / 2;
         const cy = this.cameras.main.height;
 
@@ -54,7 +58,7 @@ export default class LevelSelectScene extends Phaser.Scene {
                     btn.setInteractive({ useHandCursor: true });
                     btn.on('pointerover', () => btn.setColor('#ffff00'));
                     btn.on('pointerout',  () => btn.setColor(colour));
-                    btn.on('pointerdown', () => { if (selectionReady) this.scene.start('GameScene', { level: def.number }); });
+                    btn.on('pointerdown', () => { if (selectionReady) { playSfx(this, 'sfx_level_selected'); this.scene.start('GameScene', { level: def.number }); } });
                 }
 
                 levelBtns.push(btn);
@@ -89,6 +93,7 @@ export default class LevelSelectScene extends Phaser.Scene {
             } else if (idx === 0) { // A = confirm
                 const def = levelDefs[selectedIdx];
                 if (selectionReady && (allUnlocked || def.number <= maxUnlocked)) {
+                    playSfx(this, 'sfx_level_selected');
                     this.scene.start('GameScene', { level: def.number });
                 }
             } else if (idx === 1) { // B = back to title

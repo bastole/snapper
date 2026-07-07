@@ -28,6 +28,29 @@ export default class BootScene extends Phaser.Scene {
 
         // Items (32x32 static)
         this.load.image('cricket', 'assets/sprites/items/cricket.png');
+
+        // BGM (looping tracks)
+        this.load.audio('bgm_title',     'assets/audio/bgm/title.wav');
+        this.load.audio('bgm_lv1',       'assets/audio/bgm/lv1.wav');
+        this.load.audio('bgm_lv2',       'assets/audio/bgm/lv2.wav');
+        this.load.audio('bgm_lv3',       'assets/audio/bgm/lv3.wav');
+        this.load.audio('bgm_lv4',       'assets/audio/bgm/lv4.wav');
+        this.load.audio('bgm_lv5',       'assets/audio/bgm/lv5.wav');
+        this.load.audio('bgm_boss',      'assets/audio/bgm/boss.wav');
+        this.load.audio('bgm_finalboss', 'assets/audio/bgm/finalboss.wav');
+
+        // SFX (ping.wav is intentionally unused per the audio asset guide)
+        this.load.audio('sfx_boss_enters',      'assets/audio/sfx/boss_enters.wav');
+        this.load.audio('sfx_enemy_hurt',       'assets/audio/sfx/enemy_hurt.wav');
+        this.load.audio('sfx_player_hurt',      'assets/audio/sfx/player_hurt.wav');
+        this.load.audio('sfx_levelup',          'assets/audio/sfx/levelup.wav');
+        this.load.audio('sfx_item_collect',     'assets/audio/sfx/item_collect.wav');
+        this.load.audio('sfx_item_heal',        'assets/audio/sfx/item_heal.wav');
+        this.load.audio('sfx_pause',            'assets/audio/sfx/pause.wav');
+        this.load.audio('sfx_upgrade_selected', 'assets/audio/sfx/upgrade_selected.wav');
+        this.load.audio('sfx_level_selected',   'assets/audio/sfx/level_selected.wav');
+        this.load.audio('sfx_win',              'assets/audio/sfx/win.wav');
+        this.load.audio('sfx_gameover',         'assets/audio/sfx/gameover.wav');
     }
 
     create() {

@@ -1,3 +1,5 @@
+import { playBgm, crossfadeBgm, stopBgm, pauseBgm, resumeBgm, playSfx } from '../audio.js';
+
 export default class GameScene extends Phaser.Scene {
     constructor() {
         super('GameScene');
@@ -239,6 +241,8 @@ export default class GameScene extends Phaser.Scene {
 
         // --- UI ---
         this.createUI();
+
+        playBgm(this, `bgm_lv${this.level}`);
     }
 
     // ─── Background grid ────────────────────────────────────────────────────────
@@ -329,6 +333,7 @@ export default class GameScene extends Phaser.Scene {
         this.isPaused = !this.isPaused;
 
         if (this.isPaused) {
+            playSfx(this, 'sfx_pause');
             this.physics.pause();
             this.time.paused = true;
             btn.setVisible(false);
@@ -390,6 +395,7 @@ export default class GameScene extends Phaser.Scene {
             this.pauseQuitBtn.on('pointerout',  () => this.pauseQuitBtn.setColor('#ff8888'));
             this.pauseQuitBtn.on('pointerdown', () => {
                 this._pauseQuitting = true;
+                stopBgm();
                 this.scene.start('LevelSelectScene');
             });
 
@@ -904,6 +910,7 @@ export default class GameScene extends Phaser.Scene {
                                 this.physics.add.overlap(proj, this.enemies, (p, e) => {
                                     if (!p.active) return;
                                     this.damageDealt += 20; e.health -= 20;
+                                    this.playEnemyHurtSfx();
                                     this.tweens.add({ targets: e, alpha: 0.2, duration: 80, yoyo: true });
                                     if (e.health <= 0) this.killEnemy(e);
                                     p.destroy();
@@ -1177,6 +1184,7 @@ export default class GameScene extends Phaser.Scene {
                             this.physics.add.overlap(proj, this.enemies, (p, e) => {
                                 if (!p.active) return;
                                 this.damageDealt += 20; e.health -= 20;
+                                this.playEnemyHurtSfx();
                                 this.tweens.add({ targets: e, alpha: 0.2, duration: 80, yoyo: true });
                                 if (e.health <= 0) this.killEnemy(e);
                                 p.destroy();
@@ -1391,6 +1399,7 @@ export default class GameScene extends Phaser.Scene {
             const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
             if (dist <= this.biteRange && this.canDamageEnemy(enemy)) {
                 this.damageDealt += this.biteDamage; enemy.health -= this.biteDamage;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 this.maybeVenom(enemy);
                 if (this.biteLevel >= 4 && !enemy.slowed) {
@@ -1425,6 +1434,7 @@ export default class GameScene extends Phaser.Scene {
             let diff = Phaser.Math.Angle.Wrap(toEnemy - angle);
             if (Math.abs(diff) <= arc / 2 && this.canDamageEnemy(enemy)) {
                 this.damageDealt += this.tailSlapDamage; enemy.health -= this.tailSlapDamage; this.checkHydraPhase(enemy);
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 this.maybeVenom(enemy);
                 if (enemy.health <= 0) this.killEnemy(enemy);
@@ -1481,6 +1491,7 @@ export default class GameScene extends Phaser.Scene {
                     this.enemies.getChildren().forEach(enemy => {
                         if (Phaser.Math.Distance.Between(fx, fy, enemy.x, enemy.y) <= radius && this.canDamageEnemy(enemy)) {
                             this.damageDealt += this.poopDamage; enemy.health -= this.poopDamage;
+                            this.playEnemyHurtSfx();
                             this.tweens.add({ targets: enemy, alpha: 0.2, duration: 60, yoyo: true });
                             if (enemy.health <= 0) this.killEnemy(enemy);
                         }
@@ -1536,6 +1547,7 @@ export default class GameScene extends Phaser.Scene {
             this.physics.add.overlap(pebble, this.enemies, (p, enemy) => {
                 if (this.isCountdown || !this.canDamageEnemy(enemy)) return;
                 this.damageDealt += p.damage; enemy.health -= p.damage;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 if (enemy.health <= 0) this.killEnemy(enemy);
                 p.hits++;
@@ -1608,6 +1620,7 @@ export default class GameScene extends Phaser.Scene {
             if (target) {
                 tx = target.x; ty = target.y;
                 this.damageDealt += this.lickDamage; target.health -= this.lickDamage;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: target, alpha: 0, duration: 60, yoyo: true, repeat: 1 });
                 this.maybeVenom(target);
                 if (target.health <= 0) this.killEnemy(target);
@@ -1647,6 +1660,7 @@ export default class GameScene extends Phaser.Scene {
                 const toEnemy = Math.atan2(enemy.y - py, enemy.x - px);
                 if (Math.abs(Phaser.Math.Angle.Wrap(toEnemy - baseAngle)) <= arc / 2 && this.canDamageEnemy(enemy)) {
                     this.damageDealt += this.wormWhipDamage; enemy.health -= this.wormWhipDamage;
+                    this.playEnemyHurtSfx();
                     this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                     this.maybeVenom(enemy);
                     if (enemy.health <= 0) this.killEnemy(enemy);
@@ -1711,6 +1725,7 @@ export default class GameScene extends Phaser.Scene {
                 this.enemies.getChildren().forEach(enemy => {
                     if (Phaser.Math.Distance.Between(ex, ey, enemy.x, enemy.y) <= this.pupaRadius && this.canDamageEnemy(enemy)) {
                         this.damageDealt += this.pupaDamage; enemy.health -= this.pupaDamage;
+                        this.playEnemyHurtSfx();
                         this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                         if (enemy.health <= 0) this.killEnemy(enemy);
                     }
@@ -1755,6 +1770,7 @@ export default class GameScene extends Phaser.Scene {
                 if (s.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy)) return;
                 s.hitEnemies.add(enemy);
                 this.damageDealt += this.skinDamage; enemy.health -= this.skinDamage;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 if (enemy.health <= 0) this.killEnemy(enemy);
             });
@@ -1792,6 +1808,7 @@ export default class GameScene extends Phaser.Scene {
                 if (this.isCountdown || !w.active || w.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy)) return;
                 w.hitEnemies.add(enemy);
                 this.damageDealt += this.woodieDamage; enemy.health -= this.woodieDamage;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 if (enemy.health <= 0) this.killEnemy(enemy);
             });
@@ -1832,6 +1849,7 @@ export default class GameScene extends Phaser.Scene {
             callback: () => {
                 if (!enemy.active) { t.remove(); return; }
                 this.damageDealt += 3; enemy.health -= 3;
+                this.playEnemyHurtSfx();
                 done++;
                 if (enemy.health <= 0) { this.killEnemy(enemy); t.remove(); return; }
                 if (done >= ticks) {
@@ -1877,6 +1895,7 @@ export default class GameScene extends Phaser.Scene {
         if (nearest) {
             tx = nearest.x; ty = nearest.y;
             this.damageDealt += damage; nearest.health -= damage;
+            this.playEnemyHurtSfx();
             this.tweens.add({ targets: nearest, alpha: 0, duration: 60, yoyo: true, repeat: 1 });
             this.applyEnemyPoison(nearest, duration);
             if (nearest.health <= 0) this.killEnemy(nearest);
@@ -1936,6 +1955,7 @@ export default class GameScene extends Phaser.Scene {
             b.hitEnemies.add(enemy);
             b.hits++;
             this.damageDealt += dmg; enemy.health -= dmg;
+            this.playEnemyHurtSfx();
             this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
             this.maybeVenom(enemy);
             if (enemy.health <= 0) this.killEnemy(enemy);
@@ -1966,6 +1986,7 @@ export default class GameScene extends Phaser.Scene {
             const perp  = Math.abs(-dx * sinA + dy * cosA);
             if (along >= 0 && along <= len && perp <= width / 2) {
                 this.damageDealt += dmg; enemy.health -= dmg;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.3, duration: 80, yoyo: true });
                 if (enemy.health <= 0) { this.killEnemy(enemy); return; }
                 if (!enemy.slowed) {
@@ -2014,6 +2035,7 @@ export default class GameScene extends Phaser.Scene {
             if (!this.canDamageEnemy(enemy)) return;
             if (Phaser.Math.Distance.Between(sx, sy, enemy.x, enemy.y) <= r) {
                 this.damageDealt += dmg; enemy.health -= dmg;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 // Tag this specific enemy for boosted drops
                 enemy._scratchFoodbox  = (enemy._scratchFoodbox  ?? 0) + 0.12;
@@ -2206,6 +2228,7 @@ export default class GameScene extends Phaser.Scene {
                     this.xp -= this.xpToNext;
                     this.xpToNext = Math.floor(this.xpToNext * 1.2);
                     this.playerLevel++;
+                    playSfx(this, 'sfx_levelup');
                     this.updateXPBar();
                     this.showLevelUp();
                 }
@@ -2306,6 +2329,7 @@ export default class GameScene extends Phaser.Scene {
                         this.physics.add.overlap(proj, this.enemies, (p, e) => {
                             if (!p.active) return;
                             this.damageDealt += 20; e.health -= 20;
+                            this.playEnemyHurtSfx();
                             this.tweens.add({ targets: e, alpha: 0.2, duration: 80, yoyo: true });
                             if (e.health <= 0) this.killEnemy(e);
                             p.destroy();
@@ -2398,6 +2422,7 @@ export default class GameScene extends Phaser.Scene {
     collectCricket(player, cricket) {
         if (cricket.specialType === 'pupamine_collectible') {
             cricket.destroy();
+            playSfx(this, 'sfx_item_collect');
             // Drop a fresh pupa mine at the player position
             if (this.ownedWeapons.has('bugbuster') && this.pupaGroup) {
                 const ox = this.player.x + Phaser.Math.Between(-30, 30);
@@ -2417,6 +2442,7 @@ export default class GameScene extends Phaser.Scene {
                         if (Phaser.Math.Distance.Between(ex, ey, e.x, e.y) <= this.pupaRadius * 2 && this.canDamageEnemy(e)) {
                             e._killedByBugBuster = true;
                             this.damageDealt += this.pupaDamage * 2.5; e.health -= this.pupaDamage * 2.5;
+                            this.playEnemyHurtSfx();
                             if (e.health <= 0) this.killEnemy(e);
                         }
                     });
@@ -2433,17 +2459,20 @@ export default class GameScene extends Phaser.Scene {
             cricket.destroy();
             this.playerHealth = this.playerMaxHealth;
             this.updateHPBar();
+            playSfx(this, 'sfx_item_heal');
             return;
         }
         if (cricket.specialType === 'wormbox') {
             cricket.destroy();
             this.playerHealth = Math.min(this.playerMaxHealth, this.playerHealth + this.playerMaxHealth * 0.5);
             this.updateHPBar();
+            playSfx(this, 'sfx_item_heal');
             return;
         }
         if (cricket.specialType === 'treasure') {
             cricket.destroy();
             this.playerLevel++;
+            playSfx(this, 'sfx_levelup');
             this.updateXPBar();
             this.showLevelUp();
             return;
@@ -2451,12 +2480,14 @@ export default class GameScene extends Phaser.Scene {
 
         this.xp += cricket.xpValue ?? 1;
         cricket.destroy();
+        playSfx(this, 'sfx_item_collect');
         this.updateXPBar();
 
         if (this.xp >= this.xpToNext) {
             this.xp      -= this.xpToNext;
             this.xpToNext = Math.floor(this.xpToNext * 1.2);
             this.playerLevel++;
+            playSfx(this, 'sfx_levelup');
             this.updateXPBar();
             this.showLevelUp();
         }
@@ -2464,6 +2495,10 @@ export default class GameScene extends Phaser.Scene {
 
     canDamageEnemy(enemy) {
         return enemy.active && !enemy.isUnderground && !enemy.mantisVanishing;
+    }
+
+    playEnemyHurtSfx() {
+        playSfx(this, 'sfx_enemy_hurt', 0.18);
     }
 
     checkHydraPhase(enemy) {
@@ -2494,6 +2529,7 @@ export default class GameScene extends Phaser.Scene {
                 const a = Math.atan2(e.y - this.player.y, e.x - this.player.x);
                 if (e.body) e.body.setVelocity(Math.cos(a) * 220, Math.sin(a) * 220);
                 this.damageDealt += 15; e.health -= 15;
+                this.playEnemyHurtSfx();
                 if (e.health <= 0) toKill.push(e);
             }
         });
@@ -2575,6 +2611,8 @@ export default class GameScene extends Phaser.Scene {
 
     // ─── Boss ────────────────────────────────────────────────────────────────────
     spawnBoss() {
+        playSfx(this, 'sfx_boss_enters');
+
         // Stop all regular spawning immediately when the warning appears
         this.spawnTimer.remove();
         this.spawnRampTimer.remove();
@@ -2605,6 +2643,7 @@ export default class GameScene extends Phaser.Scene {
         this.time.delayedCall(2800, () => {
             // Clear all existing XP insects and treasures; wormboxes stay
             this.bossSpawned = true;
+            crossfadeBgm(this, this.level === 5 ? 'bgm_finalboss' : 'bgm_boss', 0.45, 1000);
             this.crickets.getChildren().slice().forEach(c => {
                 if (c.specialType !== 'wormbox' && c.specialType !== 'fullbox' && c.specialType !== 'pupamine_collectible') c.destroy();
             });
@@ -3193,6 +3232,7 @@ export default class GameScene extends Phaser.Scene {
 
     damageBoss(amount) {
         if (!this.boss || !this.boss.active) return;
+        this.playEnemyHurtSfx();
         this.damageDealt += amount; this.boss.health -= amount;
         this.tweens.add({ targets: this.boss, alpha: 0.2, duration: 80, yoyo: true });
         this.updateBossHealthBar();
@@ -3336,6 +3376,9 @@ export default class GameScene extends Phaser.Scene {
         if (this._deathOverlayShown) return;
         this._deathOverlayShown = true;
 
+        playSfx(this, 'sfx_gameover');
+        pauseBgm();
+
         this.isGameOver = true;
         this.pendingLevelUps = 0;
         // Destroy all XP insects on the map
@@ -3376,7 +3419,7 @@ export default class GameScene extends Phaser.Scene {
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
         retryBtn.on('pointerover', () => retryBtn.setColor('#ffff00'));
         retryBtn.on('pointerout',  () => retryBtn.setColor('#ffffff'));
-        retryBtn.on('pointerdown', () => this.scene.start('GameScene', { level: this.level }));
+        retryBtn.on('pointerdown', () => { stopBgm(); this.scene.start('GameScene', { level: this.level }); });
 
         // MAIN MENU
         const menuBtn = addUI(this.add.text(W / 2, H / 2 + 120, '[ MAIN MENU ]', {
@@ -3385,7 +3428,7 @@ export default class GameScene extends Phaser.Scene {
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
         menuBtn.on('pointerover', () => menuBtn.setColor('#ffff00'));
         menuBtn.on('pointerout',  () => menuBtn.setColor('#ffffff'));
-        menuBtn.on('pointerdown', () => this.scene.start('LevelSelectScene'));
+        menuBtn.on('pointerdown', () => { stopBgm(); this.scene.start('LevelSelectScene'); });
 
         addUI(this.add.text(W / 2, H / 2 + 168, 'REVIVE keeps your upgrades and spawns you safely away from enemies', {
             fontSize: '11px', fontFamily: 'Arial', color: '#888888',
@@ -3407,6 +3450,7 @@ export default class GameScene extends Phaser.Scene {
     revivePlayer() {
         this.input.gamepad.off('down', this._deathPadHandler);
         this._deathOverlayShown = false;
+        resumeBgm();
 
         // Find a spot at least 4000px from every active enemy
         const SAFE_DIST = 4000;
@@ -3456,6 +3500,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     showLevelClear() {
+        stopBgm();
+        playSfx(this, 'sfx_win');
         this.isLevelClear = true;
         // Unlock the next level
         const currentMax = parseInt(localStorage.getItem('snapper_unlocked') ?? '1');
@@ -3988,6 +4034,7 @@ export default class GameScene extends Phaser.Scene {
         let selectedCard = 0;
 
         const pickCard = (upgrade) => {
+            playSfx(this, 'sfx_upgrade_selected');
             upgrade.effect();
             this.updatePauseBtnGlow();
             rKeyHandler && this.input.keyboard.off('keydown-R', rKeyHandler);
@@ -4221,6 +4268,7 @@ export default class GameScene extends Phaser.Scene {
             const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
             if (dist <= this.biteRange && this.canDamageEnemy(enemy)) {
                 this.damageDealt += this.biteDamage; enemy.health -= this.biteDamage;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 this.maybeVenom(enemy);
                 if (this.biteLevel >= 4 && !enemy.slowed) {
@@ -4249,6 +4297,7 @@ export default class GameScene extends Phaser.Scene {
             const toEnemy = Math.atan2(enemy.y - this.player.y, enemy.x - this.player.x);
             if (Math.abs(Phaser.Math.Angle.Wrap(toEnemy - angle)) <= arc / 2 && this.canDamageEnemy(enemy)) {
                 this.damageDealt += this.tailSlapDamage; enemy.health -= this.tailSlapDamage; this.checkHydraPhase(enemy);
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 // Knockback
                 const a = Math.atan2(enemy.y - this.player.y, enemy.x - this.player.x);
@@ -4300,6 +4349,7 @@ export default class GameScene extends Phaser.Scene {
                     this.enemies.getChildren().forEach(enemy => {
                         if (Phaser.Math.Distance.Between(fx, fy, enemy.x, enemy.y) <= radius && this.canDamageEnemy(enemy)) {
                             this.damageDealt += this.poopDamage; enemy.health -= this.poopDamage;
+                            this.playEnemyHurtSfx();
                             this.tweens.add({ targets: enemy, alpha: 0.2, duration: 60, yoyo: true });
                             if (!enemy.slowed) {
                                 enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0x88cc44);
@@ -4346,6 +4396,7 @@ export default class GameScene extends Phaser.Scene {
                 if (!am.active || !this.canDamageEnemy(enemy)) return;
                 am.destroy();
                 this.damageDealt += dmg; enemy.health -= dmg;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 // Apply burn: red tint, ticks harder/faster than poison (6 dmg / 300ms)
                 if (!enemy.burned) {
@@ -4355,6 +4406,7 @@ export default class GameScene extends Phaser.Scene {
                     const bt = this.time.addEvent({ delay: 300, loop: true, callback: () => {
                         if (!enemy.active) { bt.remove(); return; }
                         this.damageDealt += 6; enemy.health -= 6; done++;
+                        this.playEnemyHurtSfx();
                         if (enemy.health <= 0) { this.killEnemy(enemy); bt.remove(); return; }
                         if (done >= ticks) { bt.remove(); if (enemy.active) { enemy.burned = false; enemy.clearTint(); } }
                     } });
@@ -4411,6 +4463,7 @@ export default class GameScene extends Phaser.Scene {
             if (target) {
                 tx = target.x; ty = target.y;
                 this.damageDealt += this.lickDamage; target.health -= this.lickDamage;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: target, alpha: 0, duration: 60, yoyo: true, repeat: 1 });
                 if (!target.slowed) {
                     target.slowed = true; const bs = target.speed; target.speed = bs * 0.5; target.setTint(0xaaddff);
@@ -4441,6 +4494,7 @@ export default class GameScene extends Phaser.Scene {
                 const toEnemy = Math.atan2(enemy.y - py, enemy.x - px);
                 if (Math.abs(Phaser.Math.Angle.Wrap(toEnemy - baseAngle)) <= arc / 2 && this.canDamageEnemy(enemy)) {
                     this.damageDealt += this.wormWhipDamage; enemy.health -= this.wormWhipDamage;
+                    this.playEnemyHurtSfx();
                     this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                     this.applyEnemyPoison(enemy, 6000);
                     if (!enemy.slowed) {
@@ -4490,6 +4544,7 @@ export default class GameScene extends Phaser.Scene {
                 this.enemies.getChildren().forEach(e => {
                     if (Phaser.Math.Distance.Between(ex, ey, e.x, e.y) <= this.pupaRadius * 2 && this.canDamageEnemy(e)) {
                         this.damageDealt += busDmg; e.health -= busDmg;
+                        this.playEnemyHurtSfx();
                         if (e.health <= 0) { e._killedByBugBuster = true; this.killEnemy(e); }
                     }
                 });
@@ -4518,6 +4573,7 @@ export default class GameScene extends Phaser.Scene {
                 if (s.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy)) return;
                 s.hitEnemies.add(enemy);
                 this.damageDealt += this.skinDamage; enemy.health -= this.skinDamage;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 if (enemy.health <= 0) this.killEnemy(enemy);
             });
@@ -4540,6 +4596,7 @@ export default class GameScene extends Phaser.Scene {
                 if (!s.active || s.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy) || this.isCountdown) return;
                 s.hitEnemies.add(enemy);
                 this.damageDealt += this.woodieDamage; enemy.health -= this.woodieDamage;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 if (enemy.health <= 0) {
                     // Small explosion on kill
@@ -4590,6 +4647,7 @@ export default class GameScene extends Phaser.Scene {
             this.physics.add.overlap(proj, this.enemies, (p, enemy) => {
                 if (!p.active || !this.canDamageEnemy(enemy)) return;
                 this.damageDealt += dmg; enemy.health -= dmg;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 if (enemy.health <= 0) this.killEnemy(enemy);
                 p.destroy();
@@ -4619,6 +4677,7 @@ export default class GameScene extends Phaser.Scene {
             const ty = nearest ? nearest.y : py + Math.sin(angle) * range;
             if (nearest) {
                 this.damageDealt += dmg; nearest.health -= dmg;
+                this.playEnemyHurtSfx();
                 this.applyEnemyPoison(nearest, 6000);
                 // Immobilise (1s, 10s cooldown)
                 const lastFlash = nearest._lastFlashclaw ?? 0;
@@ -4664,6 +4723,7 @@ export default class GameScene extends Phaser.Scene {
                 if (this.time.now - lastHit < 1500) return;
                 l.hitCooldowns.set(enemy, this.time.now);
                 this.damageDealt += dmg; enemy.health -= dmg;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 // Slight knockback
                 const a = Math.atan2(enemy.y - l.y, enemy.x - l.x);
@@ -4693,6 +4753,7 @@ export default class GameScene extends Phaser.Scene {
             const perp  = Math.abs(-dx * sinA + dy * cosA);
             if (along >= 0 && along <= len && perp <= width / 2) {
                 this.damageDealt += dmg; enemy.health -= dmg;
+                this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.3, duration: 80, yoyo: true });
                 if (enemy.health <= 0) { this.killEnemy(enemy); return; }
                 if (!enemy.slowed) {
@@ -4742,6 +4803,7 @@ export default class GameScene extends Phaser.Scene {
                 if (!this.canDamageEnemy(enemy)) return;
                 if (Phaser.Math.Distance.Between(sx, sy, enemy.x, enemy.y) <= r) {
                     this.damageDealt += dmg; enemy.health -= dmg;
+                    this.playEnemyHurtSfx();
                     this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                     enemy._scratchFoodbox  = (enemy._scratchFoodbox  ?? 0) + 0.25;
                     enemy._scratchTreasure = (enemy._scratchTreasure ?? 0) + 0.15;
@@ -5170,6 +5232,7 @@ export default class GameScene extends Phaser.Scene {
 
     playerDamageFlash() {
         if (!this.player?.active) return;
+        playSfx(this, 'sfx_player_hurt');
         this.tweens.killTweensOf(this.player);
         this.player.setAlpha(1);
         this.tweens.add({ targets: this.player, alpha: 0.3, duration: 100, yoyo: true });

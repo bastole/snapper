@@ -1,9 +1,13 @@
+import { playBgm } from '../audio.js';
+
 export default class TitleScene extends Phaser.Scene {
     constructor() {
         super('TitleScene');
     }
 
     create() {
+        playBgm(this, 'bgm_title');
+
         const cx = this.cameras.main.width / 2;
         const cy = this.cameras.main.height / 2;
 
