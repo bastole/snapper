@@ -68,6 +68,10 @@ export default class LevelSelectScene extends Phaser.Scene {
         const levelBtns = [];
         buildButtons();
 
+        // White box outline drawn around whichever level is currently gamepad-selected
+        const selectionOutline = this.add.rectangle(0, 0, 10, 10, 0xffffff, 0)
+            .setStrokeStyle(4, 0xffffff).setDepth(5).setVisible(false);
+
         // Gamepad navigation
         let selectedIdx = 0;
         const maxUnlockedForNav = () => allUnlocked ? 5 : maxUnlocked;
@@ -80,6 +84,15 @@ export default class LevelSelectScene extends Phaser.Scene {
                 if (!unlocked) return;
                 btn.setColor(i === selectedIdx ? '#ffff00' : '#ffffff');
             });
+
+            const selectedBtn = levelBtns[selectedIdx];
+            if (selectedBtn?.active) {
+                selectionOutline.setPosition(selectedBtn.x, selectedBtn.y);
+                selectionOutline.setSize(selectedBtn.width + 6, selectedBtn.height + 6);
+                selectionOutline.setVisible(true);
+            } else {
+                selectionOutline.setVisible(false);
+            }
         };
 
         this.input.gamepad.on('down', (pad, button) => {
@@ -138,6 +151,7 @@ export default class LevelSelectScene extends Phaser.Scene {
             allBtn.setColor(allUnlocked ? '#ffaa00' : '#888888');
             allBtn.setBackgroundColor(allUnlocked ? '#332200' : '#1a1a1a');
             buildButtons();
+            updateHighlight();
         });
     }
 }

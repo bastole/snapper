@@ -26,8 +26,14 @@ export default class BootScene extends Phaser.Scene {
             this.load.spritesheet(key, `assets/sprites/bosses/${key}.png`, { frameWidth: 128, frameHeight: 128 });
         });
 
-        // Items (32x32 static)
+        // Items (64x64 static)
         this.load.image('cricket', 'assets/sprites/items/cricket.png');
+        this.load.image('dragonfly', 'assets/sprites/items/dragonfly.png');
+        this.load.image('mealworm', 'assets/sprites/items/mealworm.png');
+        this.load.image('vitaworm', 'assets/sprites/items/vitaworm.png');
+        this.load.image('foodbox', 'assets/sprites/items/foodbox.png');
+        this.load.image('fullbox', 'assets/sprites/items/fullbox.png');
+        this.load.image('treasure', 'assets/sprites/items/treasure.png');
 
         // BGM (looping tracks)
         this.load.audio('bgm_title',     'assets/audio/bgm/title.wav');

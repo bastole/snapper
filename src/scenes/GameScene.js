@@ -304,8 +304,8 @@ export default class GameScene extends Phaser.Scene {
             for (let i = 0; i < 20; i++) {
                 const wx = Phaser.Math.Between(100, 3100);
                 const wy = Phaser.Math.Between(100, 3100);
-                const item = this.physics.add.image(wx, wy, 'cricket');
-                item.setScale(1.10).setTint(0xff4488).setDepth(4);
+                const item = this.physics.add.image(wx, wy, 'foodbox');
+                item.setScale(1.10).setDepth(4);
                 item.xpValue = 0;
                 item.specialType = 'wormbox';
                 this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 350, yoyo: true, loop: -1 });
@@ -410,6 +410,10 @@ export default class GameScene extends Phaser.Scene {
             this._evoBtnText.setX(evoQuitStartX + this._evoBtnText.width / 2);
             this.pauseQuitBtn.setX(evoQuitStartX + this._evoBtnText.width + evoQuitGap + this.pauseQuitBtn.width / 2);
 
+            this.pausePadHint = this.add.text(10, H - 10, '🎮  Y  Quit to Menu    X  Evolutions', {
+                fontSize: '11px', fontFamily: 'Arial', color: '#666666',
+            }).setScrollFactor(0).setDepth(151).setOrigin(0, 1);
+
             // Any key resumes (exclude P/ESC which already have their own toggle handlers)
             this.pauseAnyKey = this.input.keyboard.on('keydown', (e) => {
                 if (this._evoMenuOpen) return;
@@ -426,6 +430,8 @@ export default class GameScene extends Phaser.Scene {
                     if (this._evoMenuOpen) return;
                     // X opens the EVOLUTIONS menu instead of resuming (always openable)
                     if (button.index === 2) { this._evoMenuOpen = true; this.showEvolutionMenu(); return; }
+                    // Y quits to the main menu instead of resuming
+                    if (button.index === 3) { this.pauseQuitBtn.emit('pointerdown'); return; }
                     if (this.isPaused && button.index !== 9 && !this._pauseQuitting) this.togglePause(btn);
                 });
             });
@@ -441,6 +447,7 @@ export default class GameScene extends Phaser.Scene {
             this.pauseWeaponLine?.destroy();
             this.pauseBoostLine?.destroy();
             this.pauseQuitBtn?.destroy();
+            this.pausePadHint?.destroy();
             this._evoBtnText?.destroy(); this._evoBtnText = null;
             if (this._evoFlashTween) { this._evoFlashTween.stop(); this._evoFlashTween = null; }
             this._evoMenuOpen = false;
@@ -2145,8 +2152,8 @@ export default class GameScene extends Phaser.Scene {
             const idx = this.handMiniBossArray?.indexOf(enemy);
             if (idx >= 0) this.handMiniBossArray.splice(idx, 1);
             if (!this.bossSpawned) {
-                const drop = this.physics.add.image(enemy.x, enemy.y, 'cricket');
-                drop.setScale(0.80).setTint(0x44ccff).setDepth(3);
+                const drop = this.physics.add.image(enemy.x, enemy.y, 'dragonfly');
+                drop.setScale(0.80).setDepth(3);
                 drop.xpValue = 10;
                 this.crickets.add(drop);
             }
@@ -2205,16 +2212,16 @@ export default class GameScene extends Phaser.Scene {
         const treasureChance = foodboxChance + 0.056 + (this.vitaminBonus ?? 0) + (enemy._scratchTreasure ?? 0);
         if (rand < fullboxChance) {
             // Fullbox — very rare, heals to full
-            const item = this.physics.add.image(enemy.x, enemy.y, 'cricket');
-            item.setScale(1.20).setTint(0xff88ff).setDepth(4);
+            const item = this.physics.add.image(enemy.x, enemy.y, 'fullbox');
+            item.setScale(1.20).setDepth(4);
             item.xpValue = 0;
             item.specialType = 'fullbox';
             this.tweens.add({ targets: item, scaleX: 1.44, scaleY: 1.44, duration: 250, yoyo: true, loop: -1 });
             this.crickets.add(item);
         } else if (rand < foodboxChance) {
             // Foodbox — always drops, even during the boss fight
-            const item = this.physics.add.image(enemy.x, enemy.y, 'cricket');
-            item.setScale(1.10).setTint(0xff4488).setDepth(4);
+            const item = this.physics.add.image(enemy.x, enemy.y, 'foodbox');
+            item.setScale(1.10).setDepth(4);
             item.xpValue = 0;
             item.specialType = 'wormbox';
             this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 350, yoyo: true, loop: -1 });
@@ -2223,8 +2230,8 @@ export default class GameScene extends Phaser.Scene {
             // No XP insects or Treasure once the boss is on the field
         } else if (rand < treasureChance && this.treasureSpawned < 2) {
             this.treasureSpawned++;
-            const item = this.physics.add.image(enemy.x, enemy.y, 'cricket');
-            item.setScale(1.10).setTint(0xffd700).setDepth(4);
+            const item = this.physics.add.image(enemy.x, enemy.y, 'treasure');
+            item.setScale(1.10).setDepth(4);
             item.xpValue = 0;
             item.specialType = 'treasure';
             this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 250, yoyo: true, loop: -1 });
@@ -2232,31 +2239,31 @@ export default class GameScene extends Phaser.Scene {
         } else {
             // Normal drop
             const dropTable = {
-                lettuce_hopper:       { xpValue: 3,  tint: 0x88ff44, scale: 0.60 }, // Vitaworm
-                lettuce_shooter:      { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
-                basil_propeller:      { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
-                rocket_knife:         { xpValue: 3,  tint: 0x88ff44, scale: 0.60 }, // Vitaworm
-                oregano_ghost:        { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
-                oregano_fan:          { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
-                rocket_sword:         { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
-                coriander_whip:       { xpValue: 3,  tint: 0x88ff44, scale: 0.60 }, // Vitaworm
-                carrot_mole:          { xpValue: 3,  tint: 0x88ff44, scale: 0.60 }, // Vitaworm
-                coriander_hydra:      { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
-                carrot_dart:          { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
-                carrot_wheel:         { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
-                mulberry_bat:         { xpValue: 3,  tint: 0x88ff44, scale: 0.60 }, // Vitaworm
-                mulberry_snake:       { xpValue: 5,  tint: 0xffaa00, scale: 0.70 }, // Mealworm
-                spinach_cyclone:      { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                lettuce_hopper:       { xpValue: 3,  key: 'vitaworm',  scale: 0.60 },
+                lettuce_shooter:      { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
+                basil_propeller:      { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                rocket_knife:         { xpValue: 3,  key: 'vitaworm',  scale: 0.60 },
+                oregano_ghost:        { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
+                oregano_fan:          { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
+                rocket_sword:         { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                coriander_whip:       { xpValue: 3,  key: 'vitaworm',  scale: 0.60 },
+                carrot_mole:          { xpValue: 3,  key: 'vitaworm',  scale: 0.60 },
+                coriander_hydra:      { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
+                carrot_dart:          { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                carrot_wheel:         { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
+                mulberry_bat:         { xpValue: 3,  key: 'vitaworm',  scale: 0.60 },
+                mulberry_snake:       { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
+                spinach_cyclone:      { xpValue: 10, key: 'dragonfly', scale: 0.80 },
                 // Level 5 exclusives
-                lettuce_trap:         { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
-                basil_bomb:           { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
-                rocket_great_sword:   { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
-                oregano_phantom:      { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
-                coriander_carrot:     { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
-                spinach_tempest:      { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
-                mulberry_monstrosity: { xpValue: 10, tint: 0x44ccff, scale: 0.80 }, // Dragonfly
+                lettuce_trap:         { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                basil_bomb:           { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                rocket_great_sword:   { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                oregano_phantom:      { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                coriander_carrot:     { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                spinach_tempest:      { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                mulberry_monstrosity: { xpValue: 10, key: 'dragonfly', scale: 0.80 },
             };
-            const drop = dropTable[enemy.texture?.key] ?? { xpValue: 1, tint: 0xffffff, scale: 0.50 };
+            const drop = dropTable[enemy.texture?.key] ?? { xpValue: 1, scale: 0.50 };
 
             if (enemy._killedByStarvedChomp) {
                 // Instant doubled XP, no cricket spawned
@@ -2280,13 +2287,13 @@ export default class GameScene extends Phaser.Scene {
                 // it triggers naturally like any other mine, no pickup step — AND the normal XP insect
                 this.spawnPupaMine(enemy.x - 8, enemy.y);
 
-                const cricket = this.physics.add.image(enemy.x + 8, enemy.y, 'cricket');
-                cricket.setScale(drop.scale).setTint(drop.tint).setDepth(3);
+                const cricket = this.physics.add.image(enemy.x + 8, enemy.y, drop.key ?? 'cricket');
+                cricket.setScale(drop.scale).setDepth(3);
                 cricket.xpValue = drop.xpValue;
                 this.crickets.add(cricket);
             } else {
-                const cricket = this.physics.add.image(enemy.x, enemy.y, 'cricket');
-                cricket.setScale(drop.scale).setTint(drop.tint).setDepth(3);
+                const cricket = this.physics.add.image(enemy.x, enemy.y, drop.key ?? 'cricket');
+                cricket.setScale(drop.scale).setDepth(3);
                 cricket.xpValue = drop.xpValue;
                 this.crickets.add(cricket);
             }
@@ -4979,11 +4986,12 @@ export default class GameScene extends Phaser.Scene {
     }
 
     getAvailableEvolutions() {
-        // Only the weapon needs to be fully maxed — the paired boost is a thematic
-        // suggestion, not a hard requirement.
+        // Requires the weapon fully maxed AND at least one pick of the paired boost
+        // (the boost itself does not need to be maxed).
         return this.evolutionDefs.filter(ev =>
             !this.appliedEvolutions.has(ev.id) &&
-            this.isWeaponMaxed(ev.weaponKey)
+            this.isWeaponMaxed(ev.weaponKey) &&
+            this.getBoostLevel(ev.boostName) >= 1
         );
     }
 
@@ -4993,7 +5001,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _getEvoReqLines(ev) {
-        // Returns { weaponLine } describing current vs required progress
+        // Returns { weaponLine, boostLine } describing current vs required progress
         const weaponMaxed = this.isWeaponMaxed(ev.weaponKey);
         const max = this.weaponMaxLevel[ev.weaponKey] ?? 1;
         const cur = Math.min(this.getWeaponLevel(ev.weaponKey), max);
@@ -5001,14 +5009,22 @@ export default class GameScene extends Phaser.Scene {
             ? `✓ ${ev.weaponLabel} (${cur}/${max}) — READY`
             : `✗ ${ev.weaponLabel} (${cur}/${max}) — not fully upgraded`;
 
-        return { weaponLine };
+        const boostOwned = this.getBoostLevel(ev.boostName) >= 1;
+        const boostLine = boostOwned
+            ? `✓ ${ev.boostName} — READY`
+            : `✗ ${ev.boostName} — not yet picked`;
+
+        return { weaponLine, boostLine };
     }
 
     showEvolutionMenu() {
         const W = this.cameras.main.width;
         const H = this.cameras.main.height;
         const depth = 200;
-        const evos = this.evolutionDefs.filter(ev => !this.appliedEvolutions.has(ev.id));
+        // Every evolution is shown, including ones already acquired (rendered in a
+        // distinct white/black "owned" style further down) so the grid layout and
+        // controller navigation stay stable regardless of progress.
+        const evos = this.evolutionDefs;
         const available = this.getAvailableEvolutions();
 
         const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setScrollFactor(0).setDepth(depth).setInteractive();
@@ -5017,7 +5033,7 @@ export default class GameScene extends Phaser.Scene {
             stroke: '#000000', strokeThickness: 5,
         }).setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5);
 
-        const cardW = 200, cardH = 80, cols = 3;
+        const cardW = 200, cardH = 92, cols = 3;
         const startX = W / 2 - (cols - 1) * (cardW + 12) / 2;
         const startY = 75;
         const uiItems = [overlay, title];
@@ -5034,6 +5050,7 @@ export default class GameScene extends Phaser.Scene {
         let scrollY = 0;
         let thumb   = null;
         const scrollables = []; // { obj, baseY }
+        const cardRefs = [];    // { ev, cx, baseY, isAcquired, isAvail } — for gamepad grid navigation
 
         const applyScroll = (y) => {
             scrollY = Phaser.Math.Clamp(y, 0, maxScroll);
@@ -5041,6 +5058,7 @@ export default class GameScene extends Phaser.Scene {
             if (thumb) {
                 thumb.y = viewportTop + (maxScroll > 0 ? (scrollY / maxScroll) * (trackHeight - thumb.height) : 0);
             }
+            positionSelectionOutline();
         };
 
         // Closes this menu (any method) without letting the same input also fall through
@@ -5051,32 +5069,83 @@ export default class GameScene extends Phaser.Scene {
             this.input.keyboard.off('keydown', escHandler);
             this.input.gamepad.off('down', padHandler);
             this.events.off('update', scrollUpdateHandler);
+            this.events.off('update', navPollHandler);
             requestAnimationFrame(() => { this._evoMenuOpen = false; });
         };
 
+        // Shared so both mouse clicks and gamepad A can trigger the same actions
+        const acquireEvolution = (ev) => {
+            closeMenu();
+            if (this._evoFlashTween) { this._evoFlashTween.stop(); this._evoFlashTween = null; }
+            this.applyEvolution(ev);
+            this._updateEvoBtnAppearance();
+        };
+
+        const openReqPopup = (ev, cx, baseCy) => {
+            if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
+
+            const { weaponLine, boostLine } = this._getEvoReqLines(ev);
+            const popW = 310, popH = 104;
+            const px = Phaser.Math.Clamp(cx, popW / 2 + 8, W - popW / 2 - 8);
+            const py = Phaser.Math.Clamp((baseCy - scrollY) + cardH + 10, popH / 2 + 8, H - popH / 2 - 30);
+
+            const pbg = this.add.rectangle(px, py, popW, popH, 0x111111, 0.96)
+                .setScrollFactor(0).setDepth(depth + 10).setOrigin(0.5);
+            const pborder = this.add.rectangle(px, py, popW, popH)
+                .setScrollFactor(0).setDepth(depth + 10).setOrigin(0.5)
+                .setStrokeStyle(2, 0x888888);
+            const pTitle = this.add.text(px, py - 36, `Requirements — ${ev.evolvedName}`, {
+                fontSize: '10px', fontFamily: 'Arial Black, Arial', color: '#dddddd',
+            }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
+            const pWeapon = this.add.text(px, py - 12, weaponLine, {
+                fontSize: '11px', fontFamily: 'Arial', color: weaponLine.startsWith('✓') ? '#88ff88' : '#ff8888',
+            }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
+            const pBoost = this.add.text(px, py + 10, boostLine, {
+                fontSize: '11px', fontFamily: 'Arial', color: boostLine.startsWith('✓') ? '#88ff88' : '#ff8888',
+            }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
+            const pHint = this.add.text(px, py + 34, 'Click or press A to dismiss', {
+                fontSize: '9px', fontFamily: 'Arial', color: '#555555',
+            }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
+
+            this._evoReqPopup = [pbg, pborder, pTitle, pWeapon, pBoost, pHint];
+            uiItems.push(...this._evoReqPopup);
+
+            // Dismiss on next click anywhere (one-shot)
+            this.input.once('pointerdown', () => {
+                if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
+            });
+        };
+
         evos.forEach((ev, i) => {
-            const isAvail = available.includes(ev);
+            const isAcquired = this.appliedEvolutions.has(ev.id);
+            const isAvail = !isAcquired && available.includes(ev);
             const col = i % cols;
             const row = Math.floor(i / cols);
             const cx = startX + col * (cardW + 12);
             const cy = startY + row * (cardH + 12);
 
-            const bg = this.add.rectangle(cx, cy, cardW, cardH,
-                isAvail ? 0x3a3000 : 0x1a1a1a, 1)
+            const bgColor     = isAcquired ? 0xffffff : (isAvail ? 0x3a3000 : 0x1a1a1a);
+            const borderColor = isAcquired ? 0x000000 : (isAvail ? 0xffee00 : 0x444444);
+            const nameColor   = isAcquired ? '#000000' : (isAvail ? '#ffff44' : '#555555');
+            const recipeColor = isAcquired ? '#000000' : (isAvail ? '#aaaaaa' : '#333333');
+            const descColor   = isAcquired ? '#000000' : (isAvail ? '#cccccc' : '#2a2a2a');
+
+            const bg = this.add.rectangle(cx, cy, cardW, cardH, bgColor, 1)
                 .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0);
             const border = this.add.rectangle(cx, cy, cardW, cardH)
                 .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0)
-                .setStrokeStyle(2, isAvail ? 0xffee00 : 0x444444);
+                .setStrokeStyle(2, borderColor);
 
             const nameText = this.add.text(cx, cy + 10, ev.evolvedName, {
                 fontSize: '12px', fontFamily: 'Arial Black, Arial',
-                color: isAvail ? '#ffff44' : '#555555',
+                color: nameColor,
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
-            const recipeText = this.add.text(cx, cy + 30, `Requires: ${ev.weaponLabel} maxed`, {
-                fontSize: '9px', fontFamily: 'Arial', color: isAvail ? '#aaaaaa' : '#333333',
+            const recipeText = this.add.text(cx, cy + 30, isAcquired ? '✓ EVOLVED' : `Requires: ${ev.weaponLabel} maxed + ${ev.boostName}`, {
+                fontSize: '9px', fontFamily: 'Arial', color: recipeColor,
+                wordWrap: { width: cardW - 12 }, align: 'center',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
-            const descText = this.add.text(cx, cy + 46, ev.desc, {
-                fontSize: '9px', fontFamily: 'Arial', color: isAvail ? '#cccccc' : '#2a2a2a',
+            const descText = this.add.text(cx, cy + 58, ev.desc, {
+                fontSize: '9px', fontFamily: 'Arial', color: descColor,
                 wordWrap: { width: cardW - 12 }, align: 'center',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
 
@@ -5086,19 +5155,17 @@ export default class GameScene extends Phaser.Scene {
                 { obj: border,     baseY: cy },
                 { obj: nameText,   baseY: cy + 10 },
                 { obj: recipeText, baseY: cy + 30 },
-                { obj: descText,   baseY: cy + 46 },
+                { obj: descText,   baseY: cy + 58 },
             );
+            cardRefs.push({ ev, cx, baseY: cy, isAcquired, isAvail });
 
-            if (isAvail) {
+            if (isAcquired) {
+                // Already evolved — informational only, not interactive
+            } else if (isAvail) {
                 bg.setInteractive({ useHandCursor: true });
                 bg.on('pointerover',  () => bg.setFillStyle(0x554400));
                 bg.on('pointerout',   () => bg.setFillStyle(0x3a3000));
-                bg.on('pointerdown',  () => {
-                    closeMenu();
-                    if (this._evoFlashTween) { this._evoFlashTween.stop(); this._evoFlashTween = null; }
-                    this.applyEvolution(ev);
-                    this._updateEvoBtnAppearance();
-                });
+                bg.on('pointerdown',  () => acquireEvolution(ev));
                 // Glow flash tween on available cards
                 this.tweens.add({ targets: [bg, border], alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
             } else {
@@ -5106,40 +5173,69 @@ export default class GameScene extends Phaser.Scene {
                 bg.setInteractive({ useHandCursor: true });
                 bg.on('pointerover', () => bg.setFillStyle(0x2a2a2a));
                 bg.on('pointerout',  () => bg.setFillStyle(0x1a1a1a));
-                bg.on('pointerdown', () => {
-                    // Remove any existing req popup
-                    if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
-
-                    const { weaponLine } = this._getEvoReqLines(ev);
-                    const popW = 310, popH = 84;
-                    const px = Phaser.Math.Clamp(cx, popW / 2 + 8, W - popW / 2 - 8);
-                    const py = Phaser.Math.Clamp((cy - scrollY) + cardH + 10, popH / 2 + 8, H - popH / 2 - 30);
-
-                    const pbg = this.add.rectangle(px, py, popW, popH, 0x111111, 0.96)
-                        .setScrollFactor(0).setDepth(depth + 10).setOrigin(0.5);
-                    const pborder = this.add.rectangle(px, py, popW, popH)
-                        .setScrollFactor(0).setDepth(depth + 10).setOrigin(0.5)
-                        .setStrokeStyle(2, 0x888888);
-                    const pTitle = this.add.text(px, py - 28, `Requirements — ${ev.evolvedName}`, {
-                        fontSize: '10px', fontFamily: 'Arial Black, Arial', color: '#dddddd',
-                    }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
-                    const pWeapon = this.add.text(px, py - 2, weaponLine, {
-                        fontSize: '11px', fontFamily: 'Arial', color: weaponLine.startsWith('✓') ? '#88ff88' : '#ff8888',
-                    }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
-                    const pHint = this.add.text(px, py + 24, 'Click anywhere to dismiss', {
-                        fontSize: '9px', fontFamily: 'Arial', color: '#555555',
-                    }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
-
-                    this._evoReqPopup = [pbg, pborder, pTitle, pWeapon, pHint];
-                    uiItems.push(...this._evoReqPopup);
-
-                    // Dismiss on next click anywhere (one-shot)
-                    this.input.once('pointerdown', () => {
-                        if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
-                    });
-                });
+                bg.on('pointerdown', () => openReqPopup(ev, cx, cy));
             }
         });
+
+        // ─── Controller navigation — same scheme as Level Select: D-pad/stick moves
+        // a white box outline, A confirms whatever it's on ──────────────────────────
+        let selectedIdx = 0;
+        const selectionOutline = this.add.rectangle(0, 0, cardW + 6, cardH + 6, 0xffffff, 0)
+            .setStrokeStyle(3, 0xffffff).setScrollFactor(0).setDepth(depth + 6).setOrigin(0.5).setVisible(false);
+        uiItems.push(selectionOutline);
+
+        function positionSelectionOutline() {
+            const card = cardRefs[selectedIdx];
+            if (!card) { selectionOutline.setVisible(false); return; }
+            selectionOutline.setPosition(card.cx, card.baseY - scrollY + cardH / 2);
+            selectionOutline.setVisible(true);
+        }
+
+        const ensureSelectedVisible = () => {
+            const card = cardRefs[selectedIdx];
+            if (!card) return;
+            const topY = card.baseY - scrollY;
+            const botY = card.baseY - scrollY + cardH;
+            if (topY < viewportTop) applyScroll(scrollY - (viewportTop - topY));
+            else if (botY > viewportBottom) applyScroll(scrollY + (botY - viewportBottom));
+            else positionSelectionOutline();
+        };
+
+        const moveSelection = (delta, sameRowOnly = false) => {
+            const newIdx = selectedIdx + delta;
+            if (newIdx < 0 || newIdx >= cardRefs.length) return;
+            if (sameRowOnly && Math.floor(newIdx / cols) !== Math.floor(selectedIdx / cols)) return;
+            selectedIdx = newIdx;
+            ensureSelectedVisible();
+        };
+
+        const confirmSelection = () => {
+            if (this._evoReqPopup) {
+                this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null;
+                return;
+            }
+            const card = cardRefs[selectedIdx];
+            if (!card || card.isAcquired) return;
+            if (card.isAvail) acquireEvolution(card.ev);
+            else openReqPopup(card.ev, card.cx, card.baseY);
+        };
+
+        positionSelectionOutline();
+
+        // Continuous left-stick grid navigation (D-pad handled as discrete 'down' events below)
+        let navCooldown = 0;
+        const navPollHandler = (_, delta) => {
+            navCooldown -= delta;
+            if (navCooldown > 0) return;
+            const pad = this.input.gamepad.getPad(0);
+            if (!pad) return;
+            const sx = pad.leftStick.x, sy = pad.leftStick.y;
+            if (sy < -0.5) { moveSelection(-cols); navCooldown = 200; }
+            else if (sy > 0.5) { moveSelection(cols); navCooldown = 200; }
+            else if (sx < -0.5) { moveSelection(-1, true); navCooldown = 200; }
+            else if (sx > 0.5) { moveSelection(1, true); navCooldown = 200; }
+        };
+        this.events.on('update', navPollHandler);
 
         const closeBtn = this.add.text(W / 2, H - 24, '[ CLOSE ]', {
             fontSize: '13px', fontFamily: 'Arial', color: '#aaaaaa',
@@ -5150,7 +5246,9 @@ export default class GameScene extends Phaser.Scene {
         closeBtn.on('pointerdown',  () => closeMenu());
         uiItems.push(closeBtn);
 
-        uiItems.push(this.add.text(W / 2, H - 6, maxScroll > 0 ? '🎮  B  Close   •   RS  Scroll' : '🎮  B  Close', {
+        uiItems.push(this.add.text(W / 2, H - 6, maxScroll > 0
+            ? '🎮  D-Pad/LS Navigate   A Pick   B Close   •   RS Scroll'
+            : '🎮  D-Pad/LS Navigate   A Pick   B Close', {
             fontSize: '10px', fontFamily: 'Arial', color: '#888888',
         }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
 
@@ -5187,7 +5285,15 @@ export default class GameScene extends Phaser.Scene {
         // Close on ESC or gamepad B
         const escHandler = (e) => { if (e.key === 'Escape') closeMenu(); };
         this.input.keyboard.on('keydown', escHandler);
-        const padHandler = (pad, button) => { if (button.index === 1) closeMenu(); };
+        const padHandler = (pad, button) => {
+            const idx = button.index;
+            if (idx === 1) { closeMenu(); return; }       // B = close
+            if (idx === 12) { moveSelection(-cols); return; }        // D-pad up
+            if (idx === 13) { moveSelection(cols); return; }         // D-pad down
+            if (idx === 14) { moveSelection(-1, true); return; }     // D-pad left
+            if (idx === 15) { moveSelection(1, true); return; }      // D-pad right
+            if (idx === 0) { confirmSelection(); return; }           // A = pick/confirm
+        };
         this.input.gamepad.on('down', padHandler);
     }
 
