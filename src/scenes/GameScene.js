@@ -1,4 +1,4 @@
-import { playBgm, crossfadeBgm, stopBgm, pauseBgm, resumeBgm, playSfx } from '../audio.js';
+import { playBgm, crossfadeBgm, stopBgm, pauseBgm, resumeBgm, playSfx, getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume } from '../audio.js';
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -47,7 +47,7 @@ export default class GameScene extends Phaser.Scene {
 
         // Gamepad: Start (9) = pause (pauseBtn stored as this.pauseBtn after UI is built)
         this.input.gamepad.on('down', (pad, button) => {
-            if (button.index === 9 && !this.isLevelingUp && !this.isCountdown && !this.isLevelClear && !this.isGameOver) this.togglePause(this.pauseBtn);
+            if (button.index === 9 && !this.isLevelingUp && !this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(this.pauseBtn);
         });
 
         // --- Groups ---
@@ -60,6 +60,9 @@ export default class GameScene extends Phaser.Scene {
         this.playerSpeed    = 160;
         this.playerHealth   = 100;
         this.playerMaxHealth = 100;
+        this.playerBurning   = false;
+        this.playerBurnUntil = 0;
+        this.playerBurnTimer = null;
         this.xp             = 0;
         this.xpToNext       = 5;
         this.playerLevel    = 1;
@@ -76,7 +79,6 @@ export default class GameScene extends Phaser.Scene {
         this.rerolls        = 0;
         this.nextRerollAt   = 300;
         this.wormboxSpawned  = 0;
-        this.treasureSpawned = 0;
         this.gameTime        = 600;
         this.bossSpawned     = false;
         this.boss            = null;
@@ -239,7 +241,8 @@ export default class GameScene extends Phaser.Scene {
         this.gameTimerEvent = this.time.addEvent({ delay: 1000, callback: this.tickTimer,  callbackScope: this, loop: true });
 
         // Passive regen — always on, 1 HP every 20 seconds
-        this.regenDelay = 20000;
+        this.regenDelay      = 20000;
+        this.regenHealAmount = 1;
         this.regenTimer = this.time.addEvent({ delay: this.regenDelay, callback: this.doRegen, callbackScope: this, loop: true });
 
         // --- UI ---
@@ -291,8 +294,8 @@ export default class GameScene extends Phaser.Scene {
         pauseBtn.on('pointerdown', () => this.togglePause(pauseBtn));
 
         // ESC and P also toggle pause (blocked in countdown, level clear, game over, upgrade screen)
-        this.input.keyboard.on('keydown-ESC', () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver) this.togglePause(pauseBtn); });
-        this.input.keyboard.on('keydown-P',   () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver) this.togglePause(pauseBtn); });
+        this.input.keyboard.on('keydown-ESC', () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(pauseBtn); });
+        this.input.keyboard.on('keydown-P',   () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(pauseBtn); });
         this.input.keyboard.on('keydown-U',   () => { if (!this.isPaused) this.showLevelUp(); });
         this.input.keyboard.on('keydown-F',   () => {
             if (this.isPaused || this.isLevelingUp) return;
@@ -414,6 +417,11 @@ export default class GameScene extends Phaser.Scene {
                 fontSize: '11px', fontFamily: 'Arial', color: '#666666',
             }).setScrollFactor(0).setDepth(151).setOrigin(0, 1);
 
+            this._pauseSliderSelected = null;
+            this._pauseSliderRows     = null;
+            this.createVolumeSlider('MUSIC', 20, 70,  getMusicVolume(), setMusicVolume, null, 'music');
+            this.createVolumeSlider('SFX',   20, 100, getSfxVolume(),   setSfxVolume, 'sfx_item_collect', 'sfx');
+
             // Any key resumes (exclude P/ESC which already have their own toggle handlers)
             this.pauseAnyKey = this.input.keyboard.on('keydown', (e) => {
                 if (this._evoMenuOpen) return;
@@ -423,8 +431,11 @@ export default class GameScene extends Phaser.Scene {
             // that triggered pause doesn't immediately re-fire and unpause
             requestAnimationFrame(() => {
                 this.input.on('pointerdown', this._pausePointerHandler = () => {
-                    if (this._evoMenuOpen) return;
+                    if (this._evoMenuOpen || this._sliderInteracting) return;
                     if (this.isPaused && !this._pauseQuitting) this.togglePause(btn);
+                });
+                this.input.on('pointerup', this._pauseSliderReleaseHandler = () => {
+                    this._sliderInteracting = false;
                 });
                 this.input.gamepad.on('down', this._pauseGamepadHandler = (pad, button) => {
                     if (this._evoMenuOpen) return;
@@ -432,7 +443,39 @@ export default class GameScene extends Phaser.Scene {
                     if (button.index === 2) { this._evoMenuOpen = true; this.showEvolutionMenu(); return; }
                     // Y quits to the main menu instead of resuming
                     if (button.index === 3) { this.pauseQuitBtn.emit('pointerdown'); return; }
+                    // A selects/highlights the SFX slider (first press) instead of resuming
+                    if (button.index === 0) {
+                        if (!this._pauseSliderSelected) { this._pauseSliderSelected = 'sfx'; this.updatePauseSliderOutline(); }
+                        return;
+                    }
+                    // B un-highlights the selected slider instead of resuming; if nothing
+                    // is selected, B falls through to the normal "any button resumes" case
+                    if (button.index === 1 && this._pauseSliderSelected) {
+                        this._pauseSliderSelected = null;
+                        this.updatePauseSliderOutline();
+                        return;
+                    }
+                    // D-pad up/down swaps the highlight between SFX and MUSIC while one is selected
+                    if (this._pauseSliderSelected && (button.index === 12 || button.index === 13)) {
+                        this._pauseSliderSelected = this._pauseSliderSelected === 'sfx' ? 'music' : 'sfx';
+                        this.updatePauseSliderOutline();
+                        return;
+                    }
                     if (this.isPaused && button.index !== 9 && !this._pauseQuitting) this.togglePause(btn);
+                });
+                // Left stick up/down swaps the highlight the same way, while a slider is selected
+                this._pauseSliderStickCooldown = 0;
+                this.events.on('update', this._pauseSliderStickHandler = (_, delta) => {
+                    if (!this._pauseSliderSelected) return;
+                    this._pauseSliderStickCooldown -= delta;
+                    if (this._pauseSliderStickCooldown > 0) return;
+                    const pad = this.input.gamepad.getPad(0);
+                    if (!pad) return;
+                    if (Math.abs(pad.leftStick.y) > 0.5) {
+                        this._pauseSliderSelected = this._pauseSliderSelected === 'sfx' ? 'music' : 'sfx';
+                        this.updatePauseSliderOutline();
+                        this._pauseSliderStickCooldown = 250;
+                    }
                 });
             });
         } else {
@@ -451,9 +494,99 @@ export default class GameScene extends Phaser.Scene {
             this._evoBtnText?.destroy(); this._evoBtnText = null;
             if (this._evoFlashTween) { this._evoFlashTween.stop(); this._evoFlashTween = null; }
             this._evoMenuOpen = false;
+            this._sliderInteracting = false;
+            this.pauseVolumeElements?.forEach(el => el.destroy());
+            this.pauseVolumeElements = null;
+            this._pauseSliderOutline?.destroy(); this._pauseSliderOutline = null;
+            this._pauseSliderSelected = null;
+            this._pauseSliderRows     = null;
             this.input.keyboard.off('keydown', this.pauseAnyKey);
             this.input.off('pointerdown', this._pausePointerHandler);
+            this.input.off('pointerup', this._pauseSliderReleaseHandler);
             this.input.gamepad.off('down', this._pauseGamepadHandler);
+            this.events.off('update', this._pauseSliderStickHandler);
+        }
+    }
+
+    // Draggable volume slider used in the pause menu (MUSIC/SFX). `onChange` is
+    // called with a 0..1 value live as the knob is dragged. `previewSfxKey`, if
+    // given, plays a throttled sample so SFX volume changes are audible live.
+    // `sliderKey` ('music'/'sfx'), if given, registers this row's bounds so the
+    // gamepad selection outline can be positioned over it.
+    createVolumeSlider(label, x, y, value, onChange, previewSfxKey = null, sliderKey = null) {
+        const trackW = 100;
+        const trackX = x + 45;
+        let lastPreview = 0;
+
+        const labelText = this.add.text(x, y, label, {
+            fontSize: '11px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+        }).setScrollFactor(0).setDepth(151).setOrigin(0, 0.5);
+
+        const track = this.add.rectangle(trackX + trackW / 2, y, trackW, 6, 0x444444)
+            .setStrokeStyle(1, 0x888888).setScrollFactor(0).setDepth(151).setOrigin(0.5)
+            .setInteractive({ useHandCursor: true });
+
+        const valueText = this.add.text(trackX + trackW + 12, y, `${Math.round(value * 100)}`, {
+            fontSize: '10px', fontFamily: 'Arial', color: '#aaaaaa',
+        }).setScrollFactor(0).setDepth(151).setOrigin(0, 0.5);
+
+        const knob = this.add.circle(trackX + value * trackW, y, 8, 0xffdd00)
+            .setStrokeStyle(2, 0x000000).setScrollFactor(0).setDepth(152).setOrigin(0.5)
+            .setInteractive({ useHandCursor: true });
+        this.input.setDraggable(knob);
+
+        const setFromX = (rawX) => {
+            const clampedX = Phaser.Math.Clamp(rawX, trackX, trackX + trackW);
+            knob.x = clampedX;
+            const v = (clampedX - trackX) / trackW;
+            valueText.setText(`${Math.round(v * 100)}`);
+            onChange(v);
+            if (previewSfxKey && Date.now() - lastPreview > 200) {
+                lastPreview = Date.now();
+                playSfx(this, previewSfxKey, 0.6);
+            }
+            return v;
+        };
+
+        // Set the flag on pointerdown (fires before the scene-level resume handler,
+        // same technique the EVOLUTIONS button uses) so dragging/clicking the slider
+        // doesn't also resume the paused game.
+        knob.on('pointerdown', () => { this._sliderInteracting = true; });
+        knob.on('drag', (pointer, dragX) => setFromX(dragX));
+
+        track.on('pointerdown', (pointer) => {
+            this._sliderInteracting = true;
+            setFromX(pointer.x);
+        });
+
+        if (!this.pauseVolumeElements) this.pauseVolumeElements = [];
+        this.pauseVolumeElements.push(labelText, track, valueText, knob);
+
+        if (sliderKey) {
+            if (!this._pauseSliderRows) this._pauseSliderRows = {};
+            const rowLeft  = labelText.x - 6;
+            const rowRight = valueText.x + valueText.width + 6;
+            this._pauseSliderRows[sliderKey] = { centerX: (rowLeft + rowRight) / 2, width: rowRight - rowLeft, y };
+        }
+    }
+
+    // Shows/moves/hides the gamepad selection outline around the currently
+    // selected volume slider row (see _pauseSliderSelected).
+    updatePauseSliderOutline() {
+        const key = this._pauseSliderSelected;
+        const row = key ? this._pauseSliderRows?.[key] : null;
+        if (!row) {
+            this._pauseSliderOutline?.destroy();
+            this._pauseSliderOutline = null;
+            return;
+        }
+        if (!this._pauseSliderOutline) {
+            this._pauseSliderOutline = this.add.rectangle(row.centerX, row.y, row.width + 6, 22, 0xffffff, 0)
+                .setStrokeStyle(2, 0xffffff).setScrollFactor(0).setDepth(153).setOrigin(0.5);
+        } else {
+            this._pauseSliderOutline.setPosition(row.centerX, row.y);
+            this._pauseSliderOutline.setSize(row.width + 6, 22);
+            this._pauseSliderOutline.setVisible(true);
         }
     }
 
@@ -466,6 +599,34 @@ export default class GameScene extends Phaser.Scene {
     updateHPBar() {
         const W = this.cameras.main.width;
         this.hpBar.width = Math.max(0, (this.playerHealth / this.playerMaxHealth) * (W - 40));
+    }
+
+    // Sets the player on fire — the HP bar turns orange and 3 dmg/500ms ticks until the
+    // burn expires. `extraMs` extends (rather than replaces) any time already remaining,
+    // so repeatedly standing in a fire source (e.g. the Hand's heat lamp) stacks duration.
+    applyPlayerBurn(extraMs) {
+        const now = this.time.now;
+        this.playerBurnUntil = Math.max(this.playerBurnUntil, now) + extraMs;
+        if (this.playerBurning) return;
+        this.playerBurning = true;
+        this.hpBar.setFillStyle(0xff8800);
+        this.playerBurnTimer = this.time.addEvent({
+            delay: 500, loop: true,
+            callback: () => {
+                if (this.time.now >= this.playerBurnUntil) {
+                    this.playerBurnTimer.remove();
+                    this.playerBurnTimer = null;
+                    this.playerBurning = false;
+                    this.hpBar.setFillStyle(0xff3333);
+                    return;
+                }
+                if (this.player.reviveInvincible) return;
+                this.playerHealth -= 3;
+                this.updateHPBar();
+                this.playerDamageFlash();
+                if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
+            },
+        });
     }
 
     // ─── Update loop ─────────────────────────────────────────────────────────────
@@ -484,7 +645,8 @@ export default class GameScene extends Phaser.Scene {
             } else if (this.level === 3) {
                 this.updateCarrotScorpionAI();
             } else if (!this.boss.isCharging) {
-                this.physics.moveToObject(this.boss, this.player, 80);
+                if (this.boss.bugCaught) this.boss.setVelocity(0, 0);
+                else this.physics.moveToObject(this.boss, this.player, 80 * (this.boss.slowFactor ?? 1));
             }
         }
         this.updateBossHealthBar();
@@ -702,7 +864,10 @@ export default class GameScene extends Phaser.Scene {
         if (!usingAnalog && vx !== 0 && vy !== 0) { vx *= 0.707; vy *= 0.707; }
 
         // Analog stick or d-pad movement while paused counts as "any input" → unpause
-        if (this.isPaused && (vx !== 0 || vy !== 0)) {
+        // (unless the Evolutions menu is open, which uses the same stick/d-pad for its
+        // own card navigation, or a volume slider is selected and using the stick/d-pad
+        // to swap between SFX/MUSIC — neither should also resume the game underneath)
+        if (this.isPaused && !this._evoMenuOpen && !this._pauseSliderSelected && (vx !== 0 || vy !== 0)) {
             this.togglePause(this.pauseBtn);
             return;
         }
@@ -1426,6 +1591,8 @@ export default class GameScene extends Phaser.Scene {
         });
         if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= this.biteRange) {
             this.damageBoss(this.biteDamage);
+            this.maybeVenomBoss();
+            if (this.biteLevel >= 4) this.slowBoss(2000, 0.5, 0xaaddff);
         }
 
         // Always show bite circle so player can see the attack range
@@ -1457,7 +1624,10 @@ export default class GameScene extends Phaser.Scene {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
             if (dist <= this.tailSlapRange) {
                 const toEnemy = Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x);
-                if (Math.abs(Phaser.Math.Angle.Wrap(toEnemy - angle)) <= arc / 2) this.damageBoss(this.tailSlapDamage);
+                if (Math.abs(Phaser.Math.Angle.Wrap(toEnemy - angle)) <= arc / 2) {
+                    this.damageBoss(this.tailSlapDamage);
+                    this.maybeVenomBoss();
+                }
             }
         }
 
@@ -1600,6 +1770,13 @@ export default class GameScene extends Phaser.Scene {
                 });
             }
         });
+        if (this.boss?.active) {
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
+            const toB  = Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x);
+            if (dist <= this.hissRange && Math.abs(Phaser.Math.Angle.Wrap(toB - angle)) <= arc / 2) {
+                this.slowBoss(2000, 0.5, 0x88ccff);
+            }
+        }
 
         const g = this.add.graphics().setDepth(20);
         g.lineStyle(2, 0x44aaff, 0.6);
@@ -1641,6 +1818,7 @@ export default class GameScene extends Phaser.Scene {
 
             if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= lickRange) {
                 this.damageBoss(this.lickDamage);
+                this.maybeVenomBoss();
             }
 
             // Tongue visual: pink line from player to target point
@@ -1684,6 +1862,7 @@ export default class GameScene extends Phaser.Scene {
                 const toB = Math.atan2(this.boss.y - py, this.boss.x - px);
                 if (dist <= this.wormWhipRange && Math.abs(Phaser.Math.Angle.Wrap(toB - baseAngle)) <= arc / 2) {
                     this.damageBoss(this.wormWhipDamage);
+                    this.maybeVenomBoss();
                 }
             }
 
@@ -1708,8 +1887,7 @@ export default class GameScene extends Phaser.Scene {
     spawnPupaMine(x, y) {
         if (!this.pupaGroup) return;
         const mine = this.physics.add.image(x, y, 'cricket');
-        mine.setTint(0xffdd00).setScale(0.3).setDepth(8).setImmovable(true);
-        mine.body.setAllowGravity(false);
+        mine.setTint(0xffdd00).setScale(0.3).setDepth(8);
         mine.exploded = false;
         const explodeMine = () => {
             if (mine.exploded || !mine.active || this.isCountdown) return;
@@ -1731,6 +1909,8 @@ export default class GameScene extends Phaser.Scene {
         };
         mine.explodeFn = explodeMine;
         this.pupaGroup.add(mine);
+        mine.setImmovable(true);
+        mine.body.setAllowGravity(false);
         this.physics.add.overlap(mine, this.enemies, explodeMine);
         if (this.boss?.active) this.physics.add.overlap(mine, this.boss, explodeMine);
         this.tweens.add({ targets: mine, alpha: 0.3, duration: 400, yoyo: true, loop: -1 });
@@ -1753,8 +1933,6 @@ export default class GameScene extends Phaser.Scene {
             mine.setTint(0xffdd00);
             mine.setScale(0.3);
             mine.setDepth(8);
-            mine.setImmovable(true);
-            mine.body.setAllowGravity(false);
             mine.exploded = false;
 
             // Slide out to final position
@@ -1786,6 +1964,8 @@ export default class GameScene extends Phaser.Scene {
             // Store explode fn on mine so boss overlap can trigger it
             mine.explodeFn = explodeMine;
             this.pupaGroup.add(mine);
+            mine.setImmovable(true);
+            mine.body.setAllowGravity(false);
 
             // Explode when any enemy or boss steps on it
             this.physics.add.overlap(mine, this.enemies, explodeMine);
@@ -1912,6 +2092,74 @@ export default class GameScene extends Phaser.Scene {
         if (this.venomChance > 0 && Math.random() < this.venomChance) this.applyEnemyPoison(enemy, this.venomDuration);
     }
 
+    // ─── Boss status effects — poison, fire, slow, immobilise ───────────────────
+    // Bosses use the same status effects as regular enemies, applied to this.boss
+    // directly and routed through damageBoss() so death/phase-transition checks
+    // still run. Immobilise uses a single shared 3s cooldown regardless of which
+    // weapon triggers it (enemies keep their own per-weapon cooldowns).
+    applyBossPoison(durationMs) {
+        const boss = this.boss;
+        if (!boss?.active || boss.poisoned) return;
+        boss.poisoned = true;
+        boss.setTint(0x44ff44);
+        const ticks = Math.max(1, Math.floor(durationMs / 500));
+        let done = 0;
+        const t = this.time.addEvent({
+            delay: 500, loop: true,
+            callback: () => {
+                if (!boss.active) { t.remove(); return; }
+                this.damageBoss(3);
+                done++;
+                if (!boss.active) { t.remove(); return; }
+                if (done >= ticks) { t.remove(); boss.poisoned = false; boss.clearTint(); }
+            },
+        });
+    }
+
+    maybeVenomBoss() {
+        if (this.venomChance > 0 && Math.random() < this.venomChance) this.applyBossPoison(this.venomDuration);
+    }
+
+    igniteBoss(durationMs) {
+        const boss = this.boss;
+        if (!boss?.active || boss.burned) return;
+        boss.burned = true;
+        boss.setTint(0xff2200);
+        const ticks = Math.ceil(durationMs / 300);
+        let done = 0;
+        const bt = this.time.addEvent({
+            delay: 300, loop: true,
+            callback: () => {
+                if (!boss.active) { bt.remove(); return; }
+                this.damageBoss(6);
+                done++;
+                if (!boss.active) { bt.remove(); return; }
+                if (done >= ticks) { bt.remove(); boss.burned = false; boss.clearTint(); }
+            },
+        });
+    }
+
+    slowBoss(durationMs, factor, tint) {
+        const boss = this.boss;
+        if (!boss?.active || boss.slowed) return;
+        boss.slowed = true;
+        boss.slowFactor = factor;
+        boss.setTint(tint);
+        this.time.delayedCall(durationMs, () => {
+            if (boss.active) { boss.slowed = false; boss.slowFactor = 1; boss.clearTint(); }
+        });
+    }
+
+    immobilizeBoss(durationMs) {
+        const boss = this.boss;
+        if (!boss?.active) return;
+        const now = this.time.now;
+        if (boss._nextImmobilizeAt && now < boss._nextImmobilizeAt) return;
+        boss._nextImmobilizeAt = now + 3000;
+        boss.bugCaught = true;
+        this.time.delayedCall(durationMs, () => { if (boss.active) boss.bugCaught = false; });
+    }
+
     maybePolycephaly(fn) {
         if (!this._polycephalyFiring && this.polycephalyChance > 0 && Math.random() < this.polycephalyChance) {
             this._polycephalyFiring = true;
@@ -1950,6 +2198,7 @@ export default class GameScene extends Phaser.Scene {
         }
         if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= range) {
             this.damageBoss(damage);
+            this.applyBossPoison(duration);
         }
 
         // Visual: green claw line
@@ -2010,7 +2259,7 @@ export default class GameScene extends Phaser.Scene {
             if (b.hits >= maxHits && b.active) b.destroy();
         });
         if (this.boss?.active) {
-            this.physics.add.overlap(branch, this.boss, (b) => { if (!b.active) return; this.damageBoss(dmg); });
+            this.physics.add.overlap(branch, this.boss, (b) => { if (!b.active) return; this.damageBoss(dmg); this.maybeVenomBoss(); });
         }
 
         this.scheduleProjectileDespawn(branch, 15000);
@@ -2050,7 +2299,10 @@ export default class GameScene extends Phaser.Scene {
         });
         if (this.boss?.active) {
             const dx = this.boss.x - px, dy = this.boss.y - py;
-            if ((dx * cosA + dy * sinA) >= 0 && Math.abs(-dx * sinA + dy * cosA) <= width / 2) this.damageBoss(dmg);
+            if ((dx * cosA + dy * sinA) >= 0 && Math.abs(-dx * sinA + dy * cosA) <= width / 2) {
+                this.damageBoss(dmg);
+                this.slowBoss(this.dustKickSlowDuration, 0.5, 0xc8a020);
+            }
         }
 
         // Visual: dusty beam (rotated filled polygon)
@@ -2123,6 +2375,9 @@ export default class GameScene extends Phaser.Scene {
                 if (enemy.active) { enemy.speed = baseSpeed; enemy.clearTint(); enemy.slowed = false; }
             });
         });
+        if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= range) {
+            this.slowBoss(this.coldGlareSlow, 0.15, 0x88ddff);
+        }
 
         // Visual: icy ring burst. Positioned at (px, py) with the shape drawn at local
         // (0, 0) so the scale tween below grows it around its own center instead of the
@@ -2205,37 +2460,43 @@ export default class GameScene extends Phaser.Scene {
             this.rerolls++;
             this.nextRerollAt += 300;
         }
-        // Rare special item check — each capped at 2 per game
+        // Rare special item check. A Foodbox is the "base" rare drop; whenever one
+        // would drop, it has a 1-in-8 chance of being upgraded into a Fullbox and,
+        // failing that, a 1-in-20 chance of being upgraded into a Treasure — instead
+        // of Treasure being its own independent roll capped at 2 per game (which used
+        // to make it fire twice in the first minute, then never again).
         const rand = Math.random();
-        const fullboxChance  = 0.005 + (this.vitaminBonus ?? 0) + (enemy._scratchFullbox ?? 0);
-        const foodboxChance  = fullboxChance + 0.025 + (this.vitaminBonus ?? 0) + (enemy._scratchFoodbox ?? 0);
-        const treasureChance = foodboxChance + 0.056 + (this.vitaminBonus ?? 0) + (enemy._scratchTreasure ?? 0);
-        if (rand < fullboxChance) {
-            // Fullbox — very rare, heals to full
-            const item = this.physics.add.image(enemy.x, enemy.y, 'fullbox');
-            item.setScale(1.20).setDepth(4);
-            item.xpValue = 0;
-            item.specialType = 'fullbox';
-            this.tweens.add({ targets: item, scaleX: 1.44, scaleY: 1.44, duration: 250, yoyo: true, loop: -1 });
-            this.crickets.add(item);
-        } else if (rand < foodboxChance) {
-            // Foodbox — always drops, even during the boss fight
-            const item = this.physics.add.image(enemy.x, enemy.y, 'foodbox');
-            item.setScale(1.10).setDepth(4);
-            item.xpValue = 0;
-            item.specialType = 'wormbox';
-            this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 350, yoyo: true, loop: -1 });
-            this.crickets.add(item);
+        const foodboxChance = 0.03 + (this.vitaminBonus ?? 0) + (enemy._scratchFoodbox ?? 0) + (enemy._scratchFullbox ?? 0) + (enemy._scratchTreasure ?? 0);
+        if (rand < foodboxChance) {
+            if (Math.random() < 0.125) {
+                // Fullbox — 1 in 8 chance to replace a Foodbox; heals to full. Always
+                // drops, even during the boss fight.
+                const item = this.physics.add.image(enemy.x, enemy.y, 'fullbox');
+                item.setScale(1.20).setDepth(4);
+                item.xpValue = 0;
+                item.specialType = 'fullbox';
+                this.tweens.add({ targets: item, scaleX: 1.44, scaleY: 1.44, duration: 250, yoyo: true, loop: -1 });
+                this.crickets.add(item);
+            } else if (!this.bossSpawned && Math.random() < 0.05) {
+                // Treasure — 1 in 20 chance to replace a Foodbox; instant level-up.
+                // Never drops during the boss fight.
+                const item = this.physics.add.image(enemy.x, enemy.y, 'treasure');
+                item.setScale(1.10).setDepth(4);
+                item.xpValue = 0;
+                item.specialType = 'treasure';
+                this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 250, yoyo: true, loop: -1 });
+                this.crickets.add(item);
+            } else {
+                // Foodbox — always drops, even during the boss fight
+                const item = this.physics.add.image(enemy.x, enemy.y, 'foodbox');
+                item.setScale(1.10).setDepth(4);
+                item.xpValue = 0;
+                item.specialType = 'wormbox';
+                this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 350, yoyo: true, loop: -1 });
+                this.crickets.add(item);
+            }
         } else if (this.bossSpawned) {
-            // No XP insects or Treasure once the boss is on the field
-        } else if (rand < treasureChance && this.treasureSpawned < 2) {
-            this.treasureSpawned++;
-            const item = this.physics.add.image(enemy.x, enemy.y, 'treasure');
-            item.setScale(1.10).setDepth(4);
-            item.xpValue = 0;
-            item.specialType = 'treasure';
-            this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 250, yoyo: true, loop: -1 });
-            this.crickets.add(item);
+            // No XP insects once the boss is on the field
         } else {
             // Normal drop
             const dropTable = {
@@ -2687,6 +2948,13 @@ export default class GameScene extends Phaser.Scene {
             this.boss.damage      = bossCfg.damage;
             this.boss.lastHitTime = 0;
             this.boss.isCharging  = false;
+            // Status effects (poison/fire/slow/immobilise) — see applyBossPoison/igniteBoss/slowBoss/immobilizeBoss
+            this.boss.poisoned          = false;
+            this.boss.burned            = false;
+            this.boss.slowed            = false;
+            this.boss.slowFactor        = 1;
+            this.boss.bugCaught         = false;
+            this.boss._nextImmobilizeAt = 0;
 
             const animKey = `${bossCfg.key}_walk`;
             if (!this.anims.exists(animKey)) {
@@ -2718,7 +2986,9 @@ export default class GameScene extends Phaser.Scene {
             if (this.level === 5) {
                 // The Hand: multi-phase boss — one continuous health bar covering all 4
                 // phases, with divider lines instead of resetting to full each transition.
-                const { total, boundaries } = this.computePhasedHealth(bossCfg.health, 4);
+                // Each phase has its own HP pool (1500 / 2000 / 2000 / 3000), sized to that
+                // pool exactly — a phase only ends once its own section is fully drained.
+                const { total, boundaries } = this.computePhasedHealth([1500, 2000, 2000, 3000], true);
                 this.boss.health      = total;
                 this.boss.maxHealth   = total;
                 this.boss.phaseBoundaries = boundaries;
@@ -2735,7 +3005,7 @@ export default class GameScene extends Phaser.Scene {
                 // Mulberry Mantis: chases at high speed; vanishes every 5–10s.
                 // One continuous health bar covering both phases, with a divider line
                 // instead of resetting to full at the phase-2 transition.
-                const { total, boundaries } = this.computePhasedHealth(bossCfg.health, 2);
+                const { total, boundaries } = this.computePhasedHealth([bossCfg.health, bossCfg.health]);
                 this.boss.health      = total;
                 this.boss.maxHealth   = total;
                 this.boss.phaseBoundaries = boundaries;
@@ -2782,12 +3052,16 @@ export default class GameScene extends Phaser.Scene {
     // Bosses with health-reset phases instead get one continuous bar sized to cover every
     // phase, with vertical divider lines marking where each phase transition occurs — the
     // bar just keeps draining through the marks instead of snapping back to full.
-    // Each non-final phase historically ended (and reset) once 90% of its health was dealt;
-    // the final phase drains all the way to 0. This returns the same total damage-to-kill.
-    computePhasedHealth(baseHealth, phaseCount) {
-        const segments = [];
-        for (let i = 0; i < phaseCount - 1; i++) segments.push(baseHealth * 0.9);
-        segments.push(baseHealth);
+    // `phaseHealths` gives each phase's own pool (they don't need to match), so each bar
+    // section is sized to its actual phase health. By default (fullDepletion = false), each
+    // non-final phase historically ended (and reset) once 90% of its health was dealt, to
+    // preserve old total damage-to-kill values; pass fullDepletion = true to instead have a
+    // phase end only once its own pool is fully drained (its bar section's true size). The
+    // final phase always drains all the way to 0 either way.
+    computePhasedHealth(phaseHealths, fullDepletion = false) {
+        const segments = fullDepletion
+            ? phaseHealths.slice()
+            : phaseHealths.map((h, i) => i < phaseHealths.length - 1 ? h * 0.9 : h);
         const total = segments.reduce((a, b) => a + b, 0);
         const boundaries = [];
         let cumulative = 0;
@@ -2913,8 +3187,13 @@ export default class GameScene extends Phaser.Scene {
             }
         }
 
+        // Immobilised: movement is skipped for the frame, but phase timers/attacks above
+        // keep running exactly as before.
+        if (boss.bugCaught) { boss.setVelocity(0, 0); return; }
+        const slow = boss.slowFactor ?? 1;
+
         if (boss.scorpionPhase === 'chase') {
-            this.physics.moveToObject(boss, this.player, 220);
+            this.physics.moveToObject(boss, this.player, 220 * slow);
         } else {
             // Wander: keep picking new waypoints until the phase timer runs out
             if (!boss.wanderTarget) {
@@ -2924,7 +3203,7 @@ export default class GameScene extends Phaser.Scene {
             if (dist < 40) {
                 boss.wanderTarget = this.pickScorpionWanderTarget();
             } else {
-                this.physics.moveTo(boss, boss.wanderTarget.x, boss.wanderTarget.y, 200);
+                this.physics.moveTo(boss, boss.wanderTarget.x, boss.wanderTarget.y, 200 * slow);
             }
         }
     }
@@ -2949,7 +3228,7 @@ export default class GameScene extends Phaser.Scene {
     updateRocketSpiderAI() {
         const boss = this.boss;
         const now  = this.time.now;
-        const speed = boss.aiSpeed ?? 95;
+        const speed = (boss.aiSpeed ?? 95) * (boss.slowFactor ?? 1);
 
         // Switch AI mode every 2–4 seconds
         if (!boss.aiSwitchAt || now >= boss.aiSwitchAt) {
@@ -2962,6 +3241,10 @@ export default class GameScene extends Phaser.Scene {
             }
             boss.aiSwitchAt = now + Phaser.Math.Between(2000, 4000);
         }
+
+        // Immobilised: skip movement for the frame, but AI-mode bookkeeping above and any
+        // scheduled attacks keep running exactly as before.
+        if (boss.bugCaught) { boss.setVelocity(0, 0); return; }
 
         if (boss.aiMode === 'circle') {
             const dx   = boss.x - this.player.x;
@@ -3116,8 +3399,9 @@ export default class GameScene extends Phaser.Scene {
     updateMulberryMantisAI() {
         const boss = this.boss;
         if (!boss?.active || boss.mantisVanishing || boss.mantisResting) return;
+        if (boss.bugCaught) { boss.setVelocity(0, 0); return; }
         if (boss.mantisPhase === 1 || boss.mantisChasing) {
-            this.physics.moveToObject(boss, this.player, 210);
+            this.physics.moveToObject(boss, this.player, 210 * (boss.slowFactor ?? 1));
         }
     }
 
@@ -3941,7 +4225,7 @@ export default class GameScene extends Phaser.Scene {
                 if (this.coldGlareActive) { this.coldGlareCooldown = Math.max(5000, this.coldGlareCooldown - 1500); this.scheduleColdGlare(); }
             } },
             { name: this.boostCardLabel('Bug Bucket'),      desc: 'Snapper\'s max health increases by 25',  available: () => this.ownedPassives.filter(p => p === 'Bug Bucket').length     < 5, effect: () => { this.ownedPassives.push('Bug Bucket');      this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
-            { name: this.boostCardLabel('Well Fed'),        desc: (() => { const d = Math.round(this.regenDelay * 0.8 / 100) / 10; return `Speed up regen to 1 HP every ${d}s`; })(), available: () => this.ownedPassives.filter(p => p === 'Well Fed').length < 3, effect: () => { this.ownedPassives.push('Well Fed'); this.startRegen(); } },
+            { name: this.boostCardLabel('Well Fed'),        desc: 'Passively regenerate health faster', available: () => this.ownedPassives.filter(p => p === 'Well Fed').length < 3, effect: () => { this.ownedPassives.push('Well Fed'); this.startRegen(); } },
             { name: this.boostCardLabel('Hungry Forager'),  desc: 'Insects attract to Snapper from further', available: () => this.ownedPassives.filter(p => p === 'Hungry Forager').length < 4, effect: () => { this.ownedPassives.push('Hungry Forager'); this.magnetRange += 80; } },
             { name: this.boostCardLabel('Hard Scales'),     desc: 'Enemies deal less damage to Snapper',    available: () => this.ownedPassives.filter(p => p === 'Hard Scales').length    < 4, effect: () => { this.ownedPassives.push('Hard Scales');    this.enemies.getChildren().forEach(e => { e.damage = Math.max(1, e.damage - 2); }); } },
             {
@@ -4312,7 +4596,11 @@ export default class GameScene extends Phaser.Scene {
                 if (enemy.health <= 0) { enemy._killedByStarvedChomp = true; this.killEnemy(enemy); }
             }
         });
-        if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= this.biteRange) this.damageBoss(this.biteDamage);
+        if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= this.biteRange) {
+            this.damageBoss(this.biteDamage);
+            this.maybeVenomBoss();
+            if (this.biteLevel >= 4) this.slowBoss(2000, 0.5, 0xaaddff);
+        }
         const circle = this.add.circle(px, py, this.biteRange, 0x88ff44, 0.18).setDepth(20);
         this.tweens.add({ targets: circle, alpha: 0, duration: 200, onComplete: () => circle.destroy() });
         this.maybePolycephaly(() => this.doStarvedChomp());
@@ -4348,7 +4636,10 @@ export default class GameScene extends Phaser.Scene {
         if (this.boss?.active) {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
             const toB = Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x);
-            if (dist <= this.tailSlapRange && Math.abs(Phaser.Math.Angle.Wrap(toB - angle)) <= arc / 2) this.damageBoss(this.tailSlapDamage);
+            if (dist <= this.tailSlapRange && Math.abs(Phaser.Math.Angle.Wrap(toB - angle)) <= arc / 2) {
+                this.damageBoss(this.tailSlapDamage);
+                this.immobilizeBoss(500);
+            }
         }
         const g = this.add.graphics().setDepth(20);
         g.lineStyle(3, 0xaaaaaa, 0.8); g.fillStyle(0x888888, 0.25);
@@ -4391,7 +4682,10 @@ export default class GameScene extends Phaser.Scene {
                             if (enemy.health <= 0) this.killEnemy(enemy);
                         }
                     });
-                    if (this.boss?.active && Phaser.Math.Distance.Between(fx, fy, this.boss.x, this.boss.y) <= radius) this.damageBoss(this.poopDamage);
+                    if (this.boss?.active && Phaser.Math.Distance.Between(fx, fy, this.boss.x, this.boss.y) <= radius) {
+                        this.damageBoss(this.poopDamage);
+                        this.slowBoss(2000, 0.5, 0x88cc44);
+                    }
                     this.tweens.add({ targets: field, alpha: 0.85, duration: 120, yoyo: true });
                     // Drift toward largest nearby enemy cluster
                     let cx = 0, cy = 0, n = 0;
@@ -4461,7 +4755,7 @@ export default class GameScene extends Phaser.Scene {
                 this.igniteEnemy(enemy, burnDur);
                 if (enemy.health <= 0) this.killEnemy(enemy);
             });
-            if (this.boss?.active) this.physics.add.overlap(amber, this.boss, (am) => { if (!am.active) return; am.destroy(); this.damageBoss(dmg); });
+            if (this.boss?.active) this.physics.add.overlap(amber, this.boss, (am) => { if (!am.active) return; am.destroy(); this.damageBoss(dmg); this.igniteBoss(burnDur); });
             this.time.delayedCall(1400, () => { if (amber.active) amber.destroy(); });
         }
         this.maybePolycephaly(() => this.doSunbakedAmbers());
@@ -4485,6 +4779,13 @@ export default class GameScene extends Phaser.Scene {
                 }
             }
         });
+        if (this.boss?.active) {
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
+            const toB  = Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x);
+            if (dist <= this.hissRange && Math.abs(Phaser.Math.Angle.Wrap(toB - this._roarAngle)) <= arc / 2) {
+                this.slowBoss(350, 0.5, 0xff8844);
+            }
+        }
         // Draw rotating cone every frame (clear previous via setDepth + low alpha tween)
         if (!this._roarGraphics) this._roarGraphics = this.add.graphics().setDepth(5);
         this._roarGraphics.clear();
@@ -4520,7 +4821,11 @@ export default class GameScene extends Phaser.Scene {
                 this.maybeVenom(target);
                 if (target.health <= 0) this.killEnemy(target);
             }
-            if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= lickRange) this.damageBoss(this.lickDamage);
+            if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= lickRange) {
+                this.damageBoss(this.lickDamage);
+                this.maybeVenomBoss();
+                this.slowBoss(2000, 0.5, 0xaaddff);
+            }
             const g = this.add.graphics().setDepth(20);
             g.lineStyle(5, 0xffaa44, 0.9); g.beginPath(); g.moveTo(px, py); g.lineTo(tx, ty); g.strokePath();
             g.fillStyle(0xffaa44, 1); g.fillCircle(tx, ty, 6);
@@ -4555,7 +4860,11 @@ export default class GameScene extends Phaser.Scene {
             if (this.boss?.active) {
                 const dist = Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y);
                 const toB  = Math.atan2(this.boss.y - py, this.boss.x - px);
-                if (dist <= this.wormWhipRange && Math.abs(Phaser.Math.Angle.Wrap(toB - baseAngle)) <= arc / 2) this.damageBoss(this.wormWhipDamage);
+                if (dist <= this.wormWhipRange && Math.abs(Phaser.Math.Angle.Wrap(toB - baseAngle)) <= arc / 2) {
+                    this.damageBoss(this.wormWhipDamage);
+                    this.applyBossPoison(6000);
+                    this.slowBoss(2000, 0.5, 0x44ff88);
+                }
             }
             const g = this.add.graphics().setDepth(20);
             g.lineStyle(3, 0x44ff88, 0.85); g.beginPath();
@@ -4579,8 +4888,8 @@ export default class GameScene extends Phaser.Scene {
             const ox = Phaser.Math.Clamp(this.player.x + Math.cos(a) * dr, 32, 3168);
             const oy = Phaser.Math.Clamp(this.player.y + Math.sin(a) * dr, 32, 3168);
             const mine = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            mine.setTint(0xffdd00).setScale(0.32).setDepth(8).setImmovable(true);
-            mine.body.setAllowGravity(false); mine.exploded = false;
+            mine.setTint(0xffdd00).setScale(0.32).setDepth(8);
+            mine.exploded = false;
             this.tweens.add({ targets: mine, x: ox, y: oy, duration: 250, ease: 'Quad.easeOut' });
             const explodeMine = () => {
                 if (mine.exploded || !mine.active || this.isCountdown) return;
@@ -4600,6 +4909,8 @@ export default class GameScene extends Phaser.Scene {
             };
             mine.explodeFn = explodeMine;
             this.pupaGroup.add(mine);
+            mine.setImmovable(true);
+            mine.body.setAllowGravity(false);
             this.physics.add.overlap(mine, this.enemies, explodeMine);
             if (this.boss?.active) this.physics.add.overlap(mine, this.boss, explodeMine);
             this.tweens.add({ targets: mine, alpha: 0.3, duration: 400, yoyo: true, loop: -1 });
@@ -4737,7 +5048,11 @@ export default class GameScene extends Phaser.Scene {
                 this.tweens.add({ targets: nearest, alpha: 0, duration: 60, yoyo: true, repeat: 1 });
                 if (nearest.health <= 0) this.killEnemy(nearest);
             }
-            if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= range) this.damageBoss(dmg);
+            if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= range) {
+                this.damageBoss(dmg);
+                this.applyBossPoison(6000);
+                this.immobilizeBoss(1000);
+            }
             const g = this.add.graphics().setDepth(20);
             g.lineStyle(5, 0xff44ff, 0.9); g.beginPath(); g.moveTo(px, py); g.lineTo(tx, ty); g.strokePath();
             const ta = Math.atan2(ty - py, tx - px); g.fillStyle(0xff44ff, 1);
@@ -4820,7 +5135,11 @@ export default class GameScene extends Phaser.Scene {
         });
         if (this.boss?.active) {
             const dx = this.boss.x - px, dy = this.boss.y - py;
-            if ((dx * cosA + dy * sinA) >= 0 && Math.abs(-dx * sinA + dy * cosA) <= width / 2) this.damageBoss(dmg);
+            if ((dx * cosA + dy * sinA) >= 0 && Math.abs(-dx * sinA + dy * cosA) <= width / 2) {
+                this.damageBoss(dmg);
+                this.slowBoss(3000, 0.5, 0xc8a020);
+                if (Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= 80) this.immobilizeBoss(1500);
+            }
         }
         const g = this.add.graphics().setDepth(20);
         g.fillStyle(0xc8a020, 0.40); const hw = width / 2;
@@ -4895,6 +5214,12 @@ export default class GameScene extends Phaser.Scene {
             this.tweens.add({ targets: enemy, alpha: 0.1, duration: 100, yoyo: true, repeat: 3 });
             this.time.delayedCall(2000, () => { if (enemy.active) enemy.bugCaught = false; });
         });
+        // Boss: same slow + immobilise as regular enemies (using the shared 3s boss
+        // immobilise cooldown), but no HP-halving — that stays enemy-only.
+        if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= range) {
+            this.slowBoss(8000, 0.15, 0x88ddff);
+            this.immobilizeBoss(2000);
+        }
         // Visual: large icy ring — same fix as Cold Glare: position the Graphics object
         // at (px, py) and draw at local (0, 0) so it scales in place, not from the origin.
         const g = this.add.graphics().setDepth(20).setPosition(px, py);
@@ -5397,13 +5722,23 @@ export default class GameScene extends Phaser.Scene {
     doRegen() {
         if (this.isCountdown) return;
         if (this.playerHealth < this.playerMaxHealth) {
-            this.playerHealth = Math.min(this.playerMaxHealth, this.playerHealth + 1);
+            this.playerHealth = Math.min(this.playerMaxHealth, this.playerHealth + this.regenHealAmount);
             this.updateHPBar();
         }
     }
 
+    // Well Fed levels don't just speed up the same 1 HP tick — each level has its
+    // own heal amount + interval: 1hp/15s, then 2hp/10s, then 3hp/8s.
     startRegen() {
-        this.regenDelay = Math.max(500, Math.round(this.regenDelay * 0.8));
+        const level = this.ownedPassives.filter(p => p === 'Well Fed').length;
+        const tiers = [
+            { delay: 15000, heal: 1 },
+            { delay: 10000, heal: 2 },
+            { delay: 8000,  heal: 3 },
+        ];
+        const cfg = tiers[level - 1] ?? tiers[tiers.length - 1];
+        this.regenDelay      = cfg.delay;
+        this.regenHealAmount = cfg.heal;
         this.regenTimer.remove();
         this.regenTimer = this.time.addEvent({ delay: this.regenDelay, callback: this.doRegen, callbackScope: this, loop: true });
     }
@@ -5454,13 +5789,16 @@ export default class GameScene extends Phaser.Scene {
         }
 
         if (boss.handImmobile) return;
+        // Player-inflicted immobilise only stops wander movement — supermoves are gated
+        // by handImmobile above, not this — so they still fire on schedule.
+        if (boss.bugCaught) { boss.setVelocity(0, 0); return; }
 
         if (!boss.handWanderTarget) boss.handWanderTarget = this.pickHandWanderTarget();
         const dist = Phaser.Math.Distance.Between(boss.x, boss.y, boss.handWanderTarget.x, boss.handWanderTarget.y);
         if (dist < 40) {
             boss.handWanderTarget = this.pickHandWanderTarget();
         } else {
-            this.physics.moveTo(boss, boss.handWanderTarget.x, boss.handWanderTarget.y, 200 * this.getHandSpeedMultiplier());
+            this.physics.moveTo(boss, boss.handWanderTarget.x, boss.handWanderTarget.y, 200 * this.getHandSpeedMultiplier() * (boss.slowFactor ?? 1));
         }
     }
 
@@ -5720,18 +6058,10 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0xff5500, 0.55);
         g.fillCircle(x, y, radius);
 
+        // lastDamageTick starts at 0 so updateHandFireZones() ticks it almost immediately
+        // if the player is already standing inside when it spawns.
         const zone = { x, y, radius, graphics: g, lastDamageTick: 0 };
         this.handFireZones.push(zone);
-
-        // Initial hit on spawn
-        const d = Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y);
-        if (d <= radius && !this.player.reviveInvincible) {
-            this.playerHealth -= 15;
-            this.updateHPBar();
-            this.playerDamageFlash();
-            if (this.inflateActive) this.inflateKnockback();
-            if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
-        }
 
         // Fade and destroy after 6s
         this.tweens.add({ targets: g, alpha: 0.2, delay: 4000, duration: 2000, onComplete: () => {
@@ -5751,9 +6081,14 @@ export default class GameScene extends Phaser.Scene {
             const d = Phaser.Math.Distance.Between(zone.x, zone.y, px, py);
             if (d <= zone.radius && !this.player.reviveInvincible) {
                 zone.lastDamageTick = now;
-                this.playerHealth -= 10;
+                // An eighth of the player's default (100) max health per second standing
+                // in the fire, plus the fire status effect — its duration stacks by 1s
+                // for every second spent in the flame.
+                this.playerHealth -= 12.5;
                 this.updateHPBar();
                 this.playerDamageFlash();
+                this.applyPlayerBurn(1000);
+                if (this.inflateActive) this.inflateKnockback();
                 if (this.playerHealth <= 0) { this.playerHealth = 0; this.showDeathOverlay(); }
             }
         });
@@ -5896,7 +6231,7 @@ export default class GameScene extends Phaser.Scene {
             case 'mulberry_mantis': {
                 // One continuous health bar covering both phases, with a divider line
                 // instead of resetting to full at the phase-2 transition.
-                const { total, boundaries } = this.computePhasedHealth(cfg.health, 2);
+                const { total, boundaries } = this.computePhasedHealth([cfg.health, cfg.health]);
                 mb.health      = total;
                 mb.maxHealth   = total;
                 mb.phaseBoundaries = boundaries;
