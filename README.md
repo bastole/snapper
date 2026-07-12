@@ -19,12 +19,26 @@ snapper/
 ├── src/
 │   ├── main.js                # Phaser game config + scene list
 │   ├── audio.js               # Shared BGM/SFX module
-│   └── scenes/
-│       ├── BootScene.js       # Preloads all assets
-│       ├── TitleScene.js      # Title screen
-│       ├── LevelSelectScene.js
-│       ├── GameScene.js       # All gameplay logic
-│       └── GameOverScene.js   # (legacy, unused — replaced by in-scene overlay)
+│   ├── scenes/
+│   │   ├── BootScene.js       # Preloads all assets
+│   │   ├── TitleScene.js      # Title screen
+│   │   ├── LevelSelectScene.js
+│   │   ├── GameScene.js       # Core class (~320 lines); imports all systems
+│   │   └── GameOverScene.js   # (legacy, unused — replaced by in-scene overlay)
+│   └── systems/               # Gameplay logic split by domain
+│       ├── movement.js        # Player movement, dubia shields, off-screen arrows
+│       ├── hud.js             # UI bars, pause overlay, volume sliders
+│       ├── enemySpawn.js      # Enemy spawning and wave ramp
+│       ├── baseWeapons.js     # All 16 base weapon fire methods
+│       ├── enemyDeath.js      # killEnemy — drops, XP, score
+│       ├── crickets.js        # XP collection, damage collisions, knockback
+│       ├── boss.js            # Boss AI for levels 1–4, HP bar, phase transitions
+│       ├── gameFlow.js        # Death overlay, revive, level clear
+│       ├── levelUp.js         # Level-up card screen
+│       ├── evolutions.js      # Evolution stubs + evolved weapon methods
+│       ├── evolutionUI.js     # Evolution menu, loadout display, regen, pause glow
+│       ├── handBoss.js        # The Hand (level 5) AI and attacks
+│       └── handMiniBoss.js    # Mini-boss AI injected during The Hand fight
 └── assets/
     ├── sprites/
     │   ├── player/

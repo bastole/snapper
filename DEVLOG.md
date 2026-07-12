@@ -626,6 +626,49 @@ Noted but left alone (pre-existing, not introduced this session, flagged as a se
 
 ---
 
+## Session 26 — 2026-07-10
+
+### GameScene.js split into 13 focused system files
+
+`GameScene.js` had grown to **6,957 lines** (~180 methods in a single class) — too large to navigate meaningfully. Split into 13 system modules using **prototype mixin injection**: each file exports a plain object of methods, and `Object.assign(GameScene.prototype, XxxMethods)` installs them after the class definition. All `this.*` references inside every method body resolve to the live GameScene instance at call-time, so zero code changes were needed inside any method body. This matches the style of the existing `audio.js` — no new architectural patterns introduced.
+
+**Final structure:**
+
+```
+src/
+  scenes/
+    GameScene.js       ← 318 lines (was 6,957): constructor, create, addGrid, update + 14 imports + 13 Object.assign calls
+  systems/
+    movement.js        ← player movement, dubia shields, off-screen arrows
+    hud.js             ← UI bars, pause overlay, volume sliders
+    enemySpawn.js      ← spawnEnemy and all per-level wave logic
+    baseWeapons.js     ← all 16 base weapon fire methods
+    enemyDeath.js      ← killEnemy (XP drops, rare drops, score)
+    crickets.js        ← XP collection, damage collisions, knockback, playEnemyHurtSfx
+    boss.js            ← boss AI for levels 1–4, HP bar, phase transitions, crossfadeBgm
+    gameFlow.js        ← showDeathOverlay, revivePlayer, showLevelClear
+    levelUp.js         ← showLevelUp (level-up card screen)
+    evolutions.js      ← all 16 evolveToXxx stubs + 19 evolved weapon methods
+    evolutionUI.js     ← evolution menu, loadout display, playerDamageFlash, regen, pause glow
+    handBoss.js        ← The Hand (level 5) AI and all attacks (non-contiguous in source: parts 1 and 2 concatenated around the mini-boss section)
+    handMiniBoss.js    ← four mini-boss AI sets injected during The Hand fight
+```
+
+**Conversion mechanic:** class method syntax has no commas; object literal methods need them. Used a brace-depth-aware Python converter to append `,` after every top-level method-closing `    }` line. Template literals and callback closures briefly confused the depth tracker, leaving 29 method-close braces without commas across `baseWeapons.js`, `gameFlow.js`, `handBoss.js`, and `handMiniBoss.js`. Fixed by scanning for `    }` lines followed (after optional blank/comment lines) by a new method signature and patching them in one pass.
+
+**Audio imports:** each system file imports only the audio functions it actually calls directly from `'../audio.js'`. Files that call `this.playEnemyHurtSfx()` (a prototype method defined in `crickets.js`) need no audio import of their own. Verified that all 35 `playEnemyHurtSfx()` call sites from the original audio session are intact (34 weapon/damage sites + 1 `damageBoss` hook).
+
+### README.md and GAME_REFERENCE.md created
+
+- **README.md** — stack, project structure, three ways to run locally (Python, npx serve, VS Code Live Server), controls table (keyboard + gamepad), debug keys, level table, deployment notes.
+- **GAME_REFERENCE.md** — complete gameplay reference: all 16 weapons with per-level stats, all 16 passives with per-pick effects and caps, all 16 evolutions with requirements and descriptions, all enemies per level (HP/damage/speed/specials), all 5 bosses (phases and attacks), all item and drop types.
+
+### Audio audit (no changes)
+
+After the split, a full audit confirmed the audio wiring is unchanged: every direct audio function call (`playSfx`, `crossfadeBgm`, `stopBgm`, `pauseBgm`, `resumeBgm`, `playBgm`) is in a file that imports it; `setMusicVolume`/`setSfxVolume` are passed as function references in `hud.js` which imports both; the `audio.js` module singleton state is shared correctly across all importers via the ES module cache. No audio regressions introduced.
+
+---
+
 ## Session 25 — 2026-07-08
 
 ### Real item art wired up (was sitting unused on disk)
