@@ -29,12 +29,12 @@ export const BossMethods = {
         const bossCfg = this.level === 5
             ? { key: 'the_hand',        label: 'THE HAND',        health: 5000, damage: 30, scale: 0.8 }
             : this.level === 4
-            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 8000, damage: Phaser.Math.Between(5, 15), scale: 0.6 }
+            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 2200, damage: Phaser.Math.Between(5, 15), scale: 0.6 }
             : this.level === 3
-            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 18000, damage: 28, scale: 0.65 }
+            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 1600, damage: 28, scale: 0.65 }
             : this.level === 2
-            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 12000, damage: 25, scale: 0.6 }
-            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 8000,  damage: 20, scale: 0.6, chargeDelay: 3500 };
+            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 2000, damage: 25, scale: 0.6 }
+            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 1500, damage: 20, scale: 0.6, chargeDelay: 3500 };
 
         // Warning banner
         const warn = this.add.text(W / 2, H / 2 - 60, `⚠  ${bossCfg.label} APPROACHES  ⚠`, {
@@ -50,6 +50,11 @@ export const BossMethods = {
             crossfadeBgm(this, this.level === 5 ? 'bgm_finalboss' : 'bgm_boss', 0.45, 1000);
             this.crickets.getChildren().slice().forEach(c => {
                 if (c.specialType !== 'wormbox' && c.specialType !== 'fullbox') c.destroy();
+            });
+            // Clear all live Pupa Mines / Bug Buster mines — the player has to spawn fresh ones
+            this.pupaGroup.getChildren().slice().forEach(mine => {
+                mine.exploded = true;
+                mine.destroy();
             });
 
             const bossX = this.player.x + 450;
@@ -103,7 +108,7 @@ export const BossMethods = {
                 // phases, with divider lines instead of resetting to full each transition.
                 // Each phase has its own HP pool (1500 / 2000 / 2000 / 3000), sized to that
                 // pool exactly — a phase only ends once its own section is fully drained.
-                const { total, boundaries } = this.computePhasedHealth([1500, 2000, 2000, 3000], true);
+                const { total, boundaries } = this.computePhasedHealth([3000, 4000, 4000, 6000], true);
                 this.boss.health      = total;
                 this.boss.maxHealth   = total;
                 this.boss.phaseBoundaries = boundaries;
@@ -119,8 +124,9 @@ export const BossMethods = {
             } else if (this.level === 4) {
                 // Mulberry Mantis: chases at high speed; vanishes every 5–10s.
                 // One continuous health bar covering both phases, with a divider line
-                // instead of resetting to full at the phase-2 transition.
-                const { total, boundaries } = this.computePhasedHealth([bossCfg.health, bossCfg.health]);
+                // instead of resetting to full at the phase-2 transition. Total 2200 HP,
+                // with the phase-2 transition at exactly 900 HP remaining.
+                const { total, boundaries } = this.computePhasedHealth([1300, 900], true);
                 this.boss.health      = total;
                 this.boss.maxHealth   = total;
                 this.boss.phaseBoundaries = boundaries;
@@ -438,10 +444,10 @@ export const BossMethods = {
         const buryTween = this.tweens.add({ targets: this.boss, alpha: 0.5, duration: 400, yoyo: true, loop: -1 });
         this.boss.setTint(0xff8800);
 
-        // Spawn 20 Carrot Moles + 10 Carrot Thugs spread over 6s (every 200ms)
+        // Spawn 10 Carrot Moles + 5 Carrot Thugs spread over 6s (every 200ms)
         const spawnList = [
-            ...Array(20).fill('mole'),
-            ...Array(10).fill('thug'),
+            ...Array(10).fill('mole'),
+            ...Array(5).fill('thug'),
         ];
         Phaser.Utils.Array.Shuffle(spawnList);
 

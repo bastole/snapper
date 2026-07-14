@@ -14,7 +14,7 @@ export const BaseWeaponMethods = {
                 this.maybeVenom(enemy);
                 if (this.biteLevel >= 4 && !enemy.slowed) {
                     enemy.slowed = true; enemy.speed = Math.max(10, enemy.speed * 0.5);
-                    enemy.setTint(0xaaddff);
+                    enemy.setTint(0x88ddff);
                     this.time.delayedCall(2000, () => { if (enemy.active) { enemy.slowed = false; enemy.speed *= 2; enemy.clearTint(); } });
                 }
                 this.checkHydraPhase(enemy);
@@ -24,7 +24,7 @@ export const BaseWeaponMethods = {
         if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= this.biteRange) {
             this.damageBoss(this.biteDamage);
             this.maybeVenomBoss();
-            if (this.biteLevel >= 4) this.slowBoss(2000, 0.5, 0xaaddff);
+            if (this.biteLevel >= 4) this.slowBoss(2000, 0.5, 0x88ddff);
         }
 
         // Always show bite circle so player can see the attack range
@@ -192,7 +192,7 @@ export const BaseWeaponMethods = {
                 const baseSpeed = enemy.speed;
                 enemy.speed = baseSpeed * 0.5;
                 this.tweens.add({ targets: enemy, alpha: 0, duration: 60, yoyo: true, repeat: 2,
-                    onComplete: () => { if (enemy.active) enemy.setTint(0x88ccff); } });
+                    onComplete: () => { if (enemy.active) enemy.setTint(0x88ddff); } });
                 this.time.delayedCall(2000, () => {
                     if (enemy.active) {
                         enemy.speed = baseSpeed;
@@ -206,7 +206,7 @@ export const BaseWeaponMethods = {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
             const toB  = Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x);
             if (dist <= this.hissRange && Math.abs(Phaser.Math.Angle.Wrap(toB - angle)) <= arc / 2) {
-                this.slowBoss(2000, 0.5, 0x88ccff);
+                this.slowBoss(2000, 0.5, 0x88ddff);
             }
         }
 
@@ -453,8 +453,18 @@ export const BaseWeaponMethods = {
         const configs = [[1, 2], [2, 3], [3, 5]];
         const [count, maxBounces] = configs[this.woodieLevel - 1] || [1, 2];
 
+        // Aim at the nearest enemy; fall back to a random direction if none are around
+        let nearest = null, nearestDist = Infinity;
+        this.enemies.getChildren().forEach(e => {
+            const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
+            if (d < nearestDist) { nearestDist = d; nearest = e; }
+        });
+        const targetAngle = nearest
+            ? Math.atan2(nearest.y - this.player.y, nearest.x - this.player.x)
+            : Phaser.Math.FloatBetween(0, Math.PI * 2);
+
         for (let i = 0; i < count; i++) {
-            const angle  = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const angle  = targetAngle;
             const speed  = 230;
             const woodie = this.physics.add.image(this.player.x, this.player.y, 'cricket');
             woodie.setTint(0x886644);
@@ -589,7 +599,8 @@ export const BaseWeaponMethods = {
         if (boss._nextImmobilizeAt && now < boss._nextImmobilizeAt) return;
         boss._nextImmobilizeAt = now + 3000;
         boss.bugCaught = true;
-        this.time.delayedCall(durationMs, () => { if (boss.active) boss.bugCaught = false; });
+        boss.setTint(0xbb66ff);
+        this.time.delayedCall(durationMs, () => { if (boss.active) { boss.bugCaught = false; boss.clearTint(); } });
     },
 
     maybePolycephaly(fn) {
@@ -665,7 +676,7 @@ export const BaseWeaponMethods = {
             : (this.lastMoveAngle ?? 0);
         const travelAngle = aimAngle + Math.PI / 2;
 
-        const barLen  = 120;
+        const barLen  = this.branchLength;
         const barW    = this.branchWidth;
         const speed   = 300;
         const maxHits = this.branchMaxHits;
@@ -722,7 +733,7 @@ export const BaseWeaponMethods = {
                     enemy.slowed = true;
                     const baseSpeed = enemy.speed;
                     enemy.speed = baseSpeed * 0.5;
-                    if (enemy.active) enemy.setTint(0xc8a020);
+                    if (enemy.active) enemy.setTint(0x88ddff);
                     this.time.delayedCall(this.dustKickSlowDuration, () => {
                         if (enemy.active) { enemy.speed = baseSpeed; enemy.clearTint(); enemy.slowed = false; }
                     });
@@ -733,7 +744,7 @@ export const BaseWeaponMethods = {
             const dx = this.boss.x - px, dy = this.boss.y - py;
             if ((dx * cosA + dy * sinA) >= 0 && Math.abs(-dx * sinA + dy * cosA) <= width / 2) {
                 this.damageBoss(dmg);
-                this.slowBoss(this.dustKickSlowDuration, 0.5, 0xc8a020);
+                this.slowBoss(this.dustKickSlowDuration, 0.5, 0x88ddff);
             }
         }
 

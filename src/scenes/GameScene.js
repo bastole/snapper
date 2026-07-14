@@ -25,8 +25,24 @@ export default class GameScene extends Phaser.Scene {
         this._deathOverlayShown = false;
         this.time.paused        = false;
         this.physics.resume();
-        // Remove any leftover gamepad listener from the previous run to avoid stacking
+        // Remove any leftover gamepad/pointer listeners from the previous run to avoid stacking
         this.input.gamepad.removeAllListeners('down');
+        this.input.removeAllListeners('pointerdown');
+        this.input.removeAllListeners('pointermove');
+        this.input.removeAllListeners('pointerup');
+
+        // Phaser silently freezes the whole game loop while the browser tab/window is
+        // unfocused (no movement, no physics, no overlaps) and instantly catches up once
+        // focus returns — with no on-screen indication anything happened. That reads as
+        // "collision stopped working" (nothing responds, then a delayed pile of damage
+        // lands all at once). Make it visible instead by pausing properly on blur, the
+        // same way the pause button does.
+        this.game.events.off('blur', this._onGameBlur);
+        this.game.events.on('blur', this._onGameBlur = () => {
+            if (!this.isPaused && !this.isCountdown && !this.isLevelingUp && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) {
+                this.togglePause(this.pauseBtn);
+            }
+        });
 
         const WORLD_W = 3200;
         const WORLD_H = 3200;
@@ -62,6 +78,13 @@ export default class GameScene extends Phaser.Scene {
         this.input.gamepad.on('down', (pad, button) => {
             if (button.index === 9 && !this.isLevelingUp && !this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(this.pauseBtn);
         });
+
+        // Touch/mouse virtual joystick — drag anywhere outside a button/menu to move
+        this.joystickActive    = false;
+        this.joystickPointerId = null;
+        this.joystickOrigin    = { x: 0, y: 0 };
+        this.joystickVector    = { x: 0, y: 0 };
+        this.setupTouchJoystick();
 
         // --- Groups ---
         this.enemies   = this.physics.add.group();
@@ -160,6 +183,7 @@ export default class GameScene extends Phaser.Scene {
         this.poisonClawLevel   = 0;
         this.branchLevel       = 0;
         this.branchWidth       = 20;
+        this.branchLength      = 120;
         this.branchMaxHits     = 15;
         this.dustKickLevel     = 0;
         this.dustKickLength    = 180;
@@ -170,8 +194,7 @@ export default class GameScene extends Phaser.Scene {
         this.coldGlareActive   = false;
         this.coldGlareCooldown = 30000;
         this.coldGlareSlow     = 1000;
-        this.coldGlareCdLevel  = 0;
-        this.coldGlareSlLevel  = 0;
+        this.coldGlareLevel    = 0;
         this.polycephalyChance = 0;
         this._polycephalyFiring = false;
         this.venomChance       = 0;
@@ -200,7 +223,7 @@ export default class GameScene extends Phaser.Scene {
             { id: 'raging_roar',           weaponKey: 'hiss',        weaponLabel: 'Hiss',                  boostName: 'Angry',                evolvedName: 'Raging Roar',           desc: 'Always-active 60° rotating cone — slows everything inside.',                 effect() { this.evolveToRagingRoar(); } },
             { id: 'sticky_shot',           weaponKey: 'lick',        weaponLabel: 'Lick',                  boostName: 'Vitamin Supplements',  evolvedName: 'Sticky Shot',           desc: 'Fires 5 tongues at once every 1.5s — more damage, slows hit enemies.',       effect() { this.evolveToStickyShot(); } },
             { id: 'acid_snake',            weaponKey: 'wormwhip',    weaponLabel: 'Worm Whip',             boostName: 'Venom',                evolvedName: 'Acid Snake',            desc: 'Both sides, 160° arc every 3.5s — poisons 6s, slows 2s.',                   effect() { this.evolveToAcidSnake(); } },
-            { id: 'bug_buster',            weaponKey: 'pupamines',   weaponLabel: 'Pupa Mines',            boostName: 'Bug Catcher',          evolvedName: 'Bug Buster',            desc: 'Sprays 8-12 mines lasting 45s — huge blasts drop collectible pupa mines.',   effect() { this.evolveToBugBuster(); } },
+            { id: 'bug_buster',            weaponKey: 'pupamines',   weaponLabel: 'Pupa Mines',            boostName: 'Bug Catcher',          evolvedName: 'Bug Buster',            desc: 'Sprays 8-12 mines lasting 45s — defeated enemies drop a Pupa Mine.',   effect() { this.evolveToBugBuster(); } },
             { id: 'spike_shedder',         weaponKey: 'skinshed',    weaponLabel: 'Skin Shed',             boostName: 'Big Fangs',            evolvedName: 'Spike Shedder',         desc: 'Drops 3 spiky skins every 8s — far more damage, heals 1 HP per 10 kills.',   effect() { this.evolveToSpikeShedder(); } },
             { id: 'shining_shells',        weaponKey: 'woodiebounce',weaponLabel: 'Woodie Bounce',         boostName: 'Shiny Scales',         evolvedName: 'Shining Shells',        desc: '3 fast-moving shells every 4s, unlimited ricochets 25s, auto-aim, kills explode.', effect() { this.evolveToShiningShells(); } },
             { id: 'dubia_defenders',       weaponKey: 'dubiashields',weaponLabel: 'Dubia Shields',         boostName: 'Bug Bucket',           evolvedName: 'Dubia Defenders',       desc: 'Shields spin faster — each fires a strong projectile every 5s.',             effect() { this.evolveToDubiaDefenders(); } },
@@ -217,7 +240,7 @@ export default class GameScene extends Phaser.Scene {
         this.weaponMaxLevel = {
             bite: 4, tailslap: 2, poop: 2, pebble: 2, hiss: 2, lick: 3,
             wormwhip: 2, pupamines: 3, skinshed: 2, woodiebounce: 3,
-            dubiashields: 4, poisonclaw: 4, branchthrow: 4, dustkick: 5, scratch: 3, coldglare: 7,
+            dubiashields: 4, poisonclaw: 4, branchthrow: 4, dustkick: 5, scratch: 3, coldglare: 4,
         };
         this.boostMaxLevel = {
             'Inflate': 1, 'Shiny Scales': 2, 'Angry': 5, 'Aura Farming': 5,

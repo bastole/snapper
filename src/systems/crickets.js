@@ -200,7 +200,7 @@ export const CricketMethods = {
         if (this.bugCatcherChance > 0 && Math.random() < this.bugCatcherChance && enemy.active) {
             enemy.setVelocity(0, 0);
             enemy.bugCaught = true;
-            enemy.setTint(0x88ccff);
+            enemy.setTint(0xbb66ff);
             this.time.delayedCall(this.bugCatcherDuration, () => {
                 if (enemy.active) { enemy.bugCaught = false; enemy.clearTint(); }
             });

@@ -37,39 +37,6 @@ export const HudMethods = {
         // ESC and P also toggle pause (blocked in countdown, level clear, game over, upgrade screen)
         this.input.keyboard.on('keydown-ESC', () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(pauseBtn); });
         this.input.keyboard.on('keydown-P',   () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(pauseBtn); });
-        this.input.keyboard.on('keydown-U',   () => { if (!this.isPaused) this.showLevelUp(); });
-        this.input.keyboard.on('keydown-F',   () => {
-            if (this.isPaused || this.isLevelingUp) return;
-            if (!this.boss?.active) {
-                this.gameTimerEvent.remove();
-                this.gameTime = 0;
-                this.spawnBoss();
-            }
-            for (let i = 0; i < 20; i++) {
-                const wx = Phaser.Math.Between(100, 3100);
-                const wy = Phaser.Math.Between(100, 3100);
-                const item = this.physics.add.image(wx, wy, 'foodbox');
-                item.setScale(1.10).setDepth(4);
-                item.xpValue = 0;
-                item.specialType = 'wormbox';
-                this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 350, yoyo: true, loop: -1 });
-                this.crickets.add(item);
-            }
-            this.fastUpgrade    = true;
-            this.pendingLevelUps = 28;
-            this.showLevelUp();
-        });
-        this.input.keyboard.on('keydown-N',   () => {
-            if (this.isPaused) return;
-            this.gameTime = Math.max(0, this.gameTime - 60);
-            // Apply 6 spawn-ramp ticks (one per 10s skipped)
-            for (let i = 0; i < 6; i++) {
-                if (this.spawnDelay > this.spawnMinDelay) {
-                    this.spawnDelay = Math.max(this.spawnMinDelay, Math.floor(this.spawnDelay * 0.85));
-                }
-            }
-            this.spawnTimer.reset({ delay: this.spawnDelay, callback: this.spawnEnemy, callbackScope: this, loop: true });
-        });
 
         this.pauseBtn = pauseBtn;
         this.updatePauseBtnGlow();
@@ -143,7 +110,7 @@ export const HudMethods = {
             this.pauseQuitBtn.on('pointerdown', () => {
                 this._pauseQuitting = true;
                 stopBgm();
-                this.scene.start('LevelSelectScene');
+                this.scene.start('TitleScene');
             });
 
             // Lay the pair out side by side, centred as a group, using their actual
@@ -157,6 +124,12 @@ export const HudMethods = {
             this.pausePadHint = this.add.text(10, H - 10, '🎮  Y  Quit to Menu    X  Evolutions', {
                 fontSize: '11px', fontFamily: 'Arial', color: '#666666',
             }).setScrollFactor(0).setDepth(151).setOrigin(0, 1);
+
+            // Corner hint for the volume sliders: "A" to jump in, swaps to "B" to
+            // back out once a slider is actually selected (see updatePauseSliderOutline).
+            this.pauseSliderHint = this.add.text(W - 10, H - 10, '🎮  A  Sliders', {
+                fontSize: '11px', fontFamily: 'Arial', color: '#666666',
+            }).setScrollFactor(0).setDepth(151).setOrigin(1, 1);
 
             this._pauseSliderSelected = null;
             this._pauseSliderRows     = null;
@@ -202,16 +175,27 @@ export const HudMethods = {
                         this.updatePauseSliderOutline();
                         return;
                     }
+                    // D-pad left/right nudges the selected slider's volume by 5%
+                    if (this._pauseSliderSelected && (button.index === 14 || button.index === 15)) {
+                        const row = this._pauseSliderRows[this._pauseSliderSelected];
+                        row.setValue(row.getValue() + (button.index === 15 ? 0.05 : -0.05));
+                        return;
+                    }
                     if (this.isPaused && button.index !== 9 && !this._pauseQuitting) this.togglePause(btn);
                 });
-                // Left stick up/down swaps the highlight the same way, while a slider is selected
+                // Left stick: X continuously adjusts the selected slider's volume, Y swaps
+                // the highlight between SFX and MUSIC (discrete, cooldown-gated)
                 this._pauseSliderStickCooldown = 0;
                 this.events.on('update', this._pauseSliderStickHandler = (_, delta) => {
                     if (!this._pauseSliderSelected) return;
+                    const pad = this.input.gamepad.pad1;
+                    if (!pad) return;
+                    if (Math.abs(pad.leftStick.x) > 0.2) {
+                        const row = this._pauseSliderRows[this._pauseSliderSelected];
+                        row.setValue(row.getValue() + pad.leftStick.x * (delta / 1000) * 0.8);
+                    }
                     this._pauseSliderStickCooldown -= delta;
                     if (this._pauseSliderStickCooldown > 0) return;
-                    const pad = this.input.gamepad.getPad(0);
-                    if (!pad) return;
                     if (Math.abs(pad.leftStick.y) > 0.5) {
                         this._pauseSliderSelected = this._pauseSliderSelected === 'sfx' ? 'music' : 'sfx';
                         this.updatePauseSliderOutline();
@@ -232,6 +216,7 @@ export const HudMethods = {
             this.pauseBoostLine?.destroy();
             this.pauseQuitBtn?.destroy();
             this.pausePadHint?.destroy();
+            this.pauseSliderHint?.destroy();
             this._evoBtnText?.destroy(); this._evoBtnText = null;
             if (this._evoFlashTween) { this._evoFlashTween.stop(); this._evoFlashTween = null; }
             this._evoMenuOpen = false;
@@ -276,10 +261,11 @@ export const HudMethods = {
             .setInteractive({ useHandCursor: true });
         this.input.setDraggable(knob);
 
-        const setFromX = (rawX) => {
-            const clampedX = Phaser.Math.Clamp(rawX, trackX, trackX + trackW);
-            knob.x = clampedX;
-            const v = (clampedX - trackX) / trackW;
+        // Sets the slider from a 0..1 value directly — used by both pointer dragging
+        // (via setFromX below) and gamepad D-pad/stick adjustment.
+        const setValue = (v) => {
+            v = Phaser.Math.Clamp(v, 0, 1);
+            knob.x = trackX + v * trackW;
             valueText.setText(`${Math.round(v * 100)}`);
             onChange(v);
             if (previewSfxKey && Date.now() - lastPreview > 200) {
@@ -288,6 +274,7 @@ export const HudMethods = {
             }
             return v;
         };
+        const setFromX = (rawX) => setValue((Phaser.Math.Clamp(rawX, trackX, trackX + trackW) - trackX) / trackW);
 
         // Set the flag on pointerdown (fires before the scene-level resume handler,
         // same technique the EVOLUTIONS button uses) so dragging/clicking the slider
@@ -307,7 +294,11 @@ export const HudMethods = {
             if (!this._pauseSliderRows) this._pauseSliderRows = {};
             const rowLeft  = labelText.x - 6;
             const rowRight = valueText.x + valueText.width + 6;
-            this._pauseSliderRows[sliderKey] = { centerX: (rowLeft + rowRight) / 2, width: rowRight - rowLeft, y };
+            this._pauseSliderRows[sliderKey] = {
+                centerX: (rowLeft + rowRight) / 2, width: rowRight - rowLeft, y,
+                getValue: () => (knob.x - trackX) / trackW,
+                setValue,
+            };
         }
     },
 
@@ -315,6 +306,7 @@ export const HudMethods = {
     // selected volume slider row (see _pauseSliderSelected).
     updatePauseSliderOutline() {
         const key = this._pauseSliderSelected;
+        this.pauseSliderHint?.setText(key ? '🎮  ◀▶  Adjust    ▲▼  Swap    B  Back' : '🎮  A  Sliders');
         const row = key ? this._pauseSliderRows?.[key] : null;
         if (!row) {
             this._pauseSliderOutline?.destroy();

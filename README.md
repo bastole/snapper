@@ -85,14 +85,6 @@ Right-click `index.html` → Open with Live Server.
 | Browse level-up cards | — | LB / RB |
 | Scroll evolutions grid | — | Right stick |
 
-## Debug keys (in-game)
-
-| Key | Action |
-|---|---|
-| `U` | Trigger a level-up screen immediately |
-| `N` | Skip 60 seconds of game time |
-| `F` | Spawn boss + scatter 20 Foodboxes + open 29 upgrade screens |
-
 ## Gameplay summary
 
 - Enemies spawn off-screen and walk toward the player; spawn rate ramps up every 10 seconds

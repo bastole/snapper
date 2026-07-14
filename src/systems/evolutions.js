@@ -108,7 +108,7 @@ export const EvolutionMethods = {
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 this.maybeVenom(enemy);
                 if (this.biteLevel >= 4 && !enemy.slowed) {
-                    enemy.slowed = true; enemy.speed = Math.max(10, enemy.speed * 0.5); enemy.setTint(0xaaddff);
+                    enemy.slowed = true; enemy.speed = Math.max(10, enemy.speed * 0.5); enemy.setTint(0x88ddff);
                     this.time.delayedCall(2000, () => { if (enemy.active) { enemy.slowed = false; enemy.speed *= 2; enemy.clearTint(); } });
                 }
                 this.checkHydraPhase(enemy);
@@ -118,7 +118,7 @@ export const EvolutionMethods = {
         if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= this.biteRange) {
             this.damageBoss(this.biteDamage);
             this.maybeVenomBoss();
-            if (this.biteLevel >= 4) this.slowBoss(2000, 0.5, 0xaaddff);
+            if (this.biteLevel >= 4) this.slowBoss(2000, 0.5, 0x88ddff);
         }
         const circle = this.add.circle(px, py, this.biteRange, 0x88ff44, 0.18).setDepth(20);
         this.tweens.add({ targets: circle, alpha: 0, duration: 200, onComplete: () => circle.destroy() });
@@ -147,7 +147,8 @@ export const EvolutionMethods = {
                 if (now - lastSlam >= 8000 && !enemy.bugCaught) {
                     enemy._lastSteelSlam = now;
                     enemy.bugCaught = true;
-                    this.time.delayedCall(500, () => { if (enemy.active) enemy.bugCaught = false; });
+                    enemy.setTint(0xbb66ff);
+                    this.time.delayedCall(500, () => { if (enemy.active) { enemy.bugCaught = false; enemy.clearTint(); } });
                 }
                 if (enemy.health <= 0) this.killEnemy(enemy);
             }
@@ -195,7 +196,7 @@ export const EvolutionMethods = {
                             this.playEnemyHurtSfx();
                             this.tweens.add({ targets: enemy, alpha: 0.2, duration: 60, yoyo: true });
                             if (!enemy.slowed) {
-                                enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0x88cc44);
+                                enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0x88ddff);
                                 this.time.delayedCall(2000, () => { if (enemy.active) { enemy.speed = bs; enemy.clearTint(); enemy.slowed = false; } });
                             }
                             if (enemy.health <= 0) this.killEnemy(enemy);
@@ -203,7 +204,7 @@ export const EvolutionMethods = {
                     });
                     if (this.boss?.active && Phaser.Math.Distance.Between(fx, fy, this.boss.x, this.boss.y) <= radius) {
                         this.damageBoss(this.poopDamage);
-                        this.slowBoss(2000, 0.5, 0x88cc44);
+                        this.slowBoss(2000, 0.5, 0x88ddff);
                     }
                     this.tweens.add({ targets: field, alpha: 0.85, duration: 120, yoyo: true });
                     // Drift toward largest nearby enemy cluster
@@ -286,23 +287,53 @@ export const EvolutionMethods = {
         const dt  = this.game.loop.delta / 1000;
         this._roarAngle = (this._roarAngle + dt * 1.2) % (Math.PI * 2); // ~69°/s
         const arc = Math.PI / 3; // 60°
+        const dmg = 12;
+
+        // Damage + slow only apply on a 500ms tick (the cone itself still rotates and
+        // redraws every frame). Refreshing the 2s slow on every tick an enemy is caught
+        // means it never has a chance to expire while it stays in the cone.
+        const now = this.time.now;
+        const doTick = now >= (this._roarNextTick ?? 0);
+        if (doTick) this._roarNextTick = now + 500;
+
         this.enemies.getChildren().forEach(enemy => {
             if (!this.canDamageEnemy(enemy)) return;
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
             if (dist > this.hissRange) return;
             const toEnemy = Math.atan2(enemy.y - this.player.y, enemy.x - this.player.x);
+            if (!doTick) return;
             if (Math.abs(Phaser.Math.Angle.Wrap(toEnemy - this._roarAngle)) <= arc / 2) {
-                if (!enemy.slowed) {
-                    enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0xff8844);
-                    this.time.delayedCall(350, () => { if (enemy.active) { enemy.speed = bs; enemy.clearTint(); enemy.slowed = false; } });
-                }
+                this.damageDealt += dmg; enemy.health -= dmg;
+                this.playEnemyHurtSfx();
+                this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
+                this.maybeVenom(enemy);
+                if (enemy.health <= 0) { this.killEnemy(enemy); return; }
+
+                // Track our own base speed independently of the shared `slowed` flag — another
+                // weapon (e.g. Dust Kick) may have already slowed this enemy and set `slowed`
+                // true without touching `_roarBaseSpeed`, so gating capture on `!enemy.slowed`
+                // could skip it entirely and leave `_roarBaseSpeed` undefined, turning the very
+                // next line into `undefined * 0.5` — NaN speed, which permanently freezes the
+                // enemy (NaN velocity) and makes it drop out of collision entirely.
+                if (enemy._roarBaseSpeed === undefined) enemy._roarBaseSpeed = enemy.speed;
+                enemy.slowed = true;
+                enemy.speed = enemy._roarBaseSpeed * 0.5;
+                enemy.setTint(0x88ddff);
+                enemy._roarSlowTimer?.remove();
+                enemy._roarSlowTimer = this.time.delayedCall(2000, () => {
+                    if (enemy.active) { enemy.speed = enemy._roarBaseSpeed; enemy.clearTint(); enemy.slowed = false; }
+                    enemy._roarBaseSpeed = undefined;
+                    enemy._roarSlowTimer = null;
+                });
             }
         });
-        if (this.boss?.active) {
+        if (doTick && this.boss?.active) {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
             const toB  = Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x);
             if (dist <= this.hissRange && Math.abs(Phaser.Math.Angle.Wrap(toB - this._roarAngle)) <= arc / 2) {
-                this.slowBoss(350, 0.5, 0xff8844);
+                this.damageBoss(dmg);
+                this.maybeVenomBoss();
+                this.slowBoss(2000, 0.5, 0x88ddff);
             }
         }
         // Draw rotating cone every frame (clear previous via setDepth + low alpha tween)
@@ -334,7 +365,7 @@ export const EvolutionMethods = {
                 this.playEnemyHurtSfx();
                 this.tweens.add({ targets: target, alpha: 0, duration: 60, yoyo: true, repeat: 1 });
                 if (!target.slowed) {
-                    target.slowed = true; const bs = target.speed; target.speed = bs * 0.5; target.setTint(0xaaddff);
+                    target.slowed = true; const bs = target.speed; target.speed = bs * 0.5; target.setTint(0x88ddff);
                     this.time.delayedCall(2000, () => { if (target.active) { target.speed = bs; target.clearTint(); target.slowed = false; } });
                 }
                 this.maybeVenom(target);
@@ -343,7 +374,7 @@ export const EvolutionMethods = {
             if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= lickRange) {
                 this.damageBoss(this.lickDamage);
                 this.maybeVenomBoss();
-                this.slowBoss(2000, 0.5, 0xaaddff);
+                this.slowBoss(2000, 0.5, 0x88ddff);
             }
             const g = this.add.graphics().setDepth(20);
             g.lineStyle(5, 0xffaa44, 0.9); g.beginPath(); g.moveTo(px, py); g.lineTo(tx, ty); g.strokePath();
@@ -370,7 +401,7 @@ export const EvolutionMethods = {
                     this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                     this.applyEnemyPoison(enemy, 6000);
                     if (!enemy.slowed) {
-                        enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0x44ff88);
+                        enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0x88ddff);
                         this.time.delayedCall(2000, () => { if (enemy.active) { enemy.speed = bs; enemy.clearTint(); enemy.slowed = false; } });
                     }
                     if (enemy.health <= 0) this.killEnemy(enemy);
@@ -382,7 +413,7 @@ export const EvolutionMethods = {
                 if (dist <= this.wormWhipRange && Math.abs(Phaser.Math.Angle.Wrap(toB - baseAngle)) <= arc / 2) {
                     this.damageBoss(this.wormWhipDamage);
                     this.applyBossPoison(6000);
-                    this.slowBoss(2000, 0.5, 0x44ff88);
+                    this.slowBoss(2000, 0.5, 0x88ddff);
                 }
             }
             const g = this.add.graphics().setDepth(20);
@@ -562,7 +593,8 @@ export const EvolutionMethods = {
                 if (now - lastFlash >= 10000) {
                     nearest._lastFlashclaw = now;
                     nearest.bugCaught = true;
-                    this.time.delayedCall(1000, () => { if (nearest.active) nearest.bugCaught = false; });
+                    nearest.setTint(0xbb66ff);
+                    this.time.delayedCall(1000, () => { if (nearest.active) { nearest.bugCaught = false; nearest.clearTint(); } });
                 }
                 this.tweens.add({ targets: nearest, alpha: 0, duration: 60, yoyo: true, repeat: 1 });
                 if (nearest.health <= 0) this.killEnemy(nearest);
@@ -639,7 +671,7 @@ export const EvolutionMethods = {
                 this.tweens.add({ targets: enemy, alpha: 0.3, duration: 80, yoyo: true });
                 if (enemy.health <= 0) { this.killEnemy(enemy); return; }
                 if (!enemy.slowed) {
-                    enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0xc8a020);
+                    enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0x88ddff);
                     this.time.delayedCall(3000, () => { if (enemy.active) { enemy.speed = bs; enemy.clearTint(); enemy.slowed = false; } });
                 }
                 // Immobilise very close enemies (80px, 12s cooldown)
@@ -648,7 +680,8 @@ export const EvolutionMethods = {
                 if (dist <= 80 && now - lastStorm >= 12000) {
                     enemy._lastDuststorm = now;
                     enemy.bugCaught = true;
-                    this.time.delayedCall(1500, () => { if (enemy.active) enemy.bugCaught = false; });
+                    enemy.setTint(0xbb66ff);
+                    this.time.delayedCall(1500, () => { if (enemy.active) { enemy.bugCaught = false; enemy.clearTint(); } });
                 }
             }
         });
@@ -656,7 +689,7 @@ export const EvolutionMethods = {
             const dx = this.boss.x - px, dy = this.boss.y - py;
             if ((dx * cosA + dy * sinA) >= 0 && Math.abs(-dx * sinA + dy * cosA) <= width / 2) {
                 this.damageBoss(dmg);
-                this.slowBoss(3000, 0.5, 0xc8a020);
+                this.slowBoss(3000, 0.5, 0x88ddff);
                 if (Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= 80) this.immobilizeBoss(1500);
             }
         }
@@ -729,9 +762,10 @@ export const EvolutionMethods = {
             if (now - lastChill < 15000) return;
             enemy._lastFourChills = now;
             enemy.bugCaught = true;
+            enemy.setTint(0xbb66ff);
             enemy.health = Math.ceil(enemy.health / 2);
             this.tweens.add({ targets: enemy, alpha: 0.1, duration: 100, yoyo: true, repeat: 3 });
-            this.time.delayedCall(2000, () => { if (enemy.active) enemy.bugCaught = false; });
+            this.time.delayedCall(2000, () => { if (enemy.active) { enemy.bugCaught = false; enemy.clearTint(); } });
         });
         // Boss: same slow + immobilise as regular enemies (using the shared 3s boss
         // immobilise cooldown), but no HP-halving — that stays enemy-only.

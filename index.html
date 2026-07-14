@@ -6,8 +6,23 @@
     <title>Salad Slayer: Snapper – Leaf No Survivors</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-        canvas { display: block; }
+        html, body { height: 100%; overscroll-behavior: none; }
+        body {
+            background: #000;
+            overflow: hidden;
+            /* No flex/centering here — Phaser's own autoCenter (CENTER_BOTH, see main.js)
+               already centers the canvas by computing margin-top/margin-left against the
+               body's size. Also centering via CSS flexbox stacked a second offset on top
+               of Phaser's, which barely showed on desktop's mild letterboxing but became a
+               glaring ~300px misalignment on a phone's much larger portrait letterbox gap. */
+            /* 100vh is the desktop fallback; 100dvh tracks the mobile browser's actual
+               visible viewport (excludes the address bar), so Phaser centers against the
+               real visible height instead of one that's temporarily wrong while the
+               toolbar is showing. */
+            height: 100vh;
+            height: 100dvh;
+        }
+        canvas { display: block; touch-action: none; }
     </style>
 </head>
 <body>

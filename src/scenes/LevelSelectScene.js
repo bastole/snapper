@@ -119,7 +119,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         this.events.on('update', (_, delta) => {
             this._padNavCooldown -= delta;
             if (this._padNavCooldown > 0) return;
-            const pad = this.input.gamepad.getPad(0);
+            const pad = this.input.gamepad.pad1;
             if (!pad) return;
             const y = pad.leftStick.y;
             if (y < -0.5) {

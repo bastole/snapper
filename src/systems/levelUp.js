@@ -1,4 +1,14 @@
 import { playSfx } from '../audio.js';
+
+// Cold Glare's 4 levels (originally 7: unlock + 3 cooldown steps + 3 slow steps,
+// trimmed down to keep only the 1st/3rd/5th/7th of that progression).
+const COLD_GLARE_LEVELS = [
+    { cd: 30000, slow: 1000 },
+    { cd: 20000, slow: 1000 },
+    { cd: 15000, slow: 4000 },
+    { cd: 15000, slow: 10000 },
+];
+
 export const LevelUpMethods = {
 
     // ─── Step 5: Level-up screen ─────────────────────────────────────────────────
@@ -34,7 +44,7 @@ export const LevelUpMethods = {
         const weaponUpgrades = [
             {
                 name: this.weaponCardLabel('bite', 'Bite'), desc: 'Faster bite — fires every 2s, +15 range, +10 damage', type: 'weapon',
-                available: () => this.biteLevel === 1,
+                weaponKey: 'bite', available: () => this.biteLevel === 1,
                 effect: () => {
                     this.biteLevel = 2;
                     this.biteDamage += 10; this.biteRange += 15;
@@ -44,7 +54,7 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('bite', 'Bite'), desc: 'Stronger bite — +20 range, +15 damage', type: 'weapon',
-                available: () => this.biteLevel === 2,
+                weaponKey: 'bite', available: () => this.biteLevel === 2,
                 effect: () => {
                     this.biteLevel = 3;
                     this.biteDamage += 15; this.biteRange += 20;
@@ -52,7 +62,7 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('bite', 'Bite'), desc: 'Venomous bite — +20 range, +15 damage, slows enemies for 2s', type: 'weapon',
-                available: () => this.biteLevel === 3,
+                weaponKey: 'bite', available: () => this.biteLevel === 3,
                 effect: () => {
                     this.biteLevel = 4;
                     this.biteDamage += 15; this.biteRange += 20;
@@ -60,7 +70,7 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('tailslap', 'Tail Slap'), desc: 'Sweeping arc attack behind you as you move', type: 'weapon',
-                available: () => !this.ownedWeapons.has('tailslap') && !this.ownedWeapons.has('steelslam'),
+                weaponKey: 'tailslap', available: () => !this.ownedWeapons.has('tailslap') && !this.ownedWeapons.has('steelslam'),
                 effect: () => {
                     this.ownedWeapons.add('tailslap');
                     this.tailSlapTimer = this.time.addEvent({ delay: 4000, callback: this.doTailSlap, callbackScope: this, loop: true });
@@ -68,12 +78,12 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('tailslap', 'Tail Slap'), desc: 'Widen the arc behind you to 180°', type: 'weapon',
-                available: () => this.ownedWeapons.has('tailslap') && !this.tailSlapUpgraded,
+                weaponKey: 'tailslap', available: () => this.ownedWeapons.has('tailslap') && !this.tailSlapUpgraded,
                 effect: () => { this.tailSlapUpgraded = true; },
             },
             {
                 name: this.weaponCardLabel('poop', 'Poop'), desc: 'Fires an exploding continuous projectile in a random direction', type: 'weapon',
-                available: () => !this.ownedWeapons.has('poop') && !this.ownedWeapons.has('toxicocean') && this.playerLevel >= 20,
+                weaponKey: 'poop', available: () => !this.ownedWeapons.has('poop') && !this.ownedWeapons.has('toxicocean') && this.playerLevel >= 20,
                 effect: () => {
                     this.ownedWeapons.add('poop');
                     this.poopTimer = this.time.addEvent({ delay: 8000, callback: this.doPoop, callbackScope: this, loop: true });
@@ -81,12 +91,12 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('poop', 'Poop'), desc: 'Field lasts 6 seconds instead of 3', type: 'weapon',
-                available: () => this.ownedWeapons.has('poop') && !this.poopUpgraded,
+                weaponKey: 'poop', available: () => this.ownedWeapons.has('poop') && !this.poopUpgraded,
                 effect: () => { this.poopUpgraded = true; this.poopDuration = 6000; },
             },
             {
                 name: this.weaponCardLabel('pebble', 'Pebble Flick'), desc: 'Fires 3 piercing pebbles toward the nearest enemy', type: 'weapon',
-                available: () => !this.ownedWeapons.has('pebble') && !this.ownedWeapons.has('sunbakedambers'),
+                weaponKey: 'pebble', available: () => !this.ownedWeapons.has('pebble') && !this.ownedWeapons.has('sunbakedambers'),
                 effect: () => {
                     this.ownedWeapons.add('pebble');
                     this.pebbleTimer = this.time.addEvent({ delay: 8000, callback: this.doPebbleFlick, callbackScope: this, loop: true });
@@ -94,14 +104,14 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('pebble', 'Pebble Flick'), desc: 'Fire 9 pebbles that pierce 3 enemies', type: 'weapon',
-                available: () => this.ownedWeapons.has('pebble') && this.pebbleCount < 9,
+                weaponKey: 'pebble', available: () => this.ownedWeapons.has('pebble') && this.pebbleCount < 9,
                 effect: () => { this.pebbleCount = 9; this.pebblePierce = 3; },
             },
             {
                 name: this.weaponCardLabel('lick', 'Lick'),
                 desc: ['High-damage tongue at nearest enemy', '2 tongues, longer reach', '3 tongues, even longer reach'][this.lickLevel] ?? 'High-damage tongue at nearest enemy',
                 type: 'weapon',
-                available: () => this.lickLevel < 3,
+                weaponKey: 'lick', available: () => this.lickLevel < 3,
                 effect: () => {
                     this.lickLevel++;
                     if (this.lickLevel === 1) {
@@ -112,7 +122,7 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('hiss', 'Hiss'), desc: 'Slow enemies in a 45° cone for 2 seconds', type: 'weapon',
-                available: () => !this.ownedWeapons.has('hiss') && !this.ownedWeapons.has('ragingroar'),
+                weaponKey: 'hiss', available: () => !this.ownedWeapons.has('hiss') && !this.ownedWeapons.has('ragingroar'),
                 effect: () => {
                     this.ownedWeapons.add('hiss');
                     this.hissTimer = this.time.addEvent({ delay: 5000, callback: this.doHiss, callbackScope: this, loop: true });
@@ -120,14 +130,14 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('hiss', 'Hiss'), desc: 'Widen cone to 90°', type: 'weapon',
-                available: () => this.ownedWeapons.has('hiss') && !this.hissUpgraded,
+                weaponKey: 'hiss', available: () => this.ownedWeapons.has('hiss') && !this.hissUpgraded,
                 effect: () => { this.hissUpgraded = true; },
             },
             {
                 name: this.weaponCardLabel('wormwhip', 'Worm Whip'),
                 desc: ['Whip left or right, alternating each strike', 'Whip both sides at once, longer range'][this.wormWhipLevel] ?? 'Whip left or right',
                 type: 'weapon',
-                available: () => this.wormWhipLevel < 2,
+                weaponKey: 'wormwhip', available: () => this.wormWhipLevel < 2,
                 effect: () => {
                     this.wormWhipLevel++;
                     if (this.wormWhipLevel === 1) {
@@ -142,7 +152,7 @@ export const LevelUpMethods = {
                 name: this.weaponCardLabel('pupamines', 'Pupa Mines'),
                 desc: ['Drop 1 exploding pupa mine', 'Drop 3 pupa mines', 'Drop 5 pupa mines'][this.pupaLevel] ?? 'Drop exploding pupa mines',
                 type: 'weapon',
-                available: () => this.pupaLevel < 3,
+                weaponKey: 'pupamines', available: () => this.pupaLevel < 3,
                 effect: () => {
                     this.pupaLevel++;
                     if (this.pupaLevel === 1) {
@@ -155,7 +165,7 @@ export const LevelUpMethods = {
                 name: this.weaponCardLabel('skinshed', 'Skin Shed'),
                 desc: ['Fling a piece of shed skin that arcs downward', 'Fling 2 pieces of shed skin'][this.skinLevel] ?? 'Fling shed skin outward',
                 type: 'weapon',
-                available: () => this.skinLevel < 2,
+                weaponKey: 'skinshed', available: () => this.skinLevel < 2,
                 effect: () => {
                     this.skinLevel++;
                     if (this.skinLevel === 1) {
@@ -166,9 +176,9 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('woodiebounce', 'Woodie Bounce'),
-                desc: ['Launch 1 bouncing woodlouse (2 bounces)', 'Launch 2 woodlice (3 bounces)', 'Launch 3 woodlice (5 bounces each)'][this.woodieLevel] ?? 'Launch a bouncing woodlouse',
+                desc: ['Launch 1 bouncing woodlouse at the nearest enemy (2 bounces)', 'Launch 2 woodlice (3 bounces)', 'Launch 3 woodlice (5 bounces each)'][this.woodieLevel] ?? 'Launch a bouncing woodlouse at the nearest enemy',
                 type: 'weapon',
-                available: () => this.woodieLevel < 3,
+                weaponKey: 'woodiebounce', available: () => this.woodieLevel < 3,
                 effect: () => {
                     this.woodieLevel++;
                     if (this.woodieLevel === 1) {
@@ -186,7 +196,7 @@ export const LevelUpMethods = {
                     'Two layers of shields orbit in opposite directions',
                 ][this.dubiaLevel] ?? 'Dubia Shields',
                 type: 'weapon',
-                available: () => this.dubiaLevel < 4 && (this.dubiaLevel === 0 || Math.random() < 0.4),
+                weaponKey: 'dubiashields', available: () => this.dubiaLevel < 4,
                 effect: () => {
                     this.dubiaLevel++;
                     if (this.dubiaLevel === 1) {
@@ -213,7 +223,7 @@ export const LevelUpMethods = {
                     'Max reach (170px) — poisons for 7s',
                 ][this.poisonClawLevel] ?? 'Poison Claw',
                 type: 'weapon',
-                available: () => this.poisonClawLevel < 4,
+                weaponKey: 'poisonclaw', available: () => this.poisonClawLevel < 4,
                 effect: () => {
                     this.poisonClawLevel++;
                     if (this.poisonClawLevel === 1) {
@@ -226,14 +236,14 @@ export const LevelUpMethods = {
                 name: this.weaponCardLabel('branchthrow', 'Branch Throw'),
                 desc: ['Hurl a wide branch at the nearest enemy (breaks after 15 hits)', 'Wider branch', 'Even wider branch', 'Breaks after 30 hits instead'][this.branchLevel] ?? 'Branch Throw',
                 type: 'weapon',
-                available: () => this.branchLevel < 4,
+                weaponKey: 'branchthrow', available: () => this.branchLevel < 4,
                 effect: () => {
                     this.branchLevel++;
                     if (this.branchLevel === 1) {
                         this.ownedWeapons.add('branchthrow');
                         this.branchTimer = this.time.addEvent({ delay: 6000, callback: this.doBranchThrow, callbackScope: this, loop: true });
-                    } else if (this.branchLevel === 2) { this.branchWidth = 30; }
-                    else if (this.branchLevel === 3)   { this.branchWidth = 40; }
+                    } else if (this.branchLevel === 2) { this.branchLength = 180; }
+                    else if (this.branchLevel === 3)   { this.branchLength = 240; }
                     else if (this.branchLevel === 4)   { this.branchMaxHits = 30; }
                 },
             },
@@ -241,7 +251,7 @@ export const LevelUpMethods = {
                 name: this.weaponCardLabel('dustkick', 'Dust Kick'),
                 desc: ['Fire a short beam of dust — deals low damage and slows enemies 2s', 'Stronger kick', 'Stronger kick', 'Stronger kick', 'Much longer beam, slows for 10s'][this.dustKickLevel] ?? 'Dust Kick',
                 type: 'weapon',
-                available: () => this.dustKickLevel < 5,
+                weaponKey: 'dustkick', available: () => this.dustKickLevel < 5,
                 effect: () => {
                     this.dustKickLevel++;
                     if (this.dustKickLevel === 1) {
@@ -257,7 +267,7 @@ export const LevelUpMethods = {
                 name: this.weaponCardLabel('scratch', 'Lucky Scratch'),
                 desc: ['Scratch mark near you — damaged enemies have a higher Foodbox drop chance', 'Damaged enemies also have a higher Treasure drop chance', 'Bigger scratch, larger area'][this.scratchLevel] ?? 'Lucky Scratch',
                 type: 'weapon',
-                available: () => this.scratchLevel < 3,
+                weaponKey: 'scratch', available: () => this.scratchLevel < 3,
                 effect: () => {
                     this.scratchLevel++;
                     if (this.scratchLevel === 1) {
@@ -273,27 +283,26 @@ export const LevelUpMethods = {
                         return 'Freeze nearby enemies for 1s every 30s';
                     const cd   = this.coldGlareCooldown / 1000;
                     const slow = this.coldGlareSlow / 1000;
-                    if (this.coldGlareCdLevel < 3) {
-                        const nextCd = (this.coldGlareCooldown - 5000) / 1000;
-                        return `Cooldown ${cd}s → ${nextCd}s  •  slow ${slow}s`;
-                    }
-                    const nextSlows = [4, 7, 10];
-                    const nextSlow  = nextSlows[this.coldGlareSlLevel];
-                    return `Slow ${slow}s → ${nextSlow}s  •  cooldown ${cd}s`;
+                    const next = COLD_GLARE_LEVELS[this.coldGlareLevel] ?? COLD_GLARE_LEVELS[COLD_GLARE_LEVELS.length - 1];
+                    const nextCd   = next.cd / 1000;
+                    const nextSlow = next.slow / 1000;
+                    const cdText   = nextCd   !== cd   ? `Cooldown ${cd}s → ${nextCd}s` : `Cooldown ${cd}s`;
+                    const slowText = nextSlow !== slow ? `slow ${slow}s → ${nextSlow}s` : `slow ${slow}s`;
+                    return `${cdText}  •  ${slowText}`;
                 })(),
                 type: 'weapon',
-                available: () => !this.ownedWeapons.has('fourchills') && (!this.coldGlareActive || this.coldGlareCdLevel < 3 || this.coldGlareSlLevel < 3),
+                weaponKey: 'coldglare', available: () => !this.ownedWeapons.has('fourchills') && (!this.coldGlareActive || this.coldGlareLevel < 4),
                 effect: () => {
                     if (!this.coldGlareActive) {
                         this.coldGlareActive = true;
+                        this.coldGlareLevel = 1;
                         this.ownedWeapons.add('coldglare');
                         this.scheduleColdGlare();
-                    } else if (this.coldGlareCdLevel < 3) {
-                        this.coldGlareCdLevel++;
-                        this.coldGlareCooldown -= 5000;
                     } else {
-                        this.coldGlareSlLevel++;
-                        this.coldGlareSlow = [4000, 7000, 10000][this.coldGlareSlLevel - 1] ?? 10000;
+                        this.coldGlareLevel++;
+                        const lvl = COLD_GLARE_LEVELS[this.coldGlareLevel - 1];
+                        this.coldGlareCooldown = lvl.cd;
+                        this.coldGlareSlow = lvl.slow;
                     }
                 },
             },
@@ -504,12 +513,34 @@ export const LevelUpMethods = {
             });
         };
 
+        // Weapons the player already owns (level > 0) are weighted 15% more likely to be
+        // drawn than everything else, to nudge players toward finishing upgrades they've
+        // already started rather than always chasing something new.
+        const cardWeight = (upgrade) => (upgrade.weaponKey && this.getWeaponLevel(upgrade.weaponKey) > 0) ? 1.15 : 1.0;
+        const pickWeighted = (items, count) => {
+            const pool = items.slice();
+            const chosen = [];
+            while (pool.length && chosen.length < count) {
+                const weights = pool.map(cardWeight);
+                const total = weights.reduce((a, b) => a + b, 0);
+                let r = Math.random() * total;
+                let idx = pool.length - 1;
+                for (let i = 0; i < pool.length; i++) {
+                    r -= weights[i];
+                    if (r <= 0) { idx = i; break; }
+                }
+                chosen.push(pool[idx]);
+                pool.splice(idx, 1);
+            }
+            return chosen;
+        };
+
         const drawCards = () => {
             cardEls.forEach(el => el.destroy());
             cardEls = [];
             selectedCard = 0;
 
-            currentChoices = Phaser.Utils.Array.Shuffle([...allUpgrades]).slice(0, 3);
+            currentChoices = pickWeighted(allUpgrades, 3);
 
             currentChoices.forEach((upgrade, i) => {
                 const cx = startX + i * (cardW + gap) + cardW / 2;

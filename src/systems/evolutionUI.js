@@ -20,7 +20,7 @@ export const EvolutionUIMethods = {
             branchthrow:  this.branchLevel,
             dustkick:     this.dustKickLevel,
             scratch:      this.scratchLevel,
-            coldglare:    this.coldGlareActive ? 1 + this.coldGlareCdLevel + this.coldGlareSlLevel : 0,
+            coldglare:    this.coldGlareActive ? this.coldGlareLevel : 0,
         };
         return levels[weaponKey] ?? (this.ownedWeapons.has(weaponKey) ? 1 : 0);
     },
@@ -111,18 +111,47 @@ export const EvolutionUIMethods = {
         // distinct white/black "owned" style further down) so the grid layout and
         // controller navigation stay stable regardless of progress.
         const evos = this.evolutionDefs;
-        const available = this.getAvailableEvolutions();
 
         const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setScrollFactor(0).setDepth(depth).setInteractive();
         const title = this.add.text(W / 2, 30, 'EVOLUTIONS', {
             fontSize: '28px', fontFamily: 'Arial Black, Arial', color: '#ffff00',
             stroke: '#000000', strokeThickness: 5,
         }).setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5);
+        const persistentItems = [overlay, title];
 
+        // Two "screens" share this menu: the grid (browse all evolutions) and the
+        // zoom (a single evolution blown up, with prev/next arrows + an UNLOCK? button).
+        // Only one is ever on screen; `modeItems` holds whichever is currently built so
+        // switching between them just tears down and rebuilds that half.
+        let mode = 'grid'; // 'grid' | 'zoom'
+        let modeItems = [];
+        let zoomIdx = 0;
+        const destroyModeItems = () => { modeItems.forEach(o => o.destroy()); modeItems = []; };
+
+        // Closes this menu (any method) without letting the same input also fall through
+        // to the pause menu's "any input resumes" handlers.
+        const closeMenu = () => {
+            destroyModeItems();
+            persistentItems.forEach(o => o.destroy());
+            this.input.keyboard.off('keydown', keyHandler);
+            this.input.gamepad.off('down', padHandler);
+            this.events.off('update', scrollUpdateHandler);
+            this.events.off('update', navPollHandler);
+            requestAnimationFrame(() => { this._evoMenuOpen = false; });
+        };
+
+        // Shared so both mouse clicks and gamepad A (from the zoom screen) can unlock
+        const acquireEvolution = (ev) => {
+            closeMenu();
+            if (this._evoFlashTween) { this._evoFlashTween.stop(); this._evoFlashTween = null; }
+            this.applyEvolution(ev);
+            this._updateEvoBtnAppearance();
+        };
+
+        // ─── Grid screen ────────────────────────────────────────────────────────
         const cardW = 200, cardH = 92, cols = 3;
         const startX = W / 2 - (cols - 1) * (cardW + 12) / 2;
         const startY = 75;
-        const uiItems = [overlay, title];
 
         // Scrollable viewport — below the title, above the CLOSE button/hint.
         // Cards beyond this range are reachable by dragging the tab on the right
@@ -135,8 +164,10 @@ export const EvolutionUIMethods = {
         const maxScroll       = Math.max(0, contentBottom - viewportBottom);
         let scrollY = 0;
         let thumb   = null;
-        const scrollables = []; // { obj, baseY }
-        const cardRefs = [];    // { ev, cx, baseY, isAcquired, isAvail } — for gamepad grid navigation
+        let scrollables = []; // { obj, baseY }
+        let cardRefs = [];    // { ev, i, cx, baseY } — for gamepad grid navigation
+        let selectedIdx = 0;
+        let selectionOutline = null;
 
         const applyScroll = (y) => {
             scrollY = Phaser.Math.Clamp(y, 0, maxScroll);
@@ -147,135 +178,12 @@ export const EvolutionUIMethods = {
             positionSelectionOutline();
         };
 
-        // Closes this menu (any method) without letting the same input also fall through
-        // to the pause menu's "any input resumes" handlers.
-        const closeMenu = () => {
-            uiItems.forEach(o => o.destroy());
-            if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
-            this.input.keyboard.off('keydown', escHandler);
-            this.input.gamepad.off('down', padHandler);
-            this.events.off('update', scrollUpdateHandler);
-            this.events.off('update', navPollHandler);
-            requestAnimationFrame(() => { this._evoMenuOpen = false; });
-        };
-
-        // Shared so both mouse clicks and gamepad A can trigger the same actions
-        const acquireEvolution = (ev) => {
-            closeMenu();
-            if (this._evoFlashTween) { this._evoFlashTween.stop(); this._evoFlashTween = null; }
-            this.applyEvolution(ev);
-            this._updateEvoBtnAppearance();
-        };
-
-        const openReqPopup = (ev, cx, baseCy) => {
-            if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
-
-            const { weaponLine, boostLine } = this._getEvoReqLines(ev);
-            const popW = 310, popH = 104;
-            const px = Phaser.Math.Clamp(cx, popW / 2 + 8, W - popW / 2 - 8);
-            const py = Phaser.Math.Clamp((baseCy - scrollY) + cardH + 10, popH / 2 + 8, H - popH / 2 - 30);
-
-            const pbg = this.add.rectangle(px, py, popW, popH, 0x111111, 0.96)
-                .setScrollFactor(0).setDepth(depth + 10).setOrigin(0.5);
-            const pborder = this.add.rectangle(px, py, popW, popH)
-                .setScrollFactor(0).setDepth(depth + 10).setOrigin(0.5)
-                .setStrokeStyle(2, 0x888888);
-            const pTitle = this.add.text(px, py - 36, `Requirements — ${ev.evolvedName}`, {
-                fontSize: '10px', fontFamily: 'Arial Black, Arial', color: '#dddddd',
-            }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
-            const pWeapon = this.add.text(px, py - 12, weaponLine, {
-                fontSize: '11px', fontFamily: 'Arial', color: weaponLine.startsWith('✓') ? '#88ff88' : '#ff8888',
-            }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
-            const pBoost = this.add.text(px, py + 10, boostLine, {
-                fontSize: '11px', fontFamily: 'Arial', color: boostLine.startsWith('✓') ? '#88ff88' : '#ff8888',
-            }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
-            const pHint = this.add.text(px, py + 34, 'Click or press A to dismiss', {
-                fontSize: '9px', fontFamily: 'Arial', color: '#555555',
-            }).setScrollFactor(0).setDepth(depth + 11).setOrigin(0.5);
-
-            this._evoReqPopup = [pbg, pborder, pTitle, pWeapon, pBoost, pHint];
-            uiItems.push(...this._evoReqPopup);
-
-            // Dismiss on next click anywhere (one-shot)
-            this.input.once('pointerdown', () => {
-                if (this._evoReqPopup) { this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null; }
-            });
-        };
-
-        evos.forEach((ev, i) => {
-            const isAcquired = this.appliedEvolutions.has(ev.id);
-            const isAvail = !isAcquired && available.includes(ev);
-            const col = i % cols;
-            const row = Math.floor(i / cols);
-            const cx = startX + col * (cardW + 12);
-            const cy = startY + row * (cardH + 12);
-
-            const bgColor     = isAcquired ? 0xffffff : (isAvail ? 0x3a3000 : 0x1a1a1a);
-            const borderColor = isAcquired ? 0x000000 : (isAvail ? 0xffee00 : 0x444444);
-            const nameColor   = isAcquired ? '#000000' : (isAvail ? '#ffff44' : '#555555');
-            const recipeColor = isAcquired ? '#000000' : (isAvail ? '#aaaaaa' : '#333333');
-            const descColor   = isAcquired ? '#000000' : (isAvail ? '#cccccc' : '#2a2a2a');
-
-            const bg = this.add.rectangle(cx, cy, cardW, cardH, bgColor, 1)
-                .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0);
-            const border = this.add.rectangle(cx, cy, cardW, cardH)
-                .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0)
-                .setStrokeStyle(2, borderColor);
-
-            const nameText = this.add.text(cx, cy + 10, ev.evolvedName, {
-                fontSize: '12px', fontFamily: 'Arial Black, Arial',
-                color: nameColor,
-            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
-            const recipeText = this.add.text(cx, cy + 30, isAcquired ? '✓ EVOLVED' : `Requires: ${ev.weaponLabel} maxed + ${ev.boostName}`, {
-                fontSize: '9px', fontFamily: 'Arial', color: recipeColor,
-                wordWrap: { width: cardW - 12 }, align: 'center',
-            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
-            const descText = this.add.text(cx, cy + 58, ev.desc, {
-                fontSize: '9px', fontFamily: 'Arial', color: descColor,
-                wordWrap: { width: cardW - 12 }, align: 'center',
-            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
-
-            uiItems.push(bg, border, nameText, recipeText, descText);
-            scrollables.push(
-                { obj: bg,         baseY: cy },
-                { obj: border,     baseY: cy },
-                { obj: nameText,   baseY: cy + 10 },
-                { obj: recipeText, baseY: cy + 30 },
-                { obj: descText,   baseY: cy + 58 },
-            );
-            cardRefs.push({ ev, cx, baseY: cy, isAcquired, isAvail });
-
-            if (isAcquired) {
-                // Already evolved — informational only, not interactive
-            } else if (isAvail) {
-                bg.setInteractive({ useHandCursor: true });
-                bg.on('pointerover',  () => bg.setFillStyle(0x554400));
-                bg.on('pointerout',   () => bg.setFillStyle(0x3a3000));
-                bg.on('pointerdown',  () => acquireEvolution(ev));
-                // Glow flash tween on available cards
-                this.tweens.add({ targets: [bg, border], alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
-            } else {
-                // Clicking a locked card shows a requirements popup
-                bg.setInteractive({ useHandCursor: true });
-                bg.on('pointerover', () => bg.setFillStyle(0x2a2a2a));
-                bg.on('pointerout',  () => bg.setFillStyle(0x1a1a1a));
-                bg.on('pointerdown', () => openReqPopup(ev, cx, cy));
-            }
-        });
-
-        // ─── Controller navigation — same scheme as Level Select: D-pad/stick moves
-        // a white box outline, A confirms whatever it's on ──────────────────────────
-        let selectedIdx = 0;
-        const selectionOutline = this.add.rectangle(0, 0, cardW + 6, cardH + 6, 0xffffff, 0)
-            .setStrokeStyle(3, 0xffffff).setScrollFactor(0).setDepth(depth + 6).setOrigin(0.5).setVisible(false);
-        uiItems.push(selectionOutline);
-
-        function positionSelectionOutline() {
+        const positionSelectionOutline = () => {
             const card = cardRefs[selectedIdx];
-            if (!card) { selectionOutline.setVisible(false); return; }
+            if (!card || !selectionOutline) return;
             selectionOutline.setPosition(card.cx, card.baseY - scrollY + cardH / 2);
             selectionOutline.setVisible(true);
-        }
+        };
 
         const ensureSelectedVisible = () => {
             const card = cardRefs[selectedIdx];
@@ -287,7 +195,7 @@ export const EvolutionUIMethods = {
             else positionSelectionOutline();
         };
 
-        const moveSelection = (delta, sameRowOnly = false) => {
+        const moveGridSelection = (delta, sameRowOnly = false) => {
             const newIdx = selectedIdx + delta;
             if (newIdx < 0 || newIdx >= cardRefs.length) return;
             if (sameRowOnly && Math.floor(newIdx / cols) !== Math.floor(selectedIdx / cols)) return;
@@ -295,92 +203,262 @@ export const EvolutionUIMethods = {
             ensureSelectedVisible();
         };
 
-        const confirmSelection = () => {
-            if (this._evoReqPopup) {
-                this._evoReqPopup.forEach(o => o.destroy()); this._evoReqPopup = null;
-                return;
+        const buildGrid = () => {
+            mode = 'grid';
+            destroyModeItems();
+            scrollY = 0; thumb = null; scrollables = []; cardRefs = [];
+            const available = this.getAvailableEvolutions();
+
+            evos.forEach((ev, i) => {
+                const isAcquired = this.appliedEvolutions.has(ev.id);
+                const isAvail = !isAcquired && available.includes(ev);
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const cx = startX + col * (cardW + 12);
+                const cy = startY + row * (cardH + 12);
+
+                const bgColor     = isAcquired ? 0xffffff : (isAvail ? 0x3a3000 : 0x1a1a1a);
+                const borderColor = isAcquired ? 0x000000 : (isAvail ? 0xffee00 : 0x444444);
+                const nameColor   = isAcquired ? '#000000' : (isAvail ? '#ffff44' : '#555555');
+                const recipeColor = isAcquired ? '#000000' : (isAvail ? '#aaaaaa' : '#333333');
+                const descColor   = isAcquired ? '#000000' : (isAvail ? '#cccccc' : '#2a2a2a');
+                const hoverColor  = isAcquired ? bgColor : (isAvail ? 0x554400 : 0x2a2a2a);
+
+                const bg = this.add.rectangle(cx, cy, cardW, cardH, bgColor, 1)
+                    .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0);
+                const border = this.add.rectangle(cx, cy, cardW, cardH)
+                    .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0)
+                    .setStrokeStyle(2, borderColor);
+
+                const nameText = this.add.text(cx, cy + 10, ev.evolvedName, {
+                    fontSize: '12px', fontFamily: 'Arial Black, Arial',
+                    color: nameColor,
+                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
+                const recipeText = this.add.text(cx, cy + 30, isAcquired ? '✓ EVOLVED' : `Requires: ${ev.weaponLabel} maxed + ${ev.boostName}`, {
+                    fontSize: '9px', fontFamily: 'Arial', color: recipeColor,
+                    wordWrap: { width: cardW - 12 }, align: 'center',
+                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
+                const descText = this.add.text(cx, cy + 58, ev.desc, {
+                    fontSize: '9px', fontFamily: 'Arial', color: descColor,
+                    wordWrap: { width: cardW - 12 }, align: 'center',
+                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
+
+                modeItems.push(bg, border, nameText, recipeText, descText);
+                scrollables.push(
+                    { obj: bg,         baseY: cy },
+                    { obj: border,     baseY: cy },
+                    { obj: nameText,   baseY: cy + 10 },
+                    { obj: recipeText, baseY: cy + 30 },
+                    { obj: descText,   baseY: cy + 58 },
+                );
+                cardRefs.push({ ev, i, cx, baseY: cy });
+
+                // Pressing any card (locked, available, or already-evolved) zooms in on it.
+                bg.setInteractive({ useHandCursor: true });
+                bg.on('pointerover', () => bg.setFillStyle(hoverColor));
+                bg.on('pointerout',  () => bg.setFillStyle(bgColor));
+                bg.on('pointerdown', () => openZoom(i));
+                if (isAvail) {
+                    this.tweens.add({ targets: [bg, border], alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
+                }
+            });
+
+            // ─── Controller navigation — same scheme as Level Select: D-pad/stick moves
+            // a white box outline, A zooms in on whatever it's on ─────────────────────
+            selectionOutline = this.add.rectangle(0, 0, cardW + 6, cardH + 6, 0xffffff, 0)
+                .setStrokeStyle(3, 0xffffff).setScrollFactor(0).setDepth(depth + 6).setOrigin(0.5).setVisible(false);
+            modeItems.push(selectionOutline);
+            if (selectedIdx >= cardRefs.length) selectedIdx = 0;
+            positionSelectionOutline();
+
+            const closeBtn = this.add.text(W / 2, H - 24, '[ CLOSE ]', {
+                fontSize: '13px', fontFamily: 'Arial', color: '#aaaaaa',
+                backgroundColor: '#222222', padding: { x: 16, y: 6 },
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
+            closeBtn.on('pointerover',  () => closeBtn.setColor('#ffffff'));
+            closeBtn.on('pointerout',   () => closeBtn.setColor('#aaaaaa'));
+            closeBtn.on('pointerdown',  () => closeMenu());
+            modeItems.push(closeBtn);
+
+            modeItems.push(this.add.text(W / 2, H - 6, maxScroll > 0
+                ? '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   RS Scroll'
+                : '🎮  D-Pad/LS Navigate   A Zoom In   B Close', {
+                fontSize: '10px', fontFamily: 'Arial', color: '#888888',
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
+
+            // Scrollbar — a draggable tab on the far right edge, only shown if content overflows
+            if (maxScroll > 0) {
+                const track = this.add.rectangle(W - 10, viewportTop + trackHeight / 2, 8, trackHeight, 0x000000, 0.35)
+                    .setScrollFactor(0).setDepth(depth + 3);
+                modeItems.push(track);
+
+                const thumbHeight = Math.max(30, trackHeight * (trackHeight / (trackHeight + maxScroll)));
+                thumb = this.add.rectangle(W - 10, viewportTop, 14, thumbHeight, 0xffdd55, 0.9)
+                    .setScrollFactor(0).setDepth(depth + 4).setOrigin(0.5, 0)
+                    .setInteractive({ useHandCursor: true });
+                this.input.setDraggable(thumb);
+                modeItems.push(thumb);
+
+                thumb.on('drag', (pointer, dragX, dragY) => {
+                    const clampedTop = Phaser.Math.Clamp(dragY, viewportTop, viewportBottom - thumb.height);
+                    const ratio = (clampedTop - viewportTop) / (trackHeight - thumb.height);
+                    applyScroll(ratio * maxScroll);
+                });
             }
-            const card = cardRefs[selectedIdx];
-            if (!card || card.isAcquired) return;
-            if (card.isAvail) acquireEvolution(card.ev);
-            else openReqPopup(card.ev, card.cx, card.baseY);
+
+            applyScroll(scrollY);
         };
 
-        positionSelectionOutline();
+        // ─── Zoom screen — one evolution blown up, with prev/next arrows and an
+        // UNLOCK? button that's only live when the evolution is actually available ──
+        const zoomCx = W / 2, zoomCy = 150, zoomCardW = 480, zoomCardH = 200;
+
+        const openZoom = (i) => { zoomIdx = i; buildZoom(); };
+        const zoomStep = (delta) => { zoomIdx = (zoomIdx + delta + evos.length) % evos.length; buildZoom(); };
+        const backToGrid = () => { selectedIdx = zoomIdx; buildGrid(); };
+
+        const buildZoom = () => {
+            mode = 'zoom';
+            destroyModeItems();
+            const ev = evos[zoomIdx];
+            const isAcquired = this.appliedEvolutions.has(ev.id);
+            const isAvail = !isAcquired && this.getAvailableEvolutions().includes(ev);
+            const borderColor = isAcquired ? 0x000000 : (isAvail ? 0xffee00 : 0x444444);
+            const bgColor   = isAcquired ? 0xffffff : 0x1a1a1a;
+            const textColor = isAcquired ? '#000000' : '#dddddd';
+
+            const bg = this.add.rectangle(zoomCx, zoomCy, zoomCardW, zoomCardH, bgColor, 1)
+                .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5);
+            const border = this.add.rectangle(zoomCx, zoomCy, zoomCardW, zoomCardH)
+                .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5).setStrokeStyle(3, borderColor);
+            const nameText = this.add.text(zoomCx, zoomCy - 78, ev.evolvedName, {
+                fontSize: '20px', fontFamily: 'Arial Black, Arial', color: isAcquired ? '#000000' : '#ffff44',
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
+            const descText = this.add.text(zoomCx, zoomCy - 30, ev.desc, {
+                fontSize: '12px', fontFamily: 'Arial', color: textColor,
+                wordWrap: { width: zoomCardW - 60 }, align: 'center',
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
+            modeItems.push(bg, border, nameText, descText);
+
+            if (isAcquired) {
+                modeItems.push(this.add.text(zoomCx, zoomCy + 50, '✓ EVOLVED', {
+                    fontSize: '13px', fontFamily: 'Arial Black, Arial', color: '#008800',
+                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
+            } else {
+                const { weaponLine, boostLine } = this._getEvoReqLines(ev);
+                modeItems.push(this.add.text(zoomCx, zoomCy + 40, weaponLine, {
+                    fontSize: '11px', fontFamily: 'Arial', color: weaponLine.startsWith('✓') ? '#88ff88' : '#ff8888',
+                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
+                modeItems.push(this.add.text(zoomCx, zoomCy + 60, boostLine, {
+                    fontSize: '11px', fontFamily: 'Arial', color: boostLine.startsWith('✓') ? '#88ff88' : '#ff8888',
+                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
+            }
+
+            // Prev/next arrows — cycle through every evolution, wrapping at the ends
+            const arrowLeft = this.add.text(zoomCx - zoomCardW / 2 - 30, zoomCy, '◀', {
+                fontSize: '28px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
+            const arrowRight = this.add.text(zoomCx + zoomCardW / 2 + 30, zoomCy, '▶', {
+                fontSize: '28px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
+            arrowLeft.on('pointerover',  () => arrowLeft.setColor('#ffff00'));
+            arrowLeft.on('pointerout',   () => arrowLeft.setColor('#ffffff'));
+            arrowLeft.on('pointerdown',  () => zoomStep(-1));
+            arrowRight.on('pointerover', () => arrowRight.setColor('#ffff00'));
+            arrowRight.on('pointerout',  () => arrowRight.setColor('#ffffff'));
+            arrowRight.on('pointerdown', () => zoomStep(1));
+            modeItems.push(arrowLeft, arrowRight);
+
+            // UNLOCK? — dormant (greyed out, non-interactive) unless this evolution is
+            // actually available (weapon maxed + boost owned, and not already acquired)
+            const unlockY = zoomCy + zoomCardH / 2 + 34;
+            const unlockBtn = this.add.text(zoomCx, unlockY, isAcquired ? '✓ EVOLVED' : 'UNLOCK?', {
+                fontSize: '15px', fontFamily: 'Arial Black, Arial',
+                color: isAvail ? '#003300' : '#777777',
+                backgroundColor: isAvail ? '#ffee00' : '#2a2a2a',
+                padding: { x: 20, y: 8 },
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
+            modeItems.push(unlockBtn);
+            if (isAvail) {
+                unlockBtn.setInteractive({ useHandCursor: true });
+                unlockBtn.on('pointerover', () => unlockBtn.setBackgroundColor('#ffff88'));
+                unlockBtn.on('pointerout',  () => unlockBtn.setBackgroundColor('#ffee00'));
+                unlockBtn.on('pointerdown', () => acquireEvolution(ev));
+                this.tweens.add({ targets: unlockBtn, alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
+            }
+
+            const backBtn = this.add.text(W / 2, H - 24, '[ BACK ]', {
+                fontSize: '13px', fontFamily: 'Arial', color: '#aaaaaa',
+                backgroundColor: '#222222', padding: { x: 16, y: 6 },
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
+            backBtn.on('pointerover', () => backBtn.setColor('#ffffff'));
+            backBtn.on('pointerout',  () => backBtn.setColor('#aaaaaa'));
+            backBtn.on('pointerdown', () => backToGrid());
+            modeItems.push(backBtn);
+
+            modeItems.push(this.add.text(W / 2, H - 6, '🎮  ◀ / ▶ or LB / RB  Switch    A  Unlock    B  Back', {
+                fontSize: '10px', fontFamily: 'Arial', color: '#888888',
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
+        };
 
         // Continuous left-stick grid navigation (D-pad handled as discrete 'down' events below)
         let navCooldown = 0;
         const navPollHandler = (_, delta) => {
+            if (mode !== 'grid') return;
             navCooldown -= delta;
             if (navCooldown > 0) return;
-            const pad = this.input.gamepad.getPad(0);
+            const pad = this.input.gamepad.pad1;
             if (!pad) return;
             const sx = pad.leftStick.x, sy = pad.leftStick.y;
-            if (sy < -0.5) { moveSelection(-cols); navCooldown = 200; }
-            else if (sy > 0.5) { moveSelection(cols); navCooldown = 200; }
-            else if (sx < -0.5) { moveSelection(-1, true); navCooldown = 200; }
-            else if (sx > 0.5) { moveSelection(1, true); navCooldown = 200; }
+            if (sy < -0.5) { moveGridSelection(-cols); navCooldown = 200; }
+            else if (sy > 0.5) { moveGridSelection(cols); navCooldown = 200; }
+            else if (sx < -0.5) { moveGridSelection(-1, true); navCooldown = 200; }
+            else if (sx > 0.5) { moveGridSelection(1, true); navCooldown = 200; }
         };
         this.events.on('update', navPollHandler);
 
-        const closeBtn = this.add.text(W / 2, H - 24, '[ CLOSE ]', {
-            fontSize: '13px', fontFamily: 'Arial', color: '#aaaaaa',
-            backgroundColor: '#222222', padding: { x: 16, y: 6 },
-        }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
-        closeBtn.on('pointerover',  () => closeBtn.setColor('#ffffff'));
-        closeBtn.on('pointerout',   () => closeBtn.setColor('#aaaaaa'));
-        closeBtn.on('pointerdown',  () => closeMenu());
-        uiItems.push(closeBtn);
-
-        uiItems.push(this.add.text(W / 2, H - 6, maxScroll > 0
-            ? '🎮  D-Pad/LS Navigate   A Pick   B Close   •   RS Scroll'
-            : '🎮  D-Pad/LS Navigate   A Pick   B Close', {
-            fontSize: '10px', fontFamily: 'Arial', color: '#888888',
-        }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
-
-        // Scrollbar — a draggable tab on the far right edge, only shown if content overflows
-        if (maxScroll > 0) {
-            const track = this.add.rectangle(W - 10, viewportTop + trackHeight / 2, 8, trackHeight, 0x000000, 0.35)
-                .setScrollFactor(0).setDepth(depth + 3);
-            uiItems.push(track);
-
-            const thumbHeight = Math.max(30, trackHeight * (trackHeight / (trackHeight + maxScroll)));
-            thumb = this.add.rectangle(W - 10, viewportTop, 14, thumbHeight, 0xffdd55, 0.9)
-                .setScrollFactor(0).setDepth(depth + 4).setOrigin(0.5, 0)
-                .setInteractive({ useHandCursor: true });
-            this.input.setDraggable(thumb);
-            uiItems.push(thumb);
-
-            thumb.on('drag', (pointer, dragX, dragY) => {
-                const clampedTop = Phaser.Math.Clamp(dragY, viewportTop, viewportBottom - thumb.height);
-                const ratio = (clampedTop - viewportTop) / (trackHeight - thumb.height);
-                applyScroll(ratio * maxScroll);
-            });
-        }
-
-        // Right-stick scroll (continuous, scaled by frame delta)
+        // Right-stick scroll (continuous, scaled by frame delta) — grid only
         const scrollUpdateHandler = (_, delta) => {
-            if (maxScroll <= 0) return;
-            const pad = this.input.gamepad.getPad(0);
+            if (mode !== 'grid' || maxScroll <= 0) return;
+            const pad = this.input.gamepad.pad1;
             if (!pad) return;
             const ry = pad.rightStick.y;
             if (Math.abs(ry) > 0.2) applyScroll(scrollY + ry * 400 * (delta / 1000));
         };
         this.events.on('update', scrollUpdateHandler);
 
-        // Close on ESC or gamepad B
-        const escHandler = (e) => { if (e.key === 'Escape') closeMenu(); };
-        this.input.keyboard.on('keydown', escHandler);
+        // ESC: back out of zoom first, then close; on the grid it closes outright
+        const keyHandler = (e) => {
+            if (e.key !== 'Escape') return;
+            if (mode === 'zoom') backToGrid(); else closeMenu();
+        };
+        this.input.keyboard.on('keydown', keyHandler);
+
         const padHandler = (pad, button) => {
             const idx = button.index;
-            if (idx === 1) { closeMenu(); return; }       // B = close
-            if (idx === 12) { moveSelection(-cols); return; }        // D-pad up
-            if (idx === 13) { moveSelection(cols); return; }         // D-pad down
-            if (idx === 14) { moveSelection(-1, true); return; }     // D-pad left
-            if (idx === 15) { moveSelection(1, true); return; }      // D-pad right
-            if (idx === 0) { confirmSelection(); return; }           // A = pick/confirm
+            if (mode === 'grid') {
+                if (idx === 1) { closeMenu(); return; }               // B = close
+                if (idx === 12) { moveGridSelection(-cols); return; }        // D-pad up
+                if (idx === 13) { moveGridSelection(cols); return; }         // D-pad down
+                if (idx === 14) { moveGridSelection(-1, true); return; }     // D-pad left
+                if (idx === 15) { moveGridSelection(1, true); return; }      // D-pad right
+                if (idx === 0) { openZoom(selectedIdx); return; }            // A = zoom in
+            } else {
+                if (idx === 1) { backToGrid(); return; }                     // B = back to grid
+                if (idx === 4 || idx === 14) { zoomStep(-1); return; }       // LB / d-pad left = prev
+                if (idx === 5 || idx === 15) { zoomStep(1); return; }        // RB / d-pad right = next
+                if (idx === 0) {                                             // A = unlock, if available
+                    const ev = evos[zoomIdx];
+                    const isAcquired = this.appliedEvolutions.has(ev.id);
+                    const isAvail = !isAcquired && this.getAvailableEvolutions().includes(ev);
+                    if (isAvail) acquireEvolution(ev);
+                    return;
+                }
+            }
         };
         this.input.gamepad.on('down', padHandler);
+
+        buildGrid();
     },
 
     _updateEvoBtnAppearance() {

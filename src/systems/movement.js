@@ -170,13 +170,80 @@ export const MovementMethods = {
         });
     },
 
+    // ─── Touch/mouse virtual joystick ──────────────────────────────────────────
+    // Dragging anywhere on screen that isn't a button/menu shows a joystick: an
+    // outer ring at the drag's starting point, and an inner circle that follows
+    // the drag direction, clamped to the ring's border.
+    setupTouchJoystick() {
+        const OUTER_R = 50;
+        const INNER_R = 22;
+        const DEAD    = 0.15;
+
+        this.joystickOuter = this.add.circle(0, 0, OUTER_R, 0xffffff, 0.15)
+            .setStrokeStyle(3, 0xffffff, 0.5).setScrollFactor(0).setDepth(90).setVisible(false);
+        this.joystickInner = this.add.circle(0, 0, INNER_R, 0xffffff, 0.35)
+            .setScrollFactor(0).setDepth(91).setVisible(false);
+
+        // Movement input is inert while any of these are true (physics itself is
+        // paused too), but the joystick shouldn't even appear over a menu/overlay.
+        const isBlocked = () =>
+            this.isPaused || this.isCountdown || this.isLevelingUp ||
+            this.isLevelClear || this.isGameOver;
+
+        const startJoystick = (pointer) => {
+            if (this.joystickPointerId !== null) return; // already tracking a finger/click
+            if (isBlocked()) return;
+            if (this.input.hitTestPointer(pointer).length > 0) return; // tapped a button/menu
+            this.joystickPointerId = pointer.id;
+            this.joystickOrigin.x = pointer.x;
+            this.joystickOrigin.y = pointer.y;
+            this.joystickOuter.setPosition(pointer.x, pointer.y).setVisible(true);
+            this.joystickInner.setPosition(pointer.x, pointer.y).setVisible(true);
+            this.joystickActive = true;
+            this.joystickVector.x = 0; this.joystickVector.y = 0;
+        };
+
+        const updateJoystick = (pointer) => {
+            if (!this.joystickActive || pointer.id !== this.joystickPointerId) return;
+            const dx = pointer.x - this.joystickOrigin.x;
+            const dy = pointer.y - this.joystickOrigin.y;
+            const dist  = Math.min(OUTER_R, Math.sqrt(dx * dx + dy * dy));
+            const angle = Math.atan2(dy, dx);
+            this.joystickInner.setPosition(
+                this.joystickOrigin.x + Math.cos(angle) * dist,
+                this.joystickOrigin.y + Math.sin(angle) * dist,
+            );
+            const mag = dist / OUTER_R;
+            this.joystickVector.x = mag >= DEAD ? Math.cos(angle) * mag : 0;
+            this.joystickVector.y = mag >= DEAD ? Math.sin(angle) * mag : 0;
+        };
+
+        const endJoystick = (pointer) => {
+            if (pointer.id !== this.joystickPointerId) return;
+            this.joystickPointerId = null;
+            this.joystickActive = false;
+            this.joystickVector.x = 0; this.joystickVector.y = 0;
+            this.joystickOuter.setVisible(false);
+            this.joystickInner.setVisible(false);
+        };
+
+        this.input.on('pointerdown', startJoystick);
+        this.input.on('pointermove', updateJoystick);
+        this.input.on('pointerup', endJoystick);
+    },
+
     handleMovement() {
         const speed = this.playerSpeed;
         let vx = 0, vy = 0;
         let usingAnalog = false;
 
-        // Xbox controller: left stick takes priority; fall back to d-pad then keyboard
-        const pad = this.input.gamepad.getPad(0);
+        // Xbox controller: left stick takes priority; fall back to d-pad then keyboard.
+        // Uses pad1 (first pad to ever connect, by connection order) rather than
+        // getPad(0) (which matches the browser's native gamepad index) — some
+        // browsers/OS combos assign a real controller a non-zero native index, which
+        // made getPad(0) silently return nothing forever while button events (not
+        // index-gated) kept working fine.
+        const pad = this.input.gamepad.pad1;
         if (pad) {
             const sx = pad.leftStick.x;
             const sy = pad.leftStick.y;
@@ -193,6 +260,14 @@ export const MovementMethods = {
                 if (pad.buttons[12]?.pressed) vy = -speed;
                 if (pad.buttons[13]?.pressed) vy =  speed;
             }
+        }
+
+        // Touch/mouse virtual joystick — same priority as the analog stick, and
+        // already circularly normalised so no diagonal renormalisation is needed
+        if (!usingAnalog && vx === 0 && vy === 0 && this.joystickActive) {
+            vx = this.joystickVector.x * speed;
+            vy = this.joystickVector.y * speed;
+            usingAnalog = true;
         }
 
         if (!usingAnalog && vx === 0 && vy === 0) {

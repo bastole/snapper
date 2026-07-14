@@ -1,4 +1,4 @@
-import { playSfx, pauseBgm, resumeBgm, stopBgm } from '../audio.js';
+import { playSfx, pauseBgm, stopBgm } from '../audio.js';
 export const GameFlowMethods = {
 
     showDeathOverlay() {
@@ -32,17 +32,8 @@ export const GameFlowMethods = {
             color: '#ff3333', stroke: '#000000', strokeThickness: 6,
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
 
-        // REVIVE
-        const reviveBtn = addUI(this.add.text(W / 2, H / 2 - 10, '[ REVIVE ]', {
-            fontSize: '24px', fontFamily: 'Arial',
-            color: '#00ffaa', backgroundColor: '#003322', padding: { x: 20, y: 10 },
-        }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
-        reviveBtn.on('pointerover', () => reviveBtn.setColor('#ffffff'));
-        reviveBtn.on('pointerout',  () => reviveBtn.setColor('#00ffaa'));
-        reviveBtn.on('pointerdown', () => { destroyUI(); this.revivePlayer(); });
-
         // RETRY
-        const retryBtn = addUI(this.add.text(W / 2, H / 2 + 60, '[ RETRY ]', {
+        const retryBtn = addUI(this.add.text(W / 2, H / 2 + 10, '[ RETRY ]', {
             fontSize: '20px', fontFamily: 'Arial',
             color: '#ffffff', backgroundColor: '#333333', padding: { x: 20, y: 10 },
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
@@ -51,7 +42,7 @@ export const GameFlowMethods = {
         retryBtn.on('pointerdown', () => { stopBgm(); this.scene.start('GameScene', { level: this.level }); });
 
         // MAIN MENU
-        const menuBtn = addUI(this.add.text(W / 2, H / 2 + 120, '[ MAIN MENU ]', {
+        const menuBtn = addUI(this.add.text(W / 2, H / 2 + 70, '[ MAIN MENU ]', {
             fontSize: '20px', fontFamily: 'Arial',
             color: '#ffffff', backgroundColor: '#333333', padding: { x: 20, y: 10 },
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
@@ -59,73 +50,16 @@ export const GameFlowMethods = {
         menuBtn.on('pointerout',  () => menuBtn.setColor('#ffffff'));
         menuBtn.on('pointerdown', () => { stopBgm(); this.scene.start('LevelSelectScene'); });
 
-        addUI(this.add.text(W / 2, H / 2 + 168, 'REVIVE keeps your upgrades and spawns you safely away from enemies', {
-            fontSize: '11px', fontFamily: 'Arial', color: '#888888',
-        }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
-
-        // Gamepad: A = retry, Y = revive, B = menu
+        // Gamepad: A = retry, B = menu
         this._deathPadHandler = (pad, button) => {
             const idx = button.index;
             if (idx === 0) retryBtn.emit('pointerdown');
-            if (idx === 3) reviveBtn.emit('pointerdown');
             if (idx === 1) menuBtn.emit('pointerdown');
         };
         this.input.gamepad.on('down', this._deathPadHandler);
-        addUI(this.add.text(W / 2, H / 2 + 185, '🎮  A  Retry    Y  Revive    B  Menu', {
+        addUI(this.add.text(W / 2, H / 2 + 120, '🎮  A  Retry    B  Menu', {
             fontSize: '11px', fontFamily: 'Arial', color: '#666666',
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
-    },
-
-    revivePlayer() {
-        this.input.gamepad.off('down', this._deathPadHandler);
-        this._deathOverlayShown = false;
-        resumeBgm();
-
-        // Find a spot at least 4000px from every active enemy
-        const SAFE_DIST = 4000;
-        const WORLD = 3200;
-        const enemies = this.enemies.getChildren().filter(e => e.active);
-
-        let bestX = WORLD / 2, bestY = WORLD / 2, bestMinDist = -1;
-        const attempts = 60;
-        for (let i = 0; i < attempts; i++) {
-            const angle = (i / attempts) * Math.PI * 2;
-            // Try rings at varying distances from world centre
-            for (const radius of [1200, 800, 400]) {
-                const cx = Phaser.Math.Clamp(WORLD / 2 + Math.cos(angle) * radius, 100, WORLD - 100);
-                const cy = Phaser.Math.Clamp(WORLD / 2 + Math.sin(angle) * radius, 100, WORLD - 100);
-                const minDist = enemies.reduce((min, e) => {
-                    return Math.min(min, Phaser.Math.Distance.Between(cx, cy, e.x, e.y));
-                }, Infinity);
-                if (minDist >= SAFE_DIST) {
-                    bestX = cx; bestY = cy;
-                    bestMinDist = minDist;
-                    break;
-                }
-                if (minDist > bestMinDist) {
-                    bestMinDist = minDist;
-                    bestX = cx; bestY = cy;
-                }
-            }
-            if (bestMinDist >= SAFE_DIST) break;
-        }
-
-        // Move player to safe spot and restore health
-        this.player.setPosition(bestX, bestY);
-        this.player.setAlpha(1);
-        this.playerHealth = this.playerMaxHealth;
-        this.updateHPBar();
-
-        // Brief invincibility flash so they don't immediately take damage
-        this.player.reviveInvincible = true;
-        this.tweens.add({
-            targets: this.player, alpha: 0.4, duration: 150, yoyo: true, repeat: 9,
-            onComplete: () => { this.player.alpha = 1; this.player.reviveInvincible = false; },
-        });
-
-        // Resume everything
-        this.physics.resume();
-        this.time.paused = false;
     },
 
     showLevelClear() {
@@ -206,7 +140,7 @@ export const GameFlowMethods = {
             if (!this.isLevelClear) return;
             this._lcNavCooldown -= delta;
             if (this._lcNavCooldown > 0) return;
-            const pad = this.input.gamepad.getPad(0);
+            const pad = this.input.gamepad.pad1;
             if (!pad) return;
             const y = pad.leftStick.y;
             if (Math.abs(y) > 0.5) {

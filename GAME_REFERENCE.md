@@ -212,17 +212,14 @@ Max level: **3**
 ---
 
 ### Cold Glare
-Freezes all enemies within range to 15% speed. Levels 2–4 reduce cooldown; levels 5–7 extend slow duration.
+Freezes all enemies within range to 15% speed. Level 2 reduces cooldown; level 3 finishes the cooldown reduction and starts extending slow duration; level 4 extends slow duration further.
 
 | Level | Range | Slow Duration | Cooldown |
 |---|---|---|---|
 | 1 | 120 | 1s | 30000ms |
-| 2 | 120 | 1s | 25000ms |
-| 3 | 120 | 1s | 20000ms |
-| 4 | 120 | 1s | 15000ms |
-| 5 | 120 | 4s | 15000ms |
-| 6 | 120 | 7s | 15000ms |
-| 7 | 120 | 10s | 15000ms |
+| 2 | 120 | 1s | 20000ms |
+| 3 | 120 | 4s | 15000ms |
+| 4 | 120 | 10s | 15000ms |
 
 Max level: **7**
 
@@ -274,7 +271,7 @@ An evolution permanently replaces a weapon with a more powerful form. **Requirem
 | **Log Lob** | Branch Throw ×4 | Aura Farming | 2 logs rolling in opposite perpendicular directions; dmg ≈48; unbreakable for 25s; slight knockback (60px/s) |
 | **Duststorm** | Dust Kick ×5 | Inflate | Width 100, length ×1.6; 15 dmg; slows 50% for 3s; immobilises enemies within 80px for 1.5s (12s cooldown per enemy) |
 | **Lucky Thrash** | Lucky Scratch ×3 | Hyperactivity | 8–14 scratch marks per cast, radius 90, dmg 20–35; hit enemies gain +25% Foodbox, +15% Treasure, +8% Fullbox drop boost |
-| **Four Chills** | Cold Glare ×7 | Polycephaly | 350px range every 25s; slows all to 15% for 8s; the 8 closest enemies are immobilised and have their HP halved (15s cooldown per enemy; bosses: slowed only, no HP halve) |
+| **Four Chills** | Cold Glare ×4 | Polycephaly | 350px range every 25s; slows all to 15% for 8s; the 8 closest enemies are immobilised and have their HP halved (15s cooldown per enemy; bosses: slowed only, no HP halve) |
 
 ---
 
