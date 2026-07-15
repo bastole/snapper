@@ -132,7 +132,7 @@ Max level: **2**
 ---
 
 ### Woodie Bounce
-Launches a bouncing woodlouse that ricochets between enemies.
+Launches a bouncing woodlouse that ricochets between enemies. Initial launch aims at the nearest enemy; each bounce re-aims randomly.
 
 | Level | Damage | Woodlice | Bounces | Cooldown |
 |---|---|---|---|---|
@@ -145,7 +145,7 @@ Max level: **3**
 ---
 
 ### Dubia Shields
-Amber circles that orbit Snapper and damage anything they touch. Hit cooldown: 800ms per enemy. From level 2+, only offered with a flat 40% chance per level-up screen.
+Amber circles that orbit Snapper and damage anything they touch. Hit cooldown: 800ms per enemy.
 
 | Level | Damage | Shields | Orbit Radius | Speed |
 |---|---|---|---|---|
@@ -175,12 +175,12 @@ Max level: **4**
 ### Branch Throw
 Fires a wide bar sideways (perpendicular to the nearest enemy). Breaks after N hits; despawns after 15s.
 
-| Level | Damage | Bar Width | Max Hits | Cooldown |
+| Level | Damage | Bar Length | Max Hits | Cooldown |
 |---|---|---|---|---|
-| 1 | 22 | 20 | 15 | 6000ms |
-| 2 | 22 | 30 | 15 | 6000ms |
-| 3 | 22 | 40 | 15 | 6000ms |
-| 4 | 22 | 40 | 30 | 6000ms |
+| 1 | 22 | 120 | 15 | 6000ms |
+| 2 | 22 | 180 | 15 | 6000ms |
+| 3 | 22 | 240 | 15 | 6000ms |
+| 4 | 22 | 240 | 30 | 6000ms |
 
 Max level: **4**
 
@@ -221,7 +221,7 @@ Freezes all enemies within range to 15% speed. Level 2 reduces cooldown; level 3
 | 3 | 120 | 4s | 15000ms |
 | 4 | 120 | 10s | 15000ms |
 
-Max level: **7**
+Max level: **4**
 
 ---
 
@@ -260,7 +260,7 @@ An evolution permanently replaces a weapon with a more powerful form. **Requirem
 | **Steel Slam** | Tail Slap ×2 | Hard Scales | 180° arc; dmg ×1.8; 400px/s knockback (150ms window); immobilises hit enemies for 500ms (8s cooldown per enemy) |
 | **Toxic Ocean** | Poop ×2 | Well Fed | 3 toxic fields per cast; radius ×1.4; dmg ×1.5; slows enemies 50% for 2s; fields drift toward enemy clusters |
 | **Sunbaked Ambers** | Pebble Flick ×2 | Basking | 30 ambers in a full 360° ring every 8s; burns hit enemies for 3.5s (6 dmg/300ms); burning enemies spread fire on contact for 1s (3s contagion cooldown) |
-| **Raging Roar** | Hiss ×2 | Angry | Always-active rotating 60° cone (~69°/s); slows all enemies inside to 50% for 350ms; no timer — runs every frame |
+| **Raging Roar** | Hiss ×2 | Angry | Always-active rotating 60° cone (~69°/s); 12 dmg per 500ms tick; slows all enemies inside to 50% (refreshes every tick); no timer — runs every frame |
 | **Sticky Shot** | Lick ×3 | Vitamin Supplements | 5 tongues every 1.5s; dmg ×1.5; slows hit enemies 50% for 2s |
 | **Acid Snake** | Worm Whip ×2 | Venom | Both sides simultaneously; 160° arc every 3.5s; poisons 6s; slows 50% for 2s |
 | **Bug Buster** | Pupa Mines ×3 | Bug Catcher | 8–12 mines per cast; blast radius ×2; flat 65 dmg; fuse 45s; each kill drops a standard Pupa Mine + normal XP insect |
@@ -366,7 +366,7 @@ Bosses spawn when the 10-minute timer hits zero. Regular enemy spawning stops pe
 
 ### Lettuce Beetle — Level 1
 
-- **HP**: 8000
+- **HP**: 1500
 - **Contact damage**: 20
 - **Movement**: Walks toward player at 80px/s
 
@@ -378,7 +378,7 @@ Bosses spawn when the 10-minute timer hits zero. Regular enemy spawning stops pe
 
 ### Rocket Spider — Level 2
 
-- **HP**: 12000
+- **HP**: 2000
 - **Contact damage**: 25 (also applies 2-tick poison to player on contact)
 - **Movement**: Switches between circle-strafe (190px radius), wander, and chase every 2–4s (95px/s base)
 
@@ -391,45 +391,45 @@ Bosses spawn when the 10-minute timer hits zero. Regular enemy spawning stops pe
 
 ### Carrot Scorpion — Level 3
 
-- **HP**: 18000
+- **HP**: 1600
 - **Contact damage**: 28
 - **Movement**: Alternates between chase (220px/s, 3–8s) and wander toward random points near the player (200px/s, 15–25s)
 
 | Attack | Cooldown | Mechanic |
 |---|---|---|
 | Claw Swipe | 4000ms | Orange warning triangle → charges at 480px/s for 300ms |
-| Stinger Bury | 10–15s | Immobile for 6.2s; spawns 20 Carrot Moles + 10 Carrot Thugs staggered over the duration |
+| Stinger Bury | 10–15s | Immobile for 6.2s; spawns 10 Carrot Moles + 5 Carrot Thugs staggered over the duration |
 
 ---
 
 ### Mulberry Mantis — Level 4
 
-- **HP**: 15200 total (phase boundary at 8000 — bar keeps draining, no reset)
+- **HP**: 2200 total (phase boundary at 900 — bar keeps draining, no reset)
 - **Contact damage**: 5–15 (random)
 - **Phase 1**: Chases at 210px/s
 
 | Attack | Trigger | Mechanic |
 |---|---|---|
 | Vanish → Strike | Every 5–10s | Turns invisible and invulnerable for 3–5s; reappears 80px from player; strikes 400ms later (25 dmg) |
-| Phase 2 (HP ≤8000) | One-time | Spawns ring of 25 Spinach Cyclones at 900px radius; stops chasing entirely; pure vanish→strike loop with 2s rest between cycles |
+| Phase 2 (HP ≤900) | One-time | Spawns ring of 25 Spinach Cyclones at 900px radius; stops chasing entirely; pure vanish→strike loop with 2s rest between cycles |
 
 ---
 
 ### The Hand — Level 5 (Final Boss)
 
-- **HP**: 18500 total across 4 phases (boundaries at 14000 / 9500 / 5000; bar drains continuously)
+- **HP**: 17000 total across 4 phases (boundaries at 14000 / 10000 / 6000; bar drains continuously)
 - **Contact damage**: 30
 - **Speed**: Scales with phase — 200 / 240 / 288 / 346 px/s (×1.2 per phase)
 - **Phase transitions**: Boss freezes and trembles for 3s before each new phase begins
 
 | Phase | HP Range | Attacks Added |
 |---|---|---|
-| 1 | 18500 → 14000 | Ground Slap |
-| 2 | 14000 → 9500 | + Teleport |
-| 3 | 9500 → 5000 | + Ring attacks |
-| 4 | 5000 → 0 | + Vacuum supermove, 10-projectile ring (25% chance every 5s, 15 dmg each), mini-boss respawn waves |
+| 1 | 17000 → 14000 | Ground Slap |
+| 2 | 14000 → 10000 | + Teleport |
+| 3 | 10000 → 6000 | + Ring attacks |
+| 4 | 6000 → 0 | + Vacuum supermove, 10-projectile ring (25% chance every 5s, 15 dmg each), mini-boss respawn waves |
 
-**Vacuum supermove** (Phase 4): Continuously pulls all enemies toward the boss for 6500ms while the screen fades red (up to 0.55 alpha). At the end, destroys everything within 750px.
+**Vacuum supermove** (Phase 4): Continuously pulls all enemies toward the boss for 5000ms while the screen fades red (up to 0.55 alpha). At the end, destroys everything within 750px.
 
 **Mini-bosses** (Phase 4): Summons one of each prior boss at scaled-down stats. Each runs its original AI:
 - Lettuce Beetle mini — charges at player every 3.5s
