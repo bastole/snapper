@@ -82,11 +82,11 @@ export const LevelUpMethods = {
                 effect: () => { this.tailSlapUpgraded = true; },
             },
             {
-                name: this.weaponCardLabel('poop', 'Poop'), desc: 'Fires an exploding continuous projectile in a random direction', type: 'weapon',
-                weaponKey: 'poop', available: () => !this.ownedWeapons.has('poop') && !this.ownedWeapons.has('toxicocean') && this.playerLevel >= 20,
+                name: this.weaponCardLabel('poop', 'Poop'), desc: 'Fires an exploding continuous projectile in a random direction — the resulting field shrinks over time until it disappears', type: 'weapon',
+                weaponKey: 'poop', available: () => !this.ownedWeapons.has('poop') && !this.ownedWeapons.has('toxicocean'),
                 effect: () => {
                     this.ownedWeapons.add('poop');
-                    this.poopTimer = this.time.addEvent({ delay: 8000, callback: this.doPoop, callbackScope: this, loop: true });
+                    this.poopTimer = this.time.addEvent({ delay: 30000, callback: this.doPoop, callbackScope: this, loop: true });
                 },
             },
             {
@@ -249,15 +249,18 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('dustkick', 'Dust Kick'),
-                desc: ['Fire a short beam of dust — deals low damage and slows enemies 2s', 'Stronger kick', 'Stronger kick', 'Stronger kick', 'Much longer beam, slows for 10s'][this.dustKickLevel] ?? 'Dust Kick',
+                desc: ['Fire a short beam of dust — deals low damage and slows enemies 2s', 'Longer beam, slows for 6s', 'Much longer beam, slows for 10s'][this.dustKickLevel] ?? 'Dust Kick',
                 type: 'weapon',
-                weaponKey: 'dustkick', available: () => this.dustKickLevel < 5,
+                weaponKey: 'dustkick', available: () => this.dustKickLevel < 3,
                 effect: () => {
                     this.dustKickLevel++;
                     if (this.dustKickLevel === 1) {
                         this.ownedWeapons.add('dustkick');
                         this.dustKickTimer = this.time.addEvent({ delay: 15000, callback: this.doDustKick, callbackScope: this, loop: true });
-                    } else if (this.dustKickLevel === 5) {
+                    } else if (this.dustKickLevel === 2) {
+                        this.dustKickLength = 290;
+                        this.dustKickSlowDuration = 6000;
+                    } else if (this.dustKickLevel === 3) {
                         this.dustKickLength = 400;
                         this.dustKickSlowDuration = 10000;
                     }
@@ -311,6 +314,7 @@ export const LevelUpMethods = {
         // Passives — always available
         const passiveUpgrades = [
             { name: this.boostCardLabel('Inflate'),      desc: 'Taking damage knocks back and hurts nearby enemies', available: () => this.ownedPassives.filter(p => p === 'Inflate').length < 1, effect: () => { this.ownedPassives.push('Inflate');      this.inflateActive = true; } },
+            { name: this.boostCardLabel('Inflate'),      desc: 'Heavier damage and knockback, with a random ailment inflicted half the time.', available: () => this.ownedPassives.filter(p => p === 'Inflate').length === 1, effect: () => { this.ownedPassives.push('Inflate'); } },
             { name: this.boostCardLabel('Shiny Scales'), desc: this.deflectChance === 0 ? '30% chance to deflect enemy projectiles back at them' : '60% chance to deflect enemy projectiles back at them', available: () => this.deflectChance < 0.60, effect: () => { this.ownedPassives.push('Shiny Scales'); this.deflectChance = this.deflectChance === 0 ? 0.30 : 0.60; } },
             { name: this.boostCardLabel('Angry'),           desc: 'Snapper moves faster',                available: () => this.ownedPassives.filter(p => p === 'Angry').length           < 5, effect: () => { this.ownedPassives.push('Angry');           this.playerSpeed += 30; } },
             { name: this.boostCardLabel('Aura Farming'),    desc: 'Snapper\'s attacks do more damage',   available: () => this.ownedPassives.filter(p => p === 'Aura Farming').length    < 5, effect: () => { this.ownedPassives.push('Aura Farming');    this.biteDamage += 10; this.tailSlapDamage += 10; this.poopDamage += 10; this.pebbleDamage += 10; this.lickDamage += 10; this.wormWhipDamage += 10; this.pupaDamage += 10; this.skinDamage += 10; this.woodieDamage += 10; this.dubiaShieldDamage += 10; } },
@@ -347,10 +351,12 @@ export const LevelUpMethods = {
             {
                 name: this.boostCardLabel('Venom'),
                 desc: (() => {
-                    const first = this.venomChance === 0;
+                    const level = this.ownedPassives.filter(p => p === 'Venom').length;
+                    const first = level === 0;
                     const nextChance = first ? 15 : Math.round((this.venomChance + 0.10) * 100);
                     const nextDur   = first ? '2.0' : ((this.venomDuration + 500) / 1000).toFixed(1);
-                    return `${nextChance}% chance to poison enemies for ${nextDur}s`;
+                    const fireNote  = level === 2 ? ' — also sets them on fire for 3s' : '';
+                    return `${nextChance}% chance to poison enemies for ${nextDur}s${fireNote}`;
                 })(),
                 available: () => this.ownedPassives.filter(p => p === 'Venom').length < 3,
                 effect: () => {

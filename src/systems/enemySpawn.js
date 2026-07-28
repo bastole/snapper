@@ -196,6 +196,7 @@ export const EnemySpawnMethods = {
                         proj.setScale(def.projScale ?? 0.12).setDepth(7);
                         if (def.projTint) proj.setTint(def.projTint);
                         proj.setVelocity(Math.cos(angle) * 160, Math.sin(angle) * 160);
+                        if (def.key !== 'mulberry_snake') proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
                         proj.damage = enemy.damage;
                         this.physics.add.overlap(proj, this.player, () => {
                             if (!proj.active || proj.deflected) return;
@@ -311,7 +312,6 @@ export const EnemySpawnMethods = {
         // Spinach Cyclone / Spinach Tempest: wanders within camera view; spawns minions periodically while alive
         if (def.spawnsEnemy) {
             enemy.isWanderer = true;
-            this.tweens.add({ targets: enemy, angle: 360, duration: 900, loop: -1 });
             const spawnKey   = def.spawnsEnemy;
             const mStats     = def.spawnsEnemyStats ?? { health: 18, damage: 9, speed: 110, scale: 0.22 };
             const scheduleCycloneSpawn = () => {
@@ -593,7 +593,6 @@ export const EnemySpawnMethods = {
         // Spinach Tempest: wanders + spawns a random spinach enemy every 2–8s
         if (def.spawnsAnySpinach) {
             enemy.isWanderer = true;
-            this.tweens.add({ targets: enemy, angle: 360, duration: 600, loop: -1 });
             const spinachPool = [
                 { key: 'spinach',       health: 35,  damage: 11, speed: 68,  scale: 0.25 },
                 { key: 'small_spinach', health: 18,  damage: 5,  speed: 110, scale: 0.22 },
@@ -617,7 +616,6 @@ export const EnemySpawnMethods = {
                     mini.trap = false; mini.trapArmed = false; mini.bomb = false; mini.sweeps = false;
                     mini.phantom = false; mini.spawnsCarrotCori = false; mini.spawnsAnySpinach = false; mini.vineWhip = false; mini.spawnsMinion = null;
                     mini.isWanderer = pick.wanders ?? false;
-                    if (mini.isWanderer) this.tweens.add({ targets: mini, angle: 360, duration: 900, loop: -1 });
                     const aKey = `${pick.key}_walk`;
                     if (!this.anims.exists(aKey)) {
                         this.anims.create({ key: aKey, frames: this.anims.generateFrameNumbers(pick.key, { start: 0, end: 1 }), frameRate: 5, repeat: -1 });

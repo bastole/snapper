@@ -14,8 +14,8 @@ export const BaseWeaponMethods = {
                 this.maybeVenom(enemy);
                 if (this.biteLevel >= 4 && !enemy.slowed) {
                     enemy.slowed = true; enemy.speed = Math.max(10, enemy.speed * 0.5);
-                    enemy.setTint(0x88ddff);
-                    this.time.delayedCall(2000, () => { if (enemy.active) { enemy.slowed = false; enemy.speed *= 2; enemy.clearTint(); } });
+                    this.addStatusTint(enemy, 'slow', 0x88ddff);
+                    this.time.delayedCall(2000, () => { if (enemy.active) { enemy.slowed = false; enemy.speed *= 2; this.removeStatusTint(enemy, 'slow'); } });
                 }
                 this.checkHydraPhase(enemy);
                 if (enemy.health <= 0) this.killEnemy(enemy);
@@ -83,6 +83,7 @@ export const BaseWeaponMethods = {
         const poop = this.physics.add.image(this.player.x, this.player.y, 'cricket');
         poop.setTint(0x885500).setScale(0.3).setDepth(8);
         poop.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+        poop.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
         poop.landed = false;
 
         const land = () => {
@@ -91,27 +92,32 @@ export const BaseWeaponMethods = {
             const fx = poop.x, fy = poop.y;
             poop.destroy();
 
-            // Lingering field visual
+            // Lingering field visual — positioned via setPosition so it can be scaled
+            // in place around its own center instead of drifting from a local offset
+            // (see the Cold Glare / Four Chills fix for why that matters).
             const field = this.add.circle(fx, fy, radius, 0x552200, 0.55).setDepth(6);
-            const ring  = this.add.graphics().setDepth(7);
+            const ring  = this.add.graphics().setDepth(7).setPosition(fx, fy);
             ring.lineStyle(3, 0x885500, 0.8);
-            ring.strokeCircle(fx, fy, radius);
+            ring.strokeCircle(0, 0, radius);
 
-            // Tick damage every 500ms; skip if game is paused or mid level-up
+            // Tick damage every 500ms; skip if game is paused or mid level-up.
+            // Hit radius tracks the field's live shrinking scale, so the damage area
+            // shrinks in lockstep with what's actually drawn on screen.
             const tickTimer = this.time.addEvent({
                 delay: 500,
                 loop: true,
                 callback: () => {
                     if (this.isPaused || this.isLevelingUp || this.isCountdown) return;
+                    const liveRadius = radius * field.scaleX;
                     this.enemies.getChildren().forEach(enemy => {
-                        if (Phaser.Math.Distance.Between(fx, fy, enemy.x, enemy.y) <= radius && this.canDamageEnemy(enemy)) {
+                        if (Phaser.Math.Distance.Between(fx, fy, enemy.x, enemy.y) <= liveRadius && this.canDamageEnemy(enemy)) {
                             this.damageDealt += this.poopDamage; enemy.health -= this.poopDamage;
                             this.playEnemyHurtSfx();
                             this.tweens.add({ targets: enemy, alpha: 0.2, duration: 60, yoyo: true });
                             if (enemy.health <= 0) this.killEnemy(enemy);
                         }
                     });
-                    if (this.boss?.active && Phaser.Math.Distance.Between(fx, fy, this.boss.x, this.boss.y) <= radius) {
+                    if (this.boss?.active && Phaser.Math.Distance.Between(fx, fy, this.boss.x, this.boss.y) <= liveRadius) {
                         this.damageBoss(this.poopDamage);
                     }
                     // Pulse the field on each tick
@@ -119,12 +125,9 @@ export const BaseWeaponMethods = {
                 },
             });
 
-            // Fade out and destroy when field expires
-            this.time.delayedCall(duration, () => {
-                tickTimer.remove();
-                this.tweens.add({ targets: [field, ring], alpha: 0, duration: 400,
-                    onComplete: () => { field.destroy(); ring.destroy(); } });
-            });
+            // Shrink continuously until it disappears
+            this.tweens.add({ targets: [field, ring], scaleX: 0, scaleY: 0, duration, ease: 'Linear',
+                onComplete: () => { tickTimer.remove(); field.destroy(); ring.destroy(); } });
         };
 
         this.physics.add.overlap(poop, this.enemies, land);
@@ -156,6 +159,7 @@ export const BaseWeaponMethods = {
             pebble.setScale(0.2);
             pebble.setDepth(8);
             pebble.setVelocity(Math.cos(a) * 300, Math.sin(a) * 300);
+            pebble.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
             pebble.damage = this.pebbleDamage;
             pebble.hits   = 0;
 
@@ -192,11 +196,11 @@ export const BaseWeaponMethods = {
                 const baseSpeed = enemy.speed;
                 enemy.speed = baseSpeed * 0.5;
                 this.tweens.add({ targets: enemy, alpha: 0, duration: 60, yoyo: true, repeat: 2,
-                    onComplete: () => { if (enemy.active) enemy.setTint(0x88ddff); } });
+                    onComplete: () => { if (enemy.active) this.addStatusTint(enemy, 'slow', 0x88ddff); } });
                 this.time.delayedCall(2000, () => {
                     if (enemy.active) {
                         enemy.speed = baseSpeed;
-                        enemy.clearTint();
+                        this.removeStatusTint(enemy, 'slow');
                         enemy.slowed = false;
                     }
                 });
@@ -423,6 +427,7 @@ export const BaseWeaponMethods = {
             // Fling outward then arc downward via gravity
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
             skin.setVelocity(Math.cos(angle) * 100, Math.sin(angle) * 100);
+            skin.setAngularVelocity(0.2 * 360);
             skin.body.setGravityY(400);
             skin.hitEnemies = new Set();
 
@@ -471,6 +476,7 @@ export const BaseWeaponMethods = {
             woodie.setScale(0.28);
             woodie.setDepth(8);
             woodie.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+            woodie.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             woodie.bouncesLeft = maxBounces;
             woodie.hitEnemies  = new Set();
 
@@ -507,11 +513,52 @@ export const BaseWeaponMethods = {
         });
     },
 
+    // ─── Shared multi-status tint system ─────────────────────────────────────────
+    // Status effects (poison, fire, slow, immobilize) each want to tint the target a
+    // different color while they're active, and several can be active on the same
+    // enemy/boss at once. Rather than each effect calling setTint()/clearTint()
+    // directly — which just silently overwrites whichever other effect's color was
+    // showing — every effect registers/unregisters its color here under its own key.
+    // With 0 colors the tint clears, with 1 it's shown steady (identical to the old
+    // single-effect behavior), and with 2+ it flashes between all of them.
+    addStatusTint(obj, key, color) {
+        if (!obj?.active) return;
+        obj._statusTints = obj._statusTints ?? {};
+        obj._statusTints[key] = color;
+        this._refreshStatusTint(obj);
+    },
+
+    removeStatusTint(obj, key) {
+        if (!obj?._statusTints) return;
+        delete obj._statusTints[key];
+        this._refreshStatusTint(obj);
+    },
+
+    _refreshStatusTint(obj) {
+        const colors = Object.values(obj._statusTints ?? {});
+        obj._statusTintTimer?.remove();
+        obj._statusTintTimer = null;
+        if (!obj.active) return;
+        if (colors.length === 0) { obj.clearTint(); return; }
+        if (colors.length === 1) { obj.setTint(colors[0]); return; }
+        let i = 0;
+        obj.setTint(colors[i]);
+        obj._statusTintTimer = this.time.addEvent({
+            delay: 200, loop: true,
+            callback: () => {
+                const cur = Object.values(obj._statusTints ?? {});
+                if (!obj.active || cur.length === 0) { obj._statusTintTimer?.remove(); obj._statusTintTimer = null; return; }
+                i = (i + 1) % cur.length;
+                obj.setTint(cur[i]);
+            },
+        });
+    },
+
     // ─── Helper: enemy poison (from Venom passive / Poison Claw) ────────────────
     applyEnemyPoison(enemy, durationMs) {
         if (!enemy?.active || enemy.poisoned) return;
         enemy.poisoned = true;
-        enemy.setTint(0x44ff44);
+        this.addStatusTint(enemy, 'poison', 0x44ff44);
         const ticks = Math.max(1, Math.floor(durationMs / 500));
         let done = 0;
         const t = this.time.addEvent({
@@ -524,14 +571,18 @@ export const BaseWeaponMethods = {
                 if (enemy.health <= 0) { this.killEnemy(enemy); t.remove(); return; }
                 if (done >= ticks) {
                     t.remove();
-                    if (enemy.active) { enemy.poisoned = false; enemy.clearTint(); }
+                    if (enemy.active) { enemy.poisoned = false; this.removeStatusTint(enemy, 'poison'); }
                 }
             },
         });
     },
 
+    // Venom's final (3rd) level also ignites whatever it poisons, for 3s.
     maybeVenom(enemy) {
-        if (this.venomChance > 0 && Math.random() < this.venomChance) this.applyEnemyPoison(enemy, this.venomDuration);
+        if (this.venomChance > 0 && Math.random() < this.venomChance) {
+            this.applyEnemyPoison(enemy, this.venomDuration);
+            if (this.ownedPassives.filter(p => p === 'Venom').length >= 3) this.igniteEnemy(enemy, 3000);
+        }
     },
 
     // ─── Boss status effects — poison, fire, slow, immobilise ───────────────────
@@ -543,7 +594,7 @@ export const BaseWeaponMethods = {
         const boss = this.boss;
         if (!boss?.active || boss.poisoned) return;
         boss.poisoned = true;
-        boss.setTint(0x44ff44);
+        this.addStatusTint(boss, 'poison', 0x44ff44);
         const ticks = Math.max(1, Math.floor(durationMs / 500));
         let done = 0;
         const t = this.time.addEvent({
@@ -553,20 +604,23 @@ export const BaseWeaponMethods = {
                 this.damageBoss(3);
                 done++;
                 if (!boss.active) { t.remove(); return; }
-                if (done >= ticks) { t.remove(); boss.poisoned = false; boss.clearTint(); }
+                if (done >= ticks) { t.remove(); boss.poisoned = false; this.removeStatusTint(boss, 'poison'); }
             },
         });
     },
 
     maybeVenomBoss() {
-        if (this.venomChance > 0 && Math.random() < this.venomChance) this.applyBossPoison(this.venomDuration);
+        if (this.venomChance > 0 && Math.random() < this.venomChance) {
+            this.applyBossPoison(this.venomDuration);
+            if (this.ownedPassives.filter(p => p === 'Venom').length >= 3) this.igniteBoss(3000);
+        }
     },
 
     igniteBoss(durationMs) {
         const boss = this.boss;
         if (!boss?.active || boss.burned) return;
         boss.burned = true;
-        boss.setTint(0xff2200);
+        this.addStatusTint(boss, 'fire', 0xff2200);
         const ticks = Math.ceil(durationMs / 300);
         let done = 0;
         const bt = this.time.addEvent({
@@ -576,7 +630,7 @@ export const BaseWeaponMethods = {
                 this.damageBoss(6);
                 done++;
                 if (!boss.active) { bt.remove(); return; }
-                if (done >= ticks) { bt.remove(); boss.burned = false; boss.clearTint(); }
+                if (done >= ticks) { bt.remove(); boss.burned = false; this.removeStatusTint(boss, 'fire'); }
             },
         });
     },
@@ -586,9 +640,9 @@ export const BaseWeaponMethods = {
         if (!boss?.active || boss.slowed) return;
         boss.slowed = true;
         boss.slowFactor = factor;
-        boss.setTint(tint);
+        this.addStatusTint(boss, 'slow', tint);
         this.time.delayedCall(durationMs, () => {
-            if (boss.active) { boss.slowed = false; boss.slowFactor = 1; boss.clearTint(); }
+            if (boss.active) { boss.slowed = false; boss.slowFactor = 1; this.removeStatusTint(boss, 'slow'); }
         });
     },
 
@@ -599,8 +653,8 @@ export const BaseWeaponMethods = {
         if (boss._nextImmobilizeAt && now < boss._nextImmobilizeAt) return;
         boss._nextImmobilizeAt = now + 3000;
         boss.bugCaught = true;
-        boss.setTint(0xbb66ff);
-        this.time.delayedCall(durationMs, () => { if (boss.active) { boss.bugCaught = false; boss.clearTint(); } });
+        this.addStatusTint(boss, 'immobilize', 0xbb66ff);
+        this.time.delayedCall(durationMs, () => { if (boss.active) { boss.bugCaught = false; this.removeStatusTint(boss, 'immobilize'); } });
     },
 
     maybePolycephaly(fn) {
@@ -733,9 +787,9 @@ export const BaseWeaponMethods = {
                     enemy.slowed = true;
                     const baseSpeed = enemy.speed;
                     enemy.speed = baseSpeed * 0.5;
-                    if (enemy.active) enemy.setTint(0x88ddff);
+                    if (enemy.active) this.addStatusTint(enemy, 'slow', 0x88ddff);
                     this.time.delayedCall(this.dustKickSlowDuration, () => {
-                        if (enemy.active) { enemy.speed = baseSpeed; enemy.clearTint(); enemy.slowed = false; }
+                        if (enemy.active) { enemy.speed = baseSpeed; this.removeStatusTint(enemy, 'slow'); enemy.slowed = false; }
                     });
                 }
             }
@@ -808,14 +862,22 @@ export const BaseWeaponMethods = {
         const range = 120;
 
         this.enemies.getChildren().forEach(enemy => {
-            if (!this.canDamageEnemy(enemy) || enemy.slowed) return;
+            if (!this.canDamageEnemy(enemy)) return;
             if (Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y) > range) return;
+            // Capture (and refresh) our own base speed independently of the shared
+            // `slowed` flag, same fix as Raging Roar — another weapon may have
+            // already slowed this enemy, and gating on `!enemy.slowed` would both
+            // skip it here and risk capturing an already-slowed speed as "base" if
+            // some other weapon's capture logic looked at ours instead.
+            if (enemy._coldGlareBaseSpeed === undefined) enemy._coldGlareBaseSpeed = enemy.speed;
             enemy.slowed = true;
-            const baseSpeed = enemy.speed;
-            enemy.speed = Math.max(0, baseSpeed * 0.15);
-            if (enemy.active) enemy.setTint(0x88ddff);
-            this.time.delayedCall(this.coldGlareSlow, () => {
-                if (enemy.active) { enemy.speed = baseSpeed; enemy.clearTint(); enemy.slowed = false; }
+            enemy.speed = Math.max(0, enemy._coldGlareBaseSpeed * 0.15);
+            this.addStatusTint(enemy, 'slow', 0x88ddff);
+            enemy._coldGlareSlowTimer?.remove();
+            enemy._coldGlareSlowTimer = this.time.delayedCall(this.coldGlareSlow, () => {
+                if (enemy.active) { enemy.speed = enemy._coldGlareBaseSpeed; this.removeStatusTint(enemy, 'slow'); enemy.slowed = false; }
+                enemy._coldGlareBaseSpeed = undefined;
+                enemy._coldGlareSlowTimer = null;
             });
         });
         if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= range) {

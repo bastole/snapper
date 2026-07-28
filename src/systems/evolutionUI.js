@@ -126,6 +126,10 @@ export const EvolutionUIMethods = {
         let mode = 'grid'; // 'grid' | 'zoom'
         let modeItems = [];
         let zoomIdx = 0;
+        // True for the 1500ms shake between pressing UNLOCK? and the evolution actually
+        // landing — navigation is locked out so the animation can't be interrupted.
+        let unlocking = false;
+        let currentUnlockTrigger = null; // set by buildZoom(), used by the gamepad A handler
         const destroyModeItems = () => { modeItems.forEach(o => o.destroy()); modeItems = []; };
 
         // Closes this menu (any method) without letting the same input also fall through
@@ -140,12 +144,14 @@ export const EvolutionUIMethods = {
             requestAnimationFrame(() => { this._evoMenuOpen = false; });
         };
 
-        // Shared so both mouse clicks and gamepad A (from the zoom screen) can unlock
+        // Shared so both mouse clicks and gamepad A (from the zoom screen) can unlock.
+        // Stays on the same evolution's zoomed-in view afterward (rebuilt to show the
+        // now-acquired "✓ EVOLVED" state) instead of closing the whole menu.
         const acquireEvolution = (ev) => {
-            closeMenu();
             if (this._evoFlashTween) { this._evoFlashTween.stop(); this._evoFlashTween = null; }
             this.applyEvolution(ev);
             this._updateEvoBtnAppearance();
+            buildZoom();
         };
 
         // ─── Grid screen ────────────────────────────────────────────────────────
@@ -230,7 +236,9 @@ export const EvolutionUIMethods = {
                     .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0)
                     .setStrokeStyle(2, borderColor);
 
-                const nameText = this.add.text(cx, cy + 10, ev.evolvedName, {
+                // Name and description stay hidden (as "???") until the evolution is
+                // actually acquired this run; requirements are always shown.
+                const nameText = this.add.text(cx, cy + 10, isAcquired ? ev.evolvedName : '???', {
                     fontSize: '12px', fontFamily: 'Arial Black, Arial',
                     color: nameColor,
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
@@ -238,8 +246,8 @@ export const EvolutionUIMethods = {
                     fontSize: '9px', fontFamily: 'Arial', color: recipeColor,
                     wordWrap: { width: cardW - 12 }, align: 'center',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
-                const descText = this.add.text(cx, cy + 58, ev.desc, {
-                    fontSize: '9px', fontFamily: 'Arial', color: descColor,
+                const descText = this.add.text(cx, cy + 58, isAcquired ? ev.desc : '???', {
+                    fontSize: '9px', fontFamily: isAcquired ? 'Arial' : 'Arial Black, Arial', color: descColor,
                     wordWrap: { width: cardW - 12 }, align: 'center',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
 
@@ -313,13 +321,14 @@ export const EvolutionUIMethods = {
         // UNLOCK? button that's only live when the evolution is actually available ──
         const zoomCx = W / 2, zoomCy = 150, zoomCardW = 480, zoomCardH = 200;
 
-        const openZoom = (i) => { zoomIdx = i; buildZoom(); };
-        const zoomStep = (delta) => { zoomIdx = (zoomIdx + delta + evos.length) % evos.length; buildZoom(); };
-        const backToGrid = () => { selectedIdx = zoomIdx; buildGrid(); };
+        const openZoom = (i) => { if (unlocking) return; zoomIdx = i; buildZoom(); };
+        const zoomStep = (delta) => { if (unlocking) return; zoomIdx = (zoomIdx + delta + evos.length) % evos.length; buildZoom(); };
+        const backToGrid = () => { if (unlocking) return; selectedIdx = zoomIdx; buildGrid(); };
 
         const buildZoom = () => {
             mode = 'zoom';
             destroyModeItems();
+            currentUnlockTrigger = null;
             const ev = evos[zoomIdx];
             const isAcquired = this.appliedEvolutions.has(ev.id);
             const isAvail = !isAcquired && this.getAvailableEvolutions().includes(ev);
@@ -331,14 +340,20 @@ export const EvolutionUIMethods = {
                 .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5);
             const border = this.add.rectangle(zoomCx, zoomCy, zoomCardW, zoomCardH)
                 .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5).setStrokeStyle(3, borderColor);
-            const nameText = this.add.text(zoomCx, zoomCy - 78, ev.evolvedName, {
+            // Name and description stay hidden (as "???") until the evolution is
+            // actually acquired this run.
+            const nameText = this.add.text(zoomCx, zoomCy - 78, isAcquired ? ev.evolvedName : '???', {
                 fontSize: '20px', fontFamily: 'Arial Black, Arial', color: isAcquired ? '#000000' : '#ffff44',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
-            const descText = this.add.text(zoomCx, zoomCy - 30, ev.desc, {
-                fontSize: '12px', fontFamily: 'Arial', color: textColor,
+            const descText = this.add.text(zoomCx, zoomCy - 30, isAcquired ? ev.desc : '???', {
+                fontSize: '12px', fontFamily: isAcquired ? 'Arial' : 'Arial Black, Arial', color: textColor,
                 wordWrap: { width: zoomCardW - 60 }, align: 'center',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
             modeItems.push(bg, border, nameText, descText);
+
+            // The "box" that shakes on unlock — bg/border/name/desc plus whichever
+            // status line(s) sit below them.
+            const shakeTargets = [bg, border, nameText, descText];
 
             if (isAcquired) {
                 modeItems.push(this.add.text(zoomCx, zoomCy + 50, '✓ EVOLVED', {
@@ -346,12 +361,14 @@ export const EvolutionUIMethods = {
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
             } else {
                 const { weaponLine, boostLine } = this._getEvoReqLines(ev);
-                modeItems.push(this.add.text(zoomCx, zoomCy + 40, weaponLine, {
+                const weaponText = this.add.text(zoomCx, zoomCy + 40, weaponLine, {
                     fontSize: '11px', fontFamily: 'Arial', color: weaponLine.startsWith('✓') ? '#88ff88' : '#ff8888',
-                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
-                modeItems.push(this.add.text(zoomCx, zoomCy + 60, boostLine, {
+                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
+                const boostText = this.add.text(zoomCx, zoomCy + 60, boostLine, {
                     fontSize: '11px', fontFamily: 'Arial', color: boostLine.startsWith('✓') ? '#88ff88' : '#ff8888',
-                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
+                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
+                modeItems.push(weaponText, boostText);
+                shakeTargets.push(weaponText, boostText);
             }
 
             // Prev/next arrows — cycle through every evolution, wrapping at the ends
@@ -383,8 +400,58 @@ export const EvolutionUIMethods = {
                 unlockBtn.setInteractive({ useHandCursor: true });
                 unlockBtn.on('pointerover', () => unlockBtn.setBackgroundColor('#ffff88'));
                 unlockBtn.on('pointerout',  () => unlockBtn.setBackgroundColor('#ffee00'));
-                unlockBtn.on('pointerdown', () => acquireEvolution(ev));
-                this.tweens.add({ targets: unlockBtn, alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
+                const pulseTween = this.tweens.add({ targets: unlockBtn, alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
+
+                // Pressing UNLOCK? shakes the info box with growing intensity for 1500ms
+                // before the evolution actually lands and the "???" are revealed. Driven
+                // by a tween rather than this.time.addEvent/delayedCall — the evolutions
+                // menu only opens from the pause menu (time.paused = true), and Phaser's
+                // Clock-based timers never advance while that's set, which would leave
+                // the shake permanently stuck (same gotcha the level-up 3-2-1 countdown
+                // hit before). Tweens aren't gated by time.paused — that's already why
+                // this button's own idle pulse tween works while paused — so the shake
+                // uses a value-only counter tween instead.
+                const triggerUnlock = () => {
+                    if (unlocking) return;
+                    unlocking = true;
+                    pulseTween.stop();
+                    unlockBtn.disableInteractive();
+                    unlockBtn.setAlpha(1).setBackgroundColor('#2a2a2a').setColor('#777777');
+
+                    const shakeBase = shakeTargets.map(o => ({ obj: o, x: o.x, y: o.y }));
+                    this.tweens.addCounter({
+                        from: 0, to: 1, duration: 1500, ease: 'Linear',
+                        onUpdate: (tw) => {
+                            const amp = 10 * tw.getValue();
+                            shakeBase.forEach(({ obj, x, y }) => {
+                                if (!obj.active) return;
+                                obj.x = x + Phaser.Math.Between(-amp, amp);
+                                obj.y = y + Phaser.Math.Between(-amp, amp);
+                            });
+                        },
+                        onComplete: () => {
+                            shakeBase.forEach(({ obj, x, y }) => { if (obj.active) { obj.x = x; obj.y = y; } });
+                            unlocking = false;
+                            acquireEvolution(ev);
+                        },
+                    });
+
+                    // Screen brightens to full white in step with the shake (0-1500ms),
+                    // holds white for 1000ms after the shake ends (1500-2500ms), then
+                    // fades back to normal over a final 1000ms (2500-3500ms). Both legs
+                    // are separate tweens timed via duration/delay so they run correctly
+                    // regardless of time.paused, same as the shake above.
+                    const flashOverlay = this.add.rectangle(W / 2, H / 2, W, H, 0xffffff, 1)
+                        .setAlpha(0).setScrollFactor(0).setDepth(250);
+                    persistentItems.push(flashOverlay);
+                    this.tweens.add({ targets: flashOverlay, alpha: 1, duration: 1500, ease: 'Linear' });
+                    this.tweens.add({
+                        targets: flashOverlay, alpha: 0, duration: 1000, delay: 2500, ease: 'Linear',
+                        onComplete: () => flashOverlay.destroy(),
+                    });
+                };
+                unlockBtn.on('pointerdown', triggerUnlock);
+                currentUnlockTrigger = triggerUnlock;
             }
 
             const backBtn = this.add.text(W / 2, H - 24, '[ BACK ]', {
@@ -447,13 +514,7 @@ export const EvolutionUIMethods = {
                 if (idx === 1) { backToGrid(); return; }                     // B = back to grid
                 if (idx === 4 || idx === 14) { zoomStep(-1); return; }       // LB / d-pad left = prev
                 if (idx === 5 || idx === 15) { zoomStep(1); return; }        // RB / d-pad right = next
-                if (idx === 0) {                                             // A = unlock, if available
-                    const ev = evos[zoomIdx];
-                    const isAcquired = this.appliedEvolutions.has(ev.id);
-                    const isAvail = !isAcquired && this.getAvailableEvolutions().includes(ev);
-                    if (isAvail) acquireEvolution(ev);
-                    return;
-                }
+                if (idx === 0) { currentUnlockTrigger?.(); return; }         // A = unlock, if available
             }
         };
         this.input.gamepad.on('down', padHandler);

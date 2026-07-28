@@ -44,9 +44,14 @@ export const HudMethods = {
 
     togglePause(btn) {
         if (this.isLevelingUp) return;
+        // Once paused, block unpausing for a full second — this.time is itself
+        // paused while this.isPaused is true (so it can't be used to measure the
+        // wait), hence the real-clock performance.now() timestamp.
+        if (this.isPaused && performance.now() - (this._pauseOpenedAt ?? 0) < 1000) return;
         this.isPaused = !this.isPaused;
 
         if (this.isPaused) {
+            this._pauseOpenedAt = performance.now();
             playSfx(this, 'sfx_pause');
             this.physics.pause();
             this.time.paused = true;

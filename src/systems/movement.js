@@ -155,6 +155,16 @@ export const MovementMethods = {
                 enemy.health -= this.dubiaShieldDamage;
                 this.tweens.add({ targets: enemy, alpha: 0.3, duration: 60, yoyo: true });
                 this.checkHydraPhase(enemy);
+                // Dubia Defenders: every 5th hit on the same enemy (from any shield)
+                // triggers a small explosion, emitted by whichever shield is currently
+                // closest to it.
+                if (this._dubiaDefendersActive) {
+                    enemy._dubiaDefenderHits = (enemy._dubiaDefenderHits ?? 0) + 1;
+                    if (enemy._dubiaDefenderHits >= 5) {
+                        enemy._dubiaDefenderHits = 0;
+                        this.dubiaDefenderExplosion(enemy);
+                    }
+                }
                 if (enemy.health <= 0) this.killEnemy(enemy);
             });
             if (this.boss?.active) {
@@ -168,6 +178,36 @@ export const MovementMethods = {
                 }
             }
         });
+    },
+
+    // Dubia Defenders: small AOE burst centered on whichever shield is currently
+    // nearest the enemy that just took its 5th hit.
+    dubiaDefenderExplosion(enemy) {
+        let nearestShield = null, nearestDist = Infinity;
+        this.dubiaShields.forEach(shield => {
+            const d = Phaser.Math.Distance.Between(shield.x, shield.y, enemy.x, enemy.y);
+            if (d < nearestDist) { nearestDist = d; nearestShield = shield; }
+        });
+        if (!nearestShield) return;
+        const ex = nearestShield.x, ey = nearestShield.y;
+        const radius = 50;
+        const dmg = this.dubiaShieldDamage;
+
+        const expl = this.add.circle(ex, ey, radius, 0xff8800, 0.5).setDepth(15);
+        this.tweens.add({ targets: expl, alpha: 0, scaleX: 1.6, scaleY: 1.6, duration: 250, onComplete: () => expl.destroy() });
+
+        this.enemies.getChildren().forEach(e => {
+            if (!this.canDamageEnemy(e)) return;
+            if (Phaser.Math.Distance.Between(ex, ey, e.x, e.y) <= radius) {
+                this.damageDealt += dmg; e.health -= dmg;
+                this.playEnemyHurtSfx();
+                this.tweens.add({ targets: e, alpha: 0.2, duration: 60, yoyo: true });
+                if (e.health <= 0) this.killEnemy(e);
+            }
+        });
+        if (this.boss?.active && Phaser.Math.Distance.Between(ex, ey, this.boss.x, this.boss.y) <= radius) {
+            this.damageBoss(dmg);
+        }
     },
 
     // ─── Touch/mouse virtual joystick ──────────────────────────────────────────

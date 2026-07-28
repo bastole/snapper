@@ -46,12 +46,12 @@ Max level: **2**
 ---
 
 ### Poop
-Fires a projectile that lands and creates a damaging field. Only offered at player level 20+.
+Fires a projectile that lands and creates a damaging field. The field's radius (and its damage area) shrinks continuously over its lifetime until it disappears.
 
-| Level | Damage/tick | Field Radius | Field Duration | Cooldown |
+| Level | Damage/tick | Field Radius (starting) | Field Duration | Cooldown |
 |---|---|---|---|---|
-| 1 | 15 (per 500ms) | 120 | 3000ms | 8000ms |
-| 2 | 15 | 120 | 6000ms | 8000ms |
+| 1 | 7.5 (per 500ms) | 120 → 0 | 3000ms | 30000ms |
+| 2 | 7.5 | 120 → 0 | 6000ms | 30000ms |
 
 Max level: **2**
 
@@ -191,10 +191,11 @@ Beam of dust fired behind Snapper (opposite movement). Slows all hit enemies to 
 
 | Level | Damage | Beam Length | Slow Duration | Cooldown |
 |---|---|---|---|---|
-| 1–4 | 8 | 180 | 2s | 15000ms |
-| 5 | 8 | 400 | 10s | 15000ms |
+| 1 | 8 | 180 | 2s | 15000ms |
+| 2 | 8 | 290 | 6s | 15000ms |
+| 3 | 8 | 400 | 10s | 15000ms |
 
-Max level: **5**
+Max level: **3**
 
 ---
 
@@ -231,7 +232,7 @@ Passives stack with each pick up to their cap.
 
 | Boost | Max | Per Pick |
 |---|---|---|
-| **Inflate** | 1 | On taking damage: knocks back all enemies within 110px (220px/s, 15 dmg, 150ms) |
+| **Inflate** | 2 | On taking damage: knocks back all enemies within 110px. Pick 1: 220px/s, 15 dmg, 150ms. Pick 2: 440px/s, 30 dmg, 150ms — 50% chance per enemy hit to also inflict poison, fire, slow, or immobilize for 1–3s |
 | **Shiny Scales** | 2 | Pick 1: 30% chance to deflect projectiles back (20 dmg to enemy). Pick 2: 60% chance |
 | **Angry** | 5 | +30 movement speed |
 | **Aura Farming** | 5 | +10 damage to all active weapons |
@@ -242,7 +243,7 @@ Passives stack with each pick up to their cap.
 | **Hungry Forager** | 4 | +80 pickup magnet range (base 32px) |
 | **Hard Scales** | 4 | −2 contact damage from all enemies (min 1) |
 | **Polycephaly** | 4 | +10% chance per attack to fire a second time (10→20→30→40%); re-entrancy guarded — no chains |
-| **Venom** | 3 | Pick 1: 15% poison chance, 2.0s. Pick 2: 25%, 2.5s. Pick 3: 35%, 3.0s. Poison ticks 3 dmg/500ms |
+| **Venom** | 3 | Pick 1: 15% poison chance, 2.0s. Pick 2: 25%, 2.5s. Pick 3: 35%, 3.0s — also ignites for 3s. Poison ticks 3 dmg/500ms, fire ticks 6 dmg/300ms |
 | **Vitamin Supplements** | 4 | +2% to base Foodbox/Treasure drop chance per pick |
 | **Big Fangs** | 4 | Chance to heal on kill. Pick 1: 5%/5% max HP. Pick 2: 9%/8%. Pick 3: 14%/14%. Pick 4: 18%/20% |
 | **Hyperactivity** | 3 | Pick 1: +25 speed for 5s every 70 kills. Pick 2: +50 speed for 12s every 40 kills. Pick 3: +75 speed for 20s every 24 kills |
@@ -258,7 +259,7 @@ An evolution permanently replaces a weapon with a more powerful form. **Requirem
 |---|---|---|---|
 | **Starved Chomp** | Bite ×4 | Hungry Forager | Kills grant 2× XP instantly with no insect drop. +20 dmg, +30 range on top of maxed Bite |
 | **Steel Slam** | Tail Slap ×2 | Hard Scales | 180° arc; dmg ×1.8; 400px/s knockback (150ms window); immobilises hit enemies for 500ms (8s cooldown per enemy) |
-| **Toxic Ocean** | Poop ×2 | Well Fed | 3 toxic fields per cast; radius ×1.4; dmg ×1.5; slows enemies 50% for 2s; fields drift toward enemy clusters |
+| **Toxic Ocean** | Poop ×2 | Well Fed | 3 toxic fields per cast; radius ×1.4; dmg ×0.75; slows enemies 50% for 2s; fields chase the nearest enemy cluster at 90px/s; stay full-size for 4000ms then shrink to nothing over the field's duration (same shrink as Poop) |
 | **Sunbaked Ambers** | Pebble Flick ×2 | Basking | 30 ambers in a full 360° ring every 8s; burns hit enemies for 3.5s (6 dmg/300ms); burning enemies spread fire on contact for 1s (3s contagion cooldown) |
 | **Raging Roar** | Hiss ×2 | Angry | Always-active rotating 60° cone (~69°/s); 12 dmg per 500ms tick; slows all enemies inside to 50% (refreshes every tick); no timer — runs every frame |
 | **Sticky Shot** | Lick ×3 | Vitamin Supplements | 5 tongues every 1.5s; dmg ×1.5; slows hit enemies 50% for 2s |
@@ -266,12 +267,12 @@ An evolution permanently replaces a weapon with a more powerful form. **Requirem
 | **Bug Buster** | Pupa Mines ×3 | Bug Catcher | 8–12 mines per cast; blast radius ×2; flat 65 dmg; fuse 45s; each kill drops a standard Pupa Mine + normal XP insect |
 | **Spike Shedder** | Skin Shed ×2 | Big Fangs | 3 skins per cast every 8s; dmg ×2.5; heals 1 HP per 10 kills (tracked globally while active) |
 | **Shining Shells** | Woodie Bounce ×3 | Shiny Scales | 3 shells every 4s; dmg ×2.5; unlimited ricochets for 25s; auto-aims nearest enemy after each bounce; kills trigger a small explosion |
-| **Dubia Defenders** | Dubia Shields ×4 | Bug Bucket | Shields spin 1.5× faster; each fires a projectile every 5s (dmg = base+15, speed 350); +20 base shield damage |
+| **Dubia Defenders** | Dubia Shields ×4 | Bug Bucket | Shields spin 1.5× faster; each fires a projectile every 5s (dmg = base+15, speed 350); +20 base shield damage; every 5th shield hit on the same enemy triggers a small AOE explosion (50px radius, dmg = base shield damage) emitted from whichever shield is currently closest to it |
 | **Flashclaw** | Poison Claw ×4 | Hunter Instinct | Double strike (second fires 200ms later); 25 dmg per strike; poisons 6s; immobilises 1s (10s cooldown per enemy) |
 | **Log Lob** | Branch Throw ×4 | Aura Farming | 2 logs rolling in opposite perpendicular directions; dmg ≈48; unbreakable for 25s; slight knockback (60px/s) |
-| **Duststorm** | Dust Kick ×5 | Inflate | Width 100, length ×1.6; 15 dmg; slows 50% for 3s; immobilises enemies within 80px for 1.5s (12s cooldown per enemy) |
+| **Duststorm** | Dust Kick ×3 | Inflate | Width 100, length ×1.6; 15 dmg; slows 50% for 3s; immobilises enemies within 80px for 1.5s (12s cooldown per enemy) |
 | **Lucky Thrash** | Lucky Scratch ×3 | Hyperactivity | 8–14 scratch marks per cast, radius 90, dmg 20–35; hit enemies gain +25% Foodbox, +15% Treasure, +8% Fullbox drop boost |
-| **Four Chills** | Cold Glare ×4 | Polycephaly | 350px range every 25s; slows all to 15% for 8s; the 8 closest enemies are immobilised and have their HP halved (15s cooldown per enemy; bosses: slowed only, no HP halve) |
+| **Four Chills** | Cold Glare ×4 | Polycephaly | 350px range every 25s; slows all to 15% for 8s; deals up to 1.5x a Sticky Shot attack's damage (90 by default) at the center, tapering linearly to 0 at the edge, to everything in range including the boss; the 8 closest enemies are also immobilised (15s cooldown per enemy) |
 
 ---
 
@@ -362,11 +363,13 @@ Inherits enemies from all prior levels (mixed spawn pool) plus the following exc
 
 Bosses spawn when the 10-minute timer hits zero. Regular enemy spawning stops permanently. The XP bar is replaced by a full-width boss HP bar. Defeating the boss shows the Level Clear screen.
 
+All bosses take half damage from every source (applied centrally in `damageBoss()`) — effectively doubling their real HP against any weapon's stated damage number. This does not apply to the weaker mini-boss reprises summoned during The Hand fight, which take full damage like regular enemies.
+
 ---
 
 ### Lettuce Beetle — Level 1
 
-- **HP**: 1500
+- **HP**: 3000
 - **Contact damage**: 20
 - **Movement**: Walks toward player at 80px/s
 
@@ -378,7 +381,7 @@ Bosses spawn when the 10-minute timer hits zero. Regular enemy spawning stops pe
 
 ### Rocket Spider — Level 2
 
-- **HP**: 2000
+- **HP**: 3800
 - **Contact damage**: 25 (also applies 2-tick poison to player on contact)
 - **Movement**: Switches between circle-strafe (190px radius), wander, and chase every 2–4s (95px/s base)
 
@@ -391,7 +394,7 @@ Bosses spawn when the 10-minute timer hits zero. Regular enemy spawning stops pe
 
 ### Carrot Scorpion — Level 3
 
-- **HP**: 1600
+- **HP**: 2500
 - **Contact damage**: 28
 - **Movement**: Alternates between chase (220px/s, 3–8s) and wander toward random points near the player (200px/s, 15–25s)
 
@@ -404,30 +407,30 @@ Bosses spawn when the 10-minute timer hits zero. Regular enemy spawning stops pe
 
 ### Mulberry Mantis — Level 4
 
-- **HP**: 2200 total (phase boundary at 900 — bar keeps draining, no reset)
+- **HP**: 4000 total (phase boundary at 1200 — bar keeps draining, no reset)
 - **Contact damage**: 5–15 (random)
 - **Phase 1**: Chases at 210px/s
 
 | Attack | Trigger | Mechanic |
 |---|---|---|
 | Vanish → Strike | Every 5–10s | Turns invisible and invulnerable for 3–5s; reappears 80px from player; strikes 400ms later (25 dmg) |
-| Phase 2 (HP ≤900) | One-time | Spawns ring of 25 Spinach Cyclones at 900px radius; stops chasing entirely; pure vanish→strike loop with 2s rest between cycles |
+| Phase 2 (HP ≤1200) | One-time | Spawns ring of 25 Spinach Cyclones at 900px radius; stops chasing entirely; pure vanish→strike loop with 2s rest between cycles |
 
 ---
 
 ### The Hand — Level 5 (Final Boss)
 
-- **HP**: 17000 total across 4 phases (boundaries at 14000 / 10000 / 6000; bar drains continuously)
+- **HP**: 12500 total across 4 phases (boundaries at 10500 / 7500 / 4000; bar drains continuously)
 - **Contact damage**: 30
 - **Speed**: Scales with phase — 200 / 240 / 288 / 346 px/s (×1.2 per phase)
 - **Phase transitions**: Boss freezes and trembles for 3s before each new phase begins
 
 | Phase | HP Range | Attacks Added |
 |---|---|---|
-| 1 | 17000 → 14000 | Ground Slap |
-| 2 | 14000 → 10000 | + Teleport |
-| 3 | 10000 → 6000 | + Ring attacks |
-| 4 | 6000 → 0 | + Vacuum supermove, 10-projectile ring (25% chance every 5s, 15 dmg each), mini-boss respawn waves |
+| 1 | 12500 → 10500 | Ground Slap |
+| 2 | 10500 → 7500 | + Teleport |
+| 3 | 7500 → 4000 | + Ring attacks |
+| 4 | 4000 → 0 | + Vacuum supermove, 10-projectile ring (25% chance every 5s, 15 dmg each), mini-boss respawn waves |
 
 **Vacuum supermove** (Phase 4): Continuously pulls all enemies toward the boss for 5000ms while the screen fades red (up to 0.55 alpha). At the end, destroys everything within 750px.
 

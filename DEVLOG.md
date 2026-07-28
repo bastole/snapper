@@ -765,3 +765,66 @@ The initial launch angle is now aimed at the nearest enemy (falls back to a rand
 Was stale from before Session 24 removed the walk-over pickup step ("huge blasts drop collectible pupa mines"). Corrected to "defeated enemies drop a Pupa Mine" — mines drop and arm automatically now, there's nothing to collect.
 
 Verified directly in-browser via scripted devtools testing throughout (fresh page reloads, direct function calls, simulated pointer/gamepad events, and statistical trials where relevant): zero console errors on every change in this session once each fix was finalized.
+
+---
+
+## Session 28 — 2026-07-28
+
+### Mulberry Mantis now fades out slowly instead of flashing away
+Both the level-4 boss and its Hand-fight mini-boss reprise already stopped moving and faded to alpha 0 before vanishing, but the fade was a snappy 200ms flash. Slowed to 1000ms in both `boss.js` and `handMiniBoss.js` so it reads as a deliberate fade rather than a blink.
+
+### Spinach Cyclone / Spinach Tempest no longer passively spin; XP insects spawn at random angles
+Removed the continuous `angle: 360, loop: -1` rotation tween from all 5 spots it was applied (regular Spinach Cyclone spawn, Spinach Tempest, a wandering Cyclone spawned by Tempest, and the two Mulberry Mantis phase-2 cyclone-ring spawns in `boss.js`/`handMiniBoss.js`). Separately, every real XP insect drop (cricket/vitaworm/mealworm/dragonfly — not Foodbox/Fullbox/Treasure, and not weapon projectiles that happen to reuse the cricket texture) now spawns with `setAngle(Phaser.Math.Between(0, 359))` for visual variety.
+
+### Spawn-rate ramp steepened 50%
+The per-10-second spawn delay multiplier went from ×0.85 (15% cut) to ×0.775 (22.5% cut) in `GameScene.js` — enemies now reach the 400ms density floor by ~80s into a level instead of ~113s.
+
+### New per-projectile passive rotation
+Added `setAngularVelocity` spin to specific projectiles: Poop, Pebble Flick, the shared Lettuce Shooter/Oregano Fan pellet (explicitly excluding Mulberry Snake's spit, which shares that same code path), and Oregano Phantom's death-burst all spin at a random 0.5–1.5 rotations/sec; Woodie Bounce, Toxic Ocean, and Sunbaked Ambers spin at a random 1.6–2 rot/s; Skin Shed spins at a fixed 0.2 rot/s. XP insects also now spin (0.2–1 rot/s, randomized per insect) for as long as they're actually being magnet-pulled toward the player, and stop spinning the instant they're out of magnet range again.
+
+### Boss health rebalanced again
+Lettuce Beetle 1500→3000, Rocket Spider 2000→3800, Carrot Scorpion 1600→2500, Mulberry Mantis 2200→4000 (phase 2 now starts at 1200 HP remaining instead of 900), The Hand 17000→12500 total across phase pools of 2000/3000/3500/4000 (was 3000/4000/4000/6000). Fixed a stale comment along the way that still described the pre-rebalance Hand phase pools.
+
+### All bosses now take half damage from every source
+Added a single `× 0.5` multiplier inside the shared `damageBoss()` — the one function every weapon (base and evolved) routes boss damage through — so all 5 main bosses effectively have double their stated HP against any weapon's raw damage number. Deliberately scoped to just the real bosses: the weaker mini-boss reprises The Hand summons during its own fight take damage through the regular per-enemy path, not `damageBoss()`, so they're unaffected and still take full damage like any other enemy.
+
+### Shared multi-status tint system; Venom's final level now also ignites
+Every status effect (poison, fire, slow, immobilize) used to call `setTint()`/`clearTint()` directly, so two effects active on the same enemy at once silently overwrote each other's color — a real, pre-existing bug (e.g. Acid Snake already applies poison+slow to the same target). Added `addStatusTint`/`removeStatusTint`/`_refreshStatusTint` in `baseWeapons.js`: each effect now registers its own color under its own key; with one active color it shows steady (identical to the old behavior), with two or more it flashes between all of them every 200ms. Routed all ~22 existing call sites through it (poison and fire/burn for both enemy and boss, every slow application across 9 different weapons, and every immobilize application across 6 sites). Venom's 3rd/final pick now also ignites whatever it poisons for 3s, using this same system so it correctly flashes alongside the poison instead of one hiding the other; the level-up card text updates to state this only on the final pick.
+
+### LEVEL CLEAR's CONTINUE button renamed to NEXT LEVEL, jumps straight into the next level
+Now reads "NEXT LEVEL" with the upcoming level's name on a second line inside the same button, and clicking it (or gamepad A) starts `GameScene` directly at `level + 1` instead of returning to Level Select. Falls back to the old `[ CONTINUE ]` → Level Select behavior on clearing level 5, since there's no level 6. Fixed a latent bug found along the way: the gamepad A handler on this screen always resumed to Level Select regardless of which button (Next/Menu) was actually highlighted — harmless before since both went to the same place, but would have broken gamepad navigation now that they diverge.
+
+### Dust Kick compacted from 5 levels to 3
+Levels 2–4 previously read "Stronger kick" but silently changed nothing — only the unlock (level 1) and the old level 5 actually touched any stat. Compacted to 3 real levels with the same start/end stats: unlock (180 length / 2s slow) → 290/6s → 400/10s (final). Updated `weaponMaxLevel.dustkick` and Duststorm's evolution requirement text to match.
+
+### Inflate given a second level
+First pick unchanged. Second pick — described exactly as *"Heavier damage and knockback, with a random ailment inflicted half the time."* — doubles damage (15→30) and knockback speed (220→440), and gives each enemy hit a 50% chance to also get a randomly-picked ailment (poison, fire, slow, or immobilize) for 1–3s. Added a shared `inflictRandomAilment()` helper that routes through the same status-effect functions/tint system everything else uses.
+
+Bug found and fixed the same day this shipped: the random ailment kept landing on immobilize (purple) every time, making it look broken/undiversified. Root cause — `applyEnemyPoison`/`igniteEnemy` and the slow/immobilize branches all silently no-op if that enemy already has that status, and poison/slow in particular are already near-ubiquitous from other weapons in a real loadout, so those rolls very often did nothing visible while immobilize (rarer elsewhere) was the one that reliably landed. Fixed by only rolling among the ailments the enemy *isn't* already under, so a successful roll always visibly applies and all four get a genuine, even chance.
+
+### Four Chills reworked: tapering damage instead of halving HP
+Removed the "halve HP of the 8 closest enemies" effect entirely. Replaced with tapering AOE damage to *everything* in the 350px ring (not just the 8 closest) — peak damage at the player's feet is 1.5× a single Sticky Shot attack's damage (90 by default, computed dynamically off current `lickDamage` even without owning Sticky Shot), tapering linearly to 0 at the edge. This also now hits the boss, which the old percentage-based halve deliberately excluded. Slow (all in range, 8s) and immobilize (8 closest, 15s cooldown each) are unchanged; added a guard so immobilize skips anything the new damage already killed.
+
+### Dubia Defenders: 5th hit on the same enemy triggers a small explosion
+Each enemy tracks its own hit counter (only while Dubia Defenders is active, not the base weapon); on the 5th hit it resets and a 50px-radius explosion fires, dealing the current shield damage to everything caught in the blast. The explosion is centered on whichever shield is currently closest to that enemy — recalculated fresh at the moment of the 5th hit, since hits toward one enemy can come from different orbiting shields over time.
+
+### Evolutions menu: hidden names until acquired, shake-then-reveal on unlock, stays open afterward
+Names and descriptions in both the grid and the zoomed-in view now show as bold `???` until that evolution is actually acquired *this run* (requirements stay visible). Since `appliedEvolutions` is a fresh `Set()` per `GameScene.create()` with no persistence, this already resets every run for free. Pressing UNLOCK? no longer instantly applies the evolution — it shakes the info box for 1500ms with intensity ramping from 0 to a 10px jitter, locks out navigation for that window, then reveals the real name/description. Layered a full-screen white flash on top: brightens to full white across that same 1500ms, holds for 1000ms, then fades back to normal over a final 1000ms (3500ms total). Claiming an evolution also no longer kicks you out of the menu back to the paused pause-screen — it now rebuilds the same zoomed-in "close up" view showing the new "✓ EVOLVED" state instead.
+
+Two real bugs surfaced and fixed while building this: (1) the shake/flash were originally built on `this.time.addEvent`/`delayedCall`, which never advance while `time.paused` is true — and the evolutions menu only ever opens from the paused pause menu — so the whole thing froze permanently the instant UNLOCK? was pressed (this is the exact same class of gotcha the level-up 3-2-1 countdown hit in an earlier session). Fixed by switching to Phaser tweens throughout, which aren't gated by `time.paused` (confirmed by grepping the codebase — only `physics.pause()` and `time.paused` are ever toggled, the Tween Manager never is). (2) In deleting the old immediate-unlock path there was a leftover stray closing brace from a removed nested guard, which `node --check` caught before it ever reached the game.
+
+### Poop rebalanced: no more level-20 gate, 30s cooldown, half damage, shrinks to nothing
+Removed the `playerLevel >= 20` restriction on its level-up card entirely. Fire rate slowed from 8s to 30s. Damage halved (15→7.5 per tick). The field now scales continuously from full size down to nothing over its whole lifetime instead of staying full-size and only fading alpha at the very end — the damage hit-radius tracks the live shrinking scale so what you can actually get hurt by always matches what's drawn on screen.
+
+### Toxic Ocean rebalanced: half damage, delayed shrink, real 90px/s chase
+Damage multiplier on evolve dropped from ×1.5 to ×0.75 (half of the old boost off the same base). Fields now stay full-size for the first 4000ms after landing, then shrink to nothing over their own duration (same mechanic as Poop's fix above, just delayed). The drift-toward-nearest-enemy-cluster behavior, previously a barely-perceptible ~4px/s, now moves at a true 90px/s.
+
+Two pre-existing bugs got fixed alongside this, since cranking the chase speed up would have made both painfully obvious otherwise: the field's damage/boss checks were using the *original landing coordinates* rather than the field's current drifted position, so the visible field could wander away from where it actually dealt damage; and the ring outline was drawn at absolute world coordinates instead of positioned via `setPosition` + drawn at local origin, the same "scale tween drifts an off-center shape" class of bug already fixed once for Cold Glare/Four Chills and for Poop's own shrink.
+
+### Pause menu: 1-second cooldown before unpausing; Cold Glare fixed to actually affect everyone in range
+`togglePause()` now blocks any resume attempt for a full second after pausing — using `performance.now()` rather than `this.time.now`, since `this.time` itself freezes the instant `isPaused` becomes true and would never let a full second elapse. Every resume path (pause button, ESC/P, any key, any click, any gamepad button) already shares this one function, so a single guard at the top covers all of them.
+
+Separately, Cold Glare was skipping any enemy that was *already* slowed by anything else — and slow is applied by nearly every other weapon in the game, so in a real loadout most enemies in its radius were never actually touched by it. Fixed using the same independent-base-speed-capture pattern already established for Raging Roar: it now always affects every enemy in range, correctly re-applying/extending the slow even on an enemy something else already slowed, without corrupting whatever speed that enemy should eventually return to.
+
+### A note on verification this session
+The Browser pane's preview tab had `document.visibilityState` stuck on `hidden` for the entire session regardless of fronting it, which stalls Phaser's own asset loader and blocks any real in-game playthrough or screenshot — a session-specific tooling limitation, not a game bug (confirmed by manually pumping the game's own step loop, which ran fine; the loader was starved of real network/render ticks, not stuck in a code loop). Every change in this session was instead verified via `node --check` syntax validation on every edited file, and isolated Node-side simulations of the actual formulas/state machines involved (spawn ramp curve, boss phase-health math, the multi-status tint flash logic, the ailment-distribution fix, damage/chase-speed numbers) rather than live in-browser confirmation. Recommend a manual playthrough pass to confirm visually, particularly the evolutions-menu shake/flash sequence and the Toxic Ocean chase behavior.

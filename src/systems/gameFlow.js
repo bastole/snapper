@@ -93,13 +93,27 @@ export const GameFlowMethods = {
             fontSize: '15px', fontFamily: 'Arial', color: '#ffff88',
         }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
 
-        const next = this.add.text(W / 2, H / 2 + 70, '[ CONTINUE ]', {
-            fontSize: '22px', fontFamily: 'Arial', color: '#ffffff',
+        const levelNames = {
+            1: 'Iceberg Lettuce & Basil',
+            2: 'Rocket & Oregano',
+            3: 'Coriander & Carrot',
+            4: 'Spinach & Mulberry',
+            5: 'The Garden',
+        };
+        const hasNextLevel = this.level < 5;
+        const nextLabel = hasNextLevel ? `NEXT LEVEL\n${levelNames[this.level + 1]}` : '[ CONTINUE ]';
+        const goNext = () => {
+            if (hasNextLevel) this.scene.start('GameScene', { level: this.level + 1 });
+            else this.scene.start('LevelSelectScene');
+        };
+
+        const next = this.add.text(W / 2, H / 2 + 70, nextLabel, {
+            fontSize: '20px', fontFamily: 'Arial', color: '#ffffff', align: 'center',
             backgroundColor: '#226622', padding: { x: 24, y: 12 },
         }).setScrollFactor(0).setDepth(301).setOrigin(0.5).setInteractive({ useHandCursor: true });
         next.on('pointerover', () => next.setColor('#00ff88'));
         next.on('pointerout',  () => next.setColor('#ffffff'));
-        next.on('pointerdown', () => this.scene.start('LevelSelectScene'));
+        next.on('pointerdown', goNext);
 
         const menu = this.add.text(W / 2, H / 2 + 140, '[ MAIN MENU ]', {
             fontSize: '16px', fontFamily: 'Arial', color: '#aaaaaa',
@@ -114,7 +128,7 @@ export const GameFlowMethods = {
             fontSize: '11px', fontFamily: 'Arial', color: '#666666',
         }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
 
-        let lcSelected = 0; // 0 = continue, 1 = menu
+        let lcSelected = 0; // 0 = next level, 1 = menu
         const lcButtons = [next, menu];
         const lcColors  = ['#00ff88', '#ffffff'];
         const lcDefault = ['#ffffff', '#aaaaaa'];
@@ -129,7 +143,8 @@ export const GameFlowMethods = {
                 lcSelected = lcSelected === 0 ? 1 : 0;
                 lcHighlight();
             } else if (idx === 0) {
-                this.scene.start('LevelSelectScene');
+                if (lcSelected === 0) goNext();
+                else this.scene.start('LevelSelectScene');
             }
         };
         this.input.gamepad.on('down', lcPadHandler);

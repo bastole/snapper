@@ -27,14 +27,14 @@ export const BossMethods = {
         const H = this.cameras.main.height;
 
         const bossCfg = this.level === 5
-            ? { key: 'the_hand',        label: 'THE HAND',        health: 5000, damage: 30, scale: 0.8 }
+            ? { key: 'the_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 0.8 }
             : this.level === 4
-            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 2200, damage: Phaser.Math.Between(5, 15), scale: 0.6 }
+            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 0.6 }
             : this.level === 3
-            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 1600, damage: 28, scale: 0.65 }
+            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 0.65 }
             : this.level === 2
-            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 2000, damage: 25, scale: 0.6 }
-            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 1500, damage: 20, scale: 0.6, chargeDelay: 3500 };
+            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 0.6 }
+            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 0.6, chargeDelay: 3500 };
 
         // Warning banner
         const warn = this.add.text(W / 2, H / 2 - 60, `⚠  ${bossCfg.label} APPROACHES  ⚠`, {
@@ -106,9 +106,9 @@ export const BossMethods = {
             if (this.level === 5) {
                 // The Hand: multi-phase boss — one continuous health bar covering all 4
                 // phases, with divider lines instead of resetting to full each transition.
-                // Each phase has its own HP pool (1500 / 2000 / 2000 / 3000), sized to that
+                // Each phase has its own HP pool (2000 / 3000 / 3500 / 4000), sized to that
                 // pool exactly — a phase only ends once its own section is fully drained.
-                const { total, boundaries } = this.computePhasedHealth([3000, 4000, 4000, 6000], true);
+                const { total, boundaries } = this.computePhasedHealth([2000, 3000, 3500, 4000], true);
                 this.boss.health      = total;
                 this.boss.maxHealth   = total;
                 this.boss.phaseBoundaries = boundaries;
@@ -124,9 +124,9 @@ export const BossMethods = {
             } else if (this.level === 4) {
                 // Mulberry Mantis: chases at high speed; vanishes every 5–10s.
                 // One continuous health bar covering both phases, with a divider line
-                // instead of resetting to full at the phase-2 transition. Total 2200 HP,
-                // with the phase-2 transition at exactly 900 HP remaining.
-                const { total, boundaries } = this.computePhasedHealth([1300, 900], true);
+                // instead of resetting to full at the phase-2 transition. Total 4000 HP,
+                // with the phase-2 transition at exactly 1200 HP remaining.
+                const { total, boundaries } = this.computePhasedHealth([2800, 1200], true);
                 this.boss.health      = total;
                 this.boss.maxHealth   = total;
                 this.boss.phaseBoundaries = boundaries;
@@ -548,8 +548,8 @@ export const BossMethods = {
         boss.mantisVanishing = true;
         boss.setVelocity(0, 0);
 
-        // Flash out then go invisible
-        this.tweens.add({ targets: boss, alpha: 0, duration: 200, onComplete: () => {
+        // Stay still and slowly fade out before going invisible
+        this.tweens.add({ targets: boss, alpha: 0, duration: 1000, onComplete: () => {
             if (!this.boss) return;
             boss.setActive(false).setVisible(false);
             boss.body.enable = false;
@@ -665,8 +665,9 @@ export const BossMethods = {
 
     damageBoss(amount) {
         if (!this.boss || !this.boss.active) return;
+        const dealt = amount * 0.5; // Bosses take half damage
         this.playEnemyHurtSfx();
-        this.damageDealt += amount; this.boss.health -= amount;
+        this.damageDealt += dealt; this.boss.health -= dealt;
         this.tweens.add({ targets: this.boss, alpha: 0.2, duration: 80, yoyo: true });
         this.updateBossHealthBar();
         if (this.level === 4 && this.boss.mantisPhase === 1 && this.boss.health <= this.boss.phaseBoundaries[0]) {
@@ -739,7 +740,6 @@ export const BossMethods = {
                 this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers('spinach_cyclone', { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
             }
             cyclone.play(animKey);
-            this.tweens.add({ targets: cyclone, angle: 360, duration: 900, loop: -1 });
 
             // Each cyclone periodically spawns Small Spinach
             const scheduleSpawn = () => {

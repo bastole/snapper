@@ -320,7 +320,8 @@ export const HandMiniBossMethods = {
         mb.isCharging       = true;
         mb.setVelocity(0, 0);
 
-        this.tweens.add({ targets: mb, alpha: 0, duration: 200, onComplete: () => {
+        // Stay still and slowly fade out before going invisible
+        this.tweens.add({ targets: mb, alpha: 0, duration: 1000, onComplete: () => {
             if (!mb.active) return;
             mb.setVisible(false);
             mb.body.enable = false;
@@ -444,7 +445,6 @@ export const HandMiniBossMethods = {
                 this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers('spinach_cyclone', { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
             }
             cyclone.play(animKey);
-            this.tweens.add({ targets: cyclone, angle: 360, duration: 900, loop: -1 });
 
             const scheduleSpawn = () => {
                 if (!cyclone.active) return;

@@ -151,7 +151,7 @@ export default class GameScene extends Phaser.Scene {
         this.tailSlapDamage   = 25;
         this.tailSlapRange    = 100;
         this.tailSlapUpgraded = false;
-        this.poopDamage       = 15;
+        this.poopDamage       = 7.5;
         this.poopDuration     = 3000;
         this.poopUpgraded     = false;
         this.pebbleDamage     = 15;
@@ -226,12 +226,12 @@ export default class GameScene extends Phaser.Scene {
             { id: 'bug_buster',            weaponKey: 'pupamines',   weaponLabel: 'Pupa Mines',            boostName: 'Bug Catcher',          evolvedName: 'Bug Buster',            desc: 'Sprays 8-12 mines lasting 45s — defeated enemies drop a Pupa Mine.',   effect() { this.evolveToBugBuster(); } },
             { id: 'spike_shedder',         weaponKey: 'skinshed',    weaponLabel: 'Skin Shed',             boostName: 'Big Fangs',            evolvedName: 'Spike Shedder',         desc: 'Drops 3 spiky skins every 8s — far more damage, heals 1 HP per 10 kills.',   effect() { this.evolveToSpikeShedder(); } },
             { id: 'shining_shells',        weaponKey: 'woodiebounce',weaponLabel: 'Woodie Bounce',         boostName: 'Shiny Scales',         evolvedName: 'Shining Shells',        desc: '3 fast-moving shells every 4s, unlimited ricochets 25s, auto-aim, kills explode.', effect() { this.evolveToShiningShells(); } },
-            { id: 'dubia_defenders',       weaponKey: 'dubiashields',weaponLabel: 'Dubia Shields',         boostName: 'Bug Bucket',           evolvedName: 'Dubia Defenders',       desc: 'Shields spin faster — each fires a strong projectile every 5s.',             effect() { this.evolveToDubiaDefenders(); } },
+            { id: 'dubia_defenders',       weaponKey: 'dubiashields',weaponLabel: 'Dubia Shields',         boostName: 'Bug Bucket',           evolvedName: 'Dubia Defenders',       desc: 'Shields spin faster — each fires a strong projectile every 5s; 5 hits on the same enemy triggers a small explosion.', effect() { this.evolveToDubiaDefenders(); } },
             { id: 'flashclaw',             weaponKey: 'poisonclaw',  weaponLabel: 'Poison Claw',           boostName: 'Hunter Instinct',      evolvedName: 'Flashclaw',             desc: 'Double claw strike — immobilises 1s (10s cd per enemy), poisons 6s.',        effect() { this.evolveToFlashclaw(); } },
             { id: 'log_lob',               weaponKey: 'branchthrow', weaponLabel: 'Branch Throw',          boostName: 'Aura Farming',         evolvedName: 'Log Lob',               desc: '2 logs rolling opposite ways — unbreakable 25s, high damage, knockback.',     effect() { this.evolveToLogLob(); } },
             { id: 'duststorm',             weaponKey: 'dustkick',    weaponLabel: 'Dust Kick',             boostName: 'Inflate',              evolvedName: 'Duststorm',             desc: 'Huge area — medium damage, slows all, immobilises nearest for 1.5s.',        effect() { this.evolveToDuststorm(); } },
             { id: 'lucky_thrash',          weaponKey: 'scratch',     weaponLabel: 'Lucky Scratch',         boostName: 'Hyperactivity',        evolvedName: 'Lucky Thrash',          desc: 'Many scratches in a huge radius — greatly raises item drop chance + Fullbox.', effect() { this.evolveToLuckyThrash(); } },
-            { id: 'four_chills',           weaponKey: 'coldglare',   weaponLabel: 'Cold Glare',            boostName: 'Polycephaly',          evolvedName: 'Four Chills',           desc: 'Huge ring — slows all 8s, immobilises closest 8s, halves their HP.',         effect() { this.evolveToFourChills(); } },
+            { id: 'four_chills',           weaponKey: 'coldglare',   weaponLabel: 'Cold Glare',            boostName: 'Polycephaly',          evolvedName: 'Four Chills',           desc: 'Huge ring — slows all 8s, immobilises closest 8s, heavy damage tapering with distance.', effect() { this.evolveToFourChills(); } },
         ];
         this.appliedEvolutions = new Set();
 
@@ -240,10 +240,10 @@ export default class GameScene extends Phaser.Scene {
         this.weaponMaxLevel = {
             bite: 4, tailslap: 2, poop: 2, pebble: 2, hiss: 2, lick: 3,
             wormwhip: 2, pupamines: 3, skinshed: 2, woodiebounce: 3,
-            dubiashields: 4, poisonclaw: 4, branchthrow: 4, dustkick: 5, scratch: 3, coldglare: 4,
+            dubiashields: 4, poisonclaw: 4, branchthrow: 4, dustkick: 3, scratch: 3, coldglare: 4,
         };
         this.boostMaxLevel = {
-            'Inflate': 1, 'Shiny Scales': 2, 'Angry': 5, 'Aura Farming': 5,
+            'Inflate': 2, 'Shiny Scales': 2, 'Angry': 5, 'Aura Farming': 5,
             'Hunter Instinct': 5, 'Basking': 5, 'Bug Bucket': 5, 'Well Fed': 3,
             'Hungry Forager': 4, 'Hard Scales': 4, 'Polycephaly': 4, 'Venom': 3,
             'Vitamin Supplements': 4, 'Big Fangs': 4, 'Hyperactivity': 3, 'Bug Catcher': 3,
@@ -268,7 +268,7 @@ export default class GameScene extends Phaser.Scene {
             loop: true,
             callback: () => {
                 if (this.spawnDelay > this.spawnMinDelay) {
-                    this.spawnDelay = Math.max(this.spawnMinDelay, Math.floor(this.spawnDelay * 0.85));
+                    this.spawnDelay = Math.max(this.spawnMinDelay, Math.floor(this.spawnDelay * 0.775));
                     this.spawnTimer.reset({ delay: this.spawnDelay, callback: this.spawnEnemy, callbackScope: this, loop: true });
                 }
             },

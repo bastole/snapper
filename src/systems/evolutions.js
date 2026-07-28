@@ -17,7 +17,7 @@ export const EvolutionMethods = {
 
     evolveToToxicOcean() {
         this.ownedWeapons.delete('poop'); this.ownedWeapons.add('toxicocean');
-        this.poopDamage = Math.round(this.poopDamage * 1.5);
+        this.poopDamage = Math.round(this.poopDamage * 0.75);
         this.poopTimer.reset({ delay: this.poopTimer.delay, callback: this.doToxicOcean, callbackScope: this, loop: true });
     },
 
@@ -108,8 +108,8 @@ export const EvolutionMethods = {
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 this.maybeVenom(enemy);
                 if (this.biteLevel >= 4 && !enemy.slowed) {
-                    enemy.slowed = true; enemy.speed = Math.max(10, enemy.speed * 0.5); enemy.setTint(0x88ddff);
-                    this.time.delayedCall(2000, () => { if (enemy.active) { enemy.slowed = false; enemy.speed *= 2; enemy.clearTint(); } });
+                    enemy.slowed = true; enemy.speed = Math.max(10, enemy.speed * 0.5); this.addStatusTint(enemy, 'slow', 0x88ddff);
+                    this.time.delayedCall(2000, () => { if (enemy.active) { enemy.slowed = false; enemy.speed *= 2; this.removeStatusTint(enemy, 'slow'); } });
                 }
                 this.checkHydraPhase(enemy);
                 if (enemy.health <= 0) { enemy._killedByStarvedChomp = true; this.killEnemy(enemy); }
@@ -147,8 +147,8 @@ export const EvolutionMethods = {
                 if (now - lastSlam >= 8000 && !enemy.bugCaught) {
                     enemy._lastSteelSlam = now;
                     enemy.bugCaught = true;
-                    enemy.setTint(0xbb66ff);
-                    this.time.delayedCall(500, () => { if (enemy.active) { enemy.bugCaught = false; enemy.clearTint(); } });
+                    this.addStatusTint(enemy, 'immobilize', 0xbb66ff);
+                    this.time.delayedCall(500, () => { if (enemy.active) { enemy.bugCaught = false; this.removeStatusTint(enemy, 'immobilize'); } });
                 }
                 if (enemy.health <= 0) this.killEnemy(enemy);
             }
@@ -179,6 +179,7 @@ export const EvolutionMethods = {
             const poop  = this.physics.add.image(this.player.x, this.player.y, 'cricket');
             poop.setTint(0x226600).setScale(0.35).setDepth(8);
             poop.setVelocity(Math.cos(angle) * 180, Math.sin(angle) * 180);
+            poop.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             poop.landed = false;
             const land = () => {
                 if (poop.landed || !poop.active) return;
@@ -186,42 +187,49 @@ export const EvolutionMethods = {
                 const fx = poop.x, fy = poop.y;
                 poop.destroy();
                 const field = this.add.circle(fx, fy, radius, 0x113300, 0.55).setDepth(6);
-                const ring  = this.add.graphics().setDepth(7);
-                ring.lineStyle(3, 0x44aa00, 0.8); ring.strokeCircle(fx, fy, radius);
+                // Positioned via setPosition and drawn at local (0, 0) so it scales
+                // in place around its own center — same fix as Poop's shrink and
+                // Cold Glare/Four Chills' ring — and so it can be re-centered every
+                // tick as it chases without redrawing at a stale offset.
+                const ring  = this.add.graphics().setDepth(7).setPosition(fx, fy);
+                ring.lineStyle(3, 0x44aa00, 0.8); ring.strokeCircle(0, 0, radius);
                 const tickTimer = this.time.addEvent({ delay: 500, loop: true, callback: () => {
                     if (this.isPaused || this.isLevelingUp || this.isCountdown) return;
+                    // Hit radius tracks the field's live shrinking scale
+                    const liveRadius = radius * field.scaleX;
                     this.enemies.getChildren().forEach(enemy => {
-                        if (Phaser.Math.Distance.Between(fx, fy, enemy.x, enemy.y) <= radius && this.canDamageEnemy(enemy)) {
+                        if (Phaser.Math.Distance.Between(field.x, field.y, enemy.x, enemy.y) <= liveRadius && this.canDamageEnemy(enemy)) {
                             this.damageDealt += this.poopDamage; enemy.health -= this.poopDamage;
                             this.playEnemyHurtSfx();
                             this.tweens.add({ targets: enemy, alpha: 0.2, duration: 60, yoyo: true });
                             if (!enemy.slowed) {
-                                enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0x88ddff);
-                                this.time.delayedCall(2000, () => { if (enemy.active) { enemy.speed = bs; enemy.clearTint(); enemy.slowed = false; } });
+                                enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; this.addStatusTint(enemy, 'slow', 0x88ddff);
+                                this.time.delayedCall(2000, () => { if (enemy.active) { enemy.speed = bs; this.removeStatusTint(enemy, 'slow'); enemy.slowed = false; } });
                             }
                             if (enemy.health <= 0) this.killEnemy(enemy);
                         }
                     });
-                    if (this.boss?.active && Phaser.Math.Distance.Between(fx, fy, this.boss.x, this.boss.y) <= radius) {
+                    if (this.boss?.active && Phaser.Math.Distance.Between(field.x, field.y, this.boss.x, this.boss.y) <= liveRadius) {
                         this.damageBoss(this.poopDamage);
                         this.slowBoss(2000, 0.5, 0x88ddff);
                     }
                     this.tweens.add({ targets: field, alpha: 0.85, duration: 120, yoyo: true });
-                    // Drift toward largest nearby enemy cluster
+                    // Chase the largest nearby enemy cluster at 90px/s (45px per 500ms tick)
                     let cx = 0, cy = 0, n = 0;
                     this.enemies.getChildren().forEach(e => {
-                        if (Phaser.Math.Distance.Between(fx, fy, e.x, e.y) <= 250) { cx += e.x; cy += e.y; n++; }
+                        if (Phaser.Math.Distance.Between(field.x, field.y, e.x, e.y) <= 250) { cx += e.x; cy += e.y; n++; }
                     });
                     if (n > 0 && field.active) {
                         const da = Math.atan2(cy / n - field.y, cx / n - field.x);
-                        field.x += Math.cos(da) * 2; field.y += Math.sin(da) * 2;
-                        ring.clear(); ring.lineStyle(3, 0x44aa00, 0.8); ring.strokeCircle(field.x, field.y, radius);
+                        field.x += Math.cos(da) * 45; field.y += Math.sin(da) * 45;
+                        ring.setPosition(field.x, field.y);
+                        ring.clear(); ring.lineStyle(3, 0x44aa00, 0.8); ring.strokeCircle(0, 0, radius);
                     }
                 } });
-                this.time.delayedCall(duration, () => {
-                    tickTimer.remove();
-                    this.tweens.add({ targets: [field, ring], alpha: 0, duration: 400, onComplete: () => { field.destroy(); ring.destroy(); } });
-                });
+                // Shrinks like Poop's field, but only starts shrinking 4000ms after
+                // landing — stays full-size (and full damage radius) until then.
+                this.tweens.add({ targets: [field, ring], scaleX: 0, scaleY: 0, delay: 4000, duration, ease: 'Linear',
+                    onComplete: () => { tickTimer.remove(); field.destroy(); ring.destroy(); } });
             };
             this.physics.add.overlap(poop, this.enemies, land);
             if (this.boss?.active) this.physics.add.overlap(poop, this.boss, land);
@@ -234,7 +242,7 @@ export const EvolutionMethods = {
     // already burning. Used both by Sunbaked Ambers' direct hit and by burn-on-contact spread.
     igniteEnemy(enemy, duration) {
         if (!enemy.active || enemy.burned) return;
-        enemy.burned = true; enemy.setTint(0xff2200);
+        enemy.burned = true; this.addStatusTint(enemy, 'fire', 0xff2200);
         const ticks = Math.ceil(duration / 300);
         let done = 0;
         const bt = this.time.addEvent({ delay: 300, loop: true, callback: () => {
@@ -242,7 +250,7 @@ export const EvolutionMethods = {
             this.damageDealt += 6; enemy.health -= 6; done++;
             this.playEnemyHurtSfx();
             if (enemy.health <= 0) { this.killEnemy(enemy); bt.remove(); return; }
-            if (done >= ticks) { bt.remove(); if (enemy.active) { enemy.burned = false; enemy.clearTint(); } }
+            if (done >= ticks) { bt.remove(); if (enemy.active) { enemy.burned = false; this.removeStatusTint(enemy, 'fire'); } }
         } });
     },
 
@@ -266,6 +274,7 @@ export const EvolutionMethods = {
             const amber  = this.physics.add.image(this.player.x, this.player.y, 'cricket');
             amber.setTint(0xff8800).setScale(0.22).setDepth(8);
             amber.setVelocity(Math.cos(a) * 280, Math.sin(a) * 280);
+            amber.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             this.physics.add.overlap(amber, this.enemies, (am, enemy) => {
                 if (!am.active || !this.canDamageEnemy(enemy)) return;
                 am.destroy();
@@ -318,10 +327,10 @@ export const EvolutionMethods = {
                 if (enemy._roarBaseSpeed === undefined) enemy._roarBaseSpeed = enemy.speed;
                 enemy.slowed = true;
                 enemy.speed = enemy._roarBaseSpeed * 0.5;
-                enemy.setTint(0x88ddff);
+                this.addStatusTint(enemy, 'slow', 0x88ddff);
                 enemy._roarSlowTimer?.remove();
                 enemy._roarSlowTimer = this.time.delayedCall(2000, () => {
-                    if (enemy.active) { enemy.speed = enemy._roarBaseSpeed; enemy.clearTint(); enemy.slowed = false; }
+                    if (enemy.active) { enemy.speed = enemy._roarBaseSpeed; this.removeStatusTint(enemy, 'slow'); enemy.slowed = false; }
                     enemy._roarBaseSpeed = undefined;
                     enemy._roarSlowTimer = null;
                 });
@@ -365,8 +374,8 @@ export const EvolutionMethods = {
                 this.playEnemyHurtSfx();
                 this.tweens.add({ targets: target, alpha: 0, duration: 60, yoyo: true, repeat: 1 });
                 if (!target.slowed) {
-                    target.slowed = true; const bs = target.speed; target.speed = bs * 0.5; target.setTint(0x88ddff);
-                    this.time.delayedCall(2000, () => { if (target.active) { target.speed = bs; target.clearTint(); target.slowed = false; } });
+                    target.slowed = true; const bs = target.speed; target.speed = bs * 0.5; this.addStatusTint(target, 'slow', 0x88ddff);
+                    this.time.delayedCall(2000, () => { if (target.active) { target.speed = bs; this.removeStatusTint(target, 'slow'); target.slowed = false; } });
                 }
                 this.maybeVenom(target);
                 if (target.health <= 0) this.killEnemy(target);
@@ -401,8 +410,8 @@ export const EvolutionMethods = {
                     this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                     this.applyEnemyPoison(enemy, 6000);
                     if (!enemy.slowed) {
-                        enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0x88ddff);
-                        this.time.delayedCall(2000, () => { if (enemy.active) { enemy.speed = bs; enemy.clearTint(); enemy.slowed = false; } });
+                        enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; this.addStatusTint(enemy, 'slow', 0x88ddff);
+                        this.time.delayedCall(2000, () => { if (enemy.active) { enemy.speed = bs; this.removeStatusTint(enemy, 'slow'); enemy.slowed = false; } });
                     }
                     if (enemy.health <= 0) this.killEnemy(enemy);
                 }
@@ -593,8 +602,8 @@ export const EvolutionMethods = {
                 if (now - lastFlash >= 10000) {
                     nearest._lastFlashclaw = now;
                     nearest.bugCaught = true;
-                    nearest.setTint(0xbb66ff);
-                    this.time.delayedCall(1000, () => { if (nearest.active) { nearest.bugCaught = false; nearest.clearTint(); } });
+                    this.addStatusTint(nearest, 'immobilize', 0xbb66ff);
+                    this.time.delayedCall(1000, () => { if (nearest.active) { nearest.bugCaught = false; this.removeStatusTint(nearest, 'immobilize'); } });
                 }
                 this.tweens.add({ targets: nearest, alpha: 0, duration: 60, yoyo: true, repeat: 1 });
                 if (nearest.health <= 0) this.killEnemy(nearest);
@@ -671,8 +680,8 @@ export const EvolutionMethods = {
                 this.tweens.add({ targets: enemy, alpha: 0.3, duration: 80, yoyo: true });
                 if (enemy.health <= 0) { this.killEnemy(enemy); return; }
                 if (!enemy.slowed) {
-                    enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; enemy.setTint(0x88ddff);
-                    this.time.delayedCall(3000, () => { if (enemy.active) { enemy.speed = bs; enemy.clearTint(); enemy.slowed = false; } });
+                    enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; this.addStatusTint(enemy, 'slow', 0x88ddff);
+                    this.time.delayedCall(3000, () => { if (enemy.active) { enemy.speed = bs; this.removeStatusTint(enemy, 'slow'); enemy.slowed = false; } });
                 }
                 // Immobilise very close enemies (80px, 12s cooldown)
                 const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
@@ -680,8 +689,8 @@ export const EvolutionMethods = {
                 if (dist <= 80 && now - lastStorm >= 12000) {
                     enemy._lastDuststorm = now;
                     enemy.bugCaught = true;
-                    enemy.setTint(0xbb66ff);
-                    this.time.delayedCall(1500, () => { if (enemy.active) { enemy.bugCaught = false; enemy.clearTint(); } });
+                    this.addStatusTint(enemy, 'immobilize', 0xbb66ff);
+                    this.time.delayedCall(1500, () => { if (enemy.active) { enemy.bugCaught = false; this.removeStatusTint(enemy, 'immobilize'); } });
                 }
             }
         });
@@ -745,33 +754,56 @@ export const EvolutionMethods = {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
         const range = 350, now = this.time.now;
+
+        // Peak damage (at the player's feet) is 1.5x a single Sticky Shot attack's
+        // damage — computed off the current lickDamage even if Sticky Shot itself
+        // hasn't been evolved, so it always tracks Lick's own upgrades/boosts.
+        // Tapers linearly down to 0 damage at the edge of the range.
+        const stickyShotDmg = Math.round(this.lickDamage * 1.5);
+        const peakDamage    = Math.round(stickyShotDmg * 1.5);
+        const damageAt = (dist) => Math.round(peakDamage * Math.max(0, 1 - dist / range));
+
         // Sort enemies by distance to find the closest ones
         const inRange = this.enemies.getChildren()
-            .filter(e => this.canDamageEnemy(e) && Phaser.Math.Distance.Between(px, py, e.x, e.y) <= range)
-            .sort((a, b) => Phaser.Math.Distance.Between(px, py, a.x, a.y) - Phaser.Math.Distance.Between(px, py, b.x, b.y));
-        inRange.forEach(enemy => {
+            .map(e => ({ e, dist: Phaser.Math.Distance.Between(px, py, e.x, e.y) }))
+            .filter(o => this.canDamageEnemy(o.e) && o.dist <= range)
+            .sort((a, b) => a.dist - b.dist);
+
+        inRange.forEach(({ e: enemy, dist }) => {
+            // Heavy tapering damage to everything in range
+            const dmg = damageAt(dist);
+            if (dmg > 0) {
+                this.damageDealt += dmg; enemy.health -= dmg;
+                this.playEnemyHurtSfx();
+                this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
+                if (enemy.health <= 0) { this.killEnemy(enemy); return; }
+            }
             // Slow all for 8s
             if (!enemy.slowed) {
-                enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.15; enemy.setTint(0x88ddff);
-                this.time.delayedCall(8000, () => { if (enemy.active) { enemy.speed = bs; enemy.clearTint(); enemy.slowed = false; } });
+                enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.15; this.addStatusTint(enemy, 'slow', 0x88ddff);
+                this.time.delayedCall(8000, () => { if (enemy.active) { enemy.speed = bs; this.removeStatusTint(enemy, 'slow'); enemy.slowed = false; } });
             }
         });
-        // Immobilise & halve HP of the 8 closest (15s cooldown per enemy)
-        inRange.slice(0, 8).forEach(enemy => {
+        // Immobilise the 8 closest (15s cooldown per enemy) — skip any the damage above just killed
+        inRange.slice(0, 8).forEach(({ e: enemy }) => {
+            if (!enemy.active) return;
             const lastChill = enemy._lastFourChills ?? 0;
             if (now - lastChill < 15000) return;
             enemy._lastFourChills = now;
             enemy.bugCaught = true;
-            enemy.setTint(0xbb66ff);
-            enemy.health = Math.ceil(enemy.health / 2);
+            this.addStatusTint(enemy, 'immobilize', 0xbb66ff);
             this.tweens.add({ targets: enemy, alpha: 0.1, duration: 100, yoyo: true, repeat: 3 });
-            this.time.delayedCall(2000, () => { if (enemy.active) { enemy.bugCaught = false; enemy.clearTint(); } });
+            this.time.delayedCall(2000, () => { if (enemy.active) { enemy.bugCaught = false; this.removeStatusTint(enemy, 'immobilize'); } });
         });
-        // Boss: same slow + immobilise as regular enemies (using the shared 3s boss
-        // immobilise cooldown), but no HP-halving — that stays enemy-only.
-        if (this.boss?.active && Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= range) {
-            this.slowBoss(8000, 0.15, 0x88ddff);
-            this.immobilizeBoss(2000);
+        // Boss: same tapering damage, slow, and immobilise as regular enemies
+        if (this.boss?.active) {
+            const bossDist = Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y);
+            if (bossDist <= range) {
+                const dmg = damageAt(bossDist);
+                if (dmg > 0) this.damageBoss(dmg);
+                this.slowBoss(8000, 0.15, 0x88ddff);
+                this.immobilizeBoss(2000);
+            }
         }
         // Visual: large icy ring — same fix as Cold Glare: position the Graphics object
         // at (px, py) and draw at local (0, 0) so it scales in place, not from the origin.

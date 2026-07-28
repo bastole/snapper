@@ -53,8 +53,10 @@ export const CricketMethods = {
             const dist = Phaser.Math.Distance.Between(px, py, cricket.x, cricket.y);
             if (dist < this.magnetRange) {
                 this.physics.moveToObject(cricket, this.player, 220);
+                if (cricket._spinSpeed === undefined) cricket._spinSpeed = Phaser.Math.FloatBetween(0.2, 1) * 360;
+                cricket.setAngularVelocity(cricket._spinSpeed);
             } else {
-                if (cricket.body) cricket.body.setVelocity(0, 0);
+                if (cricket.body) { cricket.body.setVelocity(0, 0); cricket.setAngularVelocity(0); }
             }
         });
     },
@@ -134,6 +136,11 @@ export const CricketMethods = {
     inflateKnockback() {
         if (this._inInflateKnockback) return;
         this._inInflateKnockback = true;
+        // Level 2 (Inflate picked twice): double damage/knockback, 50% chance per
+        // enemy hit to also inflict a random ailment for 1-3s.
+        const level = this.ownedPassives.filter(p => p === 'Inflate').length;
+        const dmg   = level >= 2 ? 30 : 15;
+        const speed = level >= 2 ? 440 : 220;
         const range = 110;
         const burst = this.add.circle(this.player.x, this.player.y, range, 0xffffff, 0.25).setDepth(20);
         this.tweens.add({ targets: burst, alpha: 0, scaleX: 1.3, scaleY: 1.3, duration: 250, onComplete: () => burst.destroy() });
@@ -143,14 +150,50 @@ export const CricketMethods = {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
             if (dist < range) {
                 const a = Math.atan2(e.y - this.player.y, e.x - this.player.x);
-                this.applyKnockback(e, a, 220);
-                this.damageDealt += 15; e.health -= 15;
+                this.applyKnockback(e, a, speed);
+                this.damageDealt += dmg; e.health -= dmg;
                 this.playEnemyHurtSfx();
+                if (level >= 2 && Math.random() < 0.5) this.inflictRandomAilment(e, 1000, 3000);
                 if (e.health <= 0) toKill.push(e);
             }
         });
         toKill.forEach(e => this.killEnemy(e));
         this._inInflateKnockback = false;
+    },
+
+    // Applies one randomly-chosen status effect (poison, fire, slow, or immobilize)
+    // to an enemy for a duration randomly picked between minMs and maxMs. Routes
+    // through the same helpers/shared tint system every other weapon's status
+    // effects use, so it flashes correctly alongside anything else already active.
+    // Only rolls among ailments the enemy ISN'T already under — poison and slow in
+    // particular are already near-ubiquitous from other weapons (Venom, Cold Glare,
+    // Sticky Shot, etc.), so picking uniformly from all 4 regardless of what's
+    // already active meant those rolls silently no-op'd most of the time (their own
+    // apply functions already guard against re-triggering an active effect) while
+    // immobilize — much rarer elsewhere — was left as the only one that visibly did
+    // anything, making it look like the only possible outcome.
+    inflictRandomAilment(enemy, minMs, maxMs) {
+        if (!enemy?.active) return;
+        const duration = Phaser.Math.Between(minMs, maxMs);
+        const options = [];
+        if (!enemy.poisoned)  options.push('poison');
+        if (!enemy.burned)    options.push('fire');
+        if (!enemy.slowed)    options.push('slow');
+        if (!enemy.bugCaught) options.push('immobilize');
+        if (options.length === 0) return; // already under every ailment at once
+        const ailment = Phaser.Utils.Array.GetRandom(options);
+        if (ailment === 'poison') {
+            this.applyEnemyPoison(enemy, duration);
+        } else if (ailment === 'fire') {
+            this.igniteEnemy(enemy, duration);
+        } else if (ailment === 'slow') {
+            enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; this.addStatusTint(enemy, 'slow', 0x88ddff);
+            this.time.delayedCall(duration, () => { if (enemy.active) { enemy.speed = bs; this.removeStatusTint(enemy, 'slow'); enemy.slowed = false; } });
+        } else if (ailment === 'immobilize') {
+            enemy.bugCaught = true; enemy.setVelocity(0, 0);
+            this.addStatusTint(enemy, 'immobilize', 0xbb66ff);
+            this.time.delayedCall(duration, () => { if (enemy.active) { enemy.bugCaught = false; this.removeStatusTint(enemy, 'immobilize'); } });
+        }
     },
 
     applyPoison(maxTicks = 4) {
@@ -200,9 +243,9 @@ export const CricketMethods = {
         if (this.bugCatcherChance > 0 && Math.random() < this.bugCatcherChance && enemy.active) {
             enemy.setVelocity(0, 0);
             enemy.bugCaught = true;
-            enemy.setTint(0xbb66ff);
+            this.addStatusTint(enemy, 'immobilize', 0xbb66ff);
             this.time.delayedCall(this.bugCatcherDuration, () => {
-                if (enemy.active) { enemy.bugCaught = false; enemy.clearTint(); }
+                if (enemy.active) { enemy.bugCaught = false; this.removeStatusTint(enemy, 'immobilize'); }
             });
         }
 

@@ -8,7 +8,7 @@ export const EnemyDeathMethods = {
             if (idx >= 0) this.handMiniBossArray.splice(idx, 1);
             if (!this.bossSpawned) {
                 const drop = this.physics.add.image(enemy.x, enemy.y, 'dragonfly');
-                drop.setScale(0.80).setDepth(3);
+                drop.setScale(0.80).setDepth(3).setAngle(Phaser.Math.Between(0, 359));
                 drop.xpValue = 10;
                 this.crickets.add(drop);
             }
@@ -149,12 +149,12 @@ export const EnemyDeathMethods = {
                 this.spawnPupaMine(enemy.x - 8, enemy.y);
 
                 const cricket = this.physics.add.image(enemy.x + 8, enemy.y, drop.key ?? 'cricket');
-                cricket.setScale(drop.scale).setDepth(3);
+                cricket.setScale(drop.scale).setDepth(3).setAngle(Phaser.Math.Between(0, 359));
                 cricket.xpValue = drop.xpValue;
                 this.crickets.add(cricket);
             } else {
                 const cricket = this.physics.add.image(enemy.x, enemy.y, drop.key ?? 'cricket');
-                cricket.setScale(drop.scale).setDepth(3);
+                cricket.setScale(drop.scale).setDepth(3).setAngle(Phaser.Math.Between(0, 359));
                 cricket.xpValue = drop.xpValue;
                 this.crickets.add(cricket);
             }
@@ -231,6 +231,7 @@ export const EnemyDeathMethods = {
                 const proj  = this.physics.add.image(enemy.x, enemy.y, 'oregano_fan');
                 proj.setScale(0.14).setDepth(7).setTint(0x44ff44);
                 proj.setVelocity(Math.cos(angle) * 160, Math.sin(angle) * 160);
+                proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
                 proj.damage = enemy.damage;
                 this.physics.add.overlap(proj, this.player, () => {
                     if (!proj.active || proj.deflected) return;
