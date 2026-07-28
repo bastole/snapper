@@ -262,14 +262,21 @@ export default class GameScene extends Phaser.Scene {
         this.spawnMinDelay = 400;  // fastest it can ever get (ms)
         this.spawnTimer    = this.time.addEvent({ delay: this.spawnDelay, callback: this.spawnEnemy, callbackScope: this, loop: true });
 
-        // Gradually increase spawn rate every 10 seconds, capped at spawnMinDelay
+        this.maxEnemies     = 80;  // live enemy cap, grows over time
+        this.maxEnemiesCap  = 250; // ceiling the cap can grow to
+        this.maxEnemiesStep = 6;   // cap growth per ramp tick
+
+        // Gradually increase spawn rate (and the live enemy cap) every 10 seconds
         this.spawnRampTimer = this.time.addEvent({
             delay: 10000,
             loop: true,
             callback: () => {
                 if (this.spawnDelay > this.spawnMinDelay) {
-                    this.spawnDelay = Math.max(this.spawnMinDelay, Math.floor(this.spawnDelay * 0.775));
+                    this.spawnDelay = Math.max(this.spawnMinDelay, Math.floor(this.spawnDelay * 0.5));
                     this.spawnTimer.reset({ delay: this.spawnDelay, callback: this.spawnEnemy, callbackScope: this, loop: true });
+                }
+                if (this.maxEnemies < this.maxEnemiesCap) {
+                    this.maxEnemies = Math.min(this.maxEnemiesCap, this.maxEnemies + this.maxEnemiesStep);
                 }
             },
         });

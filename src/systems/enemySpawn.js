@@ -2,7 +2,7 @@ export const EnemySpawnMethods = {
 
     // ─── Step 2: Enemy spawning ───────────────────────────────────────────────────
     spawnEnemy() {
-        if (this.enemies.getChildren().length >= 80) return;
+        if (this.enemies.getChildren().length >= this.maxEnemies) return;
 
         const cam    = this.cameras.main;
         const margin = 80;

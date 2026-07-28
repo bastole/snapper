@@ -828,3 +828,22 @@ Separately, Cold Glare was skipping any enemy that was *already* slowed by anyth
 
 ### A note on verification this session
 The Browser pane's preview tab had `document.visibilityState` stuck on `hidden` for the entire session regardless of fronting it, which stalls Phaser's own asset loader and blocks any real in-game playthrough or screenshot — a session-specific tooling limitation, not a game bug (confirmed by manually pumping the game's own step loop, which ran fine; the loader was starved of real network/render ticks, not stuck in a code loop). Every change in this session was instead verified via `node --check` syntax validation on every edited file, and isolated Node-side simulations of the actual formulas/state machines involved (spawn ramp curve, boss phase-health math, the multi-status tint flash logic, the ailment-distribution fix, damage/chase-speed numbers) rather than live in-browser confirmation. Recommend a manual playthrough pass to confirm visually, particularly the evolutions-menu shake/flash sequence and the Toxic Ocean chase behavior.
+
+---
+
+## Session 29 — 2026-07-28
+
+### Spawn-rate ramp made much steeper; live enemy cap now grows over time
+The per-10-second spawn-delay multiplier went from ×0.775 to **×0.5** in `GameScene.js` — enemies now hit the 400ms density floor by **~30s** into a level instead of ~80s.
+
+Previously the live enemy cap was a hardcoded `80` inside `spawnEnemy()` (`enemySpawn.js`), never changing for the rest of the level. Added `this.maxEnemies` (starts at 80), which now grows **+6 every same 10-second ramp tick** up to a ceiling of `this.maxEnemiesCap = 250`, reached around the 5-minute mark and held for the rest of the level. `spawnEnemy()`'s cap check now reads `this.maxEnemies` instead of the old literal `80`.
+
+Verified via a Node-side simulation of both curves (not live in-browser — see the tooling note below): confirmed spawn delay reaches its 400ms floor at t=30s, and the enemy cap climbs 80→86→92→…→250 on schedule.
+
+### Bug found and fixed: Shining Shells could deal massive uncapped damage to bosses in a single pass
+Diagnosed from a user report: fighting the Lettuce Beetle (3000 HP, all bosses take 50% damage per [Session 28](#session-28--2026-07-28)), one weapon removed roughly a quarter of its health twice, about 10–15 seconds apart. Traced to `doShiningShells()` in `evolutions.js`: the shell-vs-enemy overlap callback dedupes each hit with a `hitEnemies` Set so a shell can only damage a given enemy once before rerouting, but the shell-vs-boss overlap callback had **no equivalent guard** — Arcade Physics fires an `overlap` callback on every single frame two bodies remain touching, so a shell clipping through (rather than just grazing) the boss's hitbox could deal `woodieDamage` (100 raw / 50 net) again on every frame of that overlap. At 60fps, even a quarter-second graze is 15 frames × 50 = 750 net damage — exactly a quarter of the boss's 3000 HP — explaining the reported symptom precisely. Every other continuous-contact weapon in the codebase (e.g. Dubia Shields, `movement.js`) already guards against this with an explicit per-target hit cooldown; Shining Shells' boss branch was the one exception.
+
+Fixed by adding a `shell.hitBoss` flag mirroring the existing `hitEnemies` Set pattern: set `true` on the first overlapping frame, checked-and-skipped on every frame after, and cleared back to `false` in `scheduleShiningShellBounce()` (the same 120ms-later rebound point that already clears `hitEnemies`) — so a shell now deals exactly one hit per pass through the boss, never one hit per frame.
+
+### A note on verification this session
+Same Browser-pane `document.visibilityState`-stuck-hidden limitation as last session persisted, so this was again verified without a live playthrough: `node --check` on every edited file, plus a Node-side simulation of the new spawn-delay/enemy-cap ramp curves. The Shining Shells fix is a straightforward, minimal structural mirror of the already-proven `hitEnemies` dedup pattern used two lines above it in the same function, so it wasn't separately simulated — recommend confirming in a real Lettuce Beetle fight that a lingering shell no longer strips a large chunk of boss health in one graze.

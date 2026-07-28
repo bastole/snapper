@@ -510,6 +510,7 @@ export const EvolutionMethods = {
             shell.setTint(0xffffff).setScale(0.30).setDepth(8);
             shell.setVelocity(Math.cos(angle) * 300, Math.sin(angle) * 300);
             shell.hitEnemies = new Set();
+            shell.hitBoss = false;
             this.physics.add.overlap(shell, this.enemies, (s, enemy) => {
                 if (!s.active || s.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy) || this.isCountdown) return;
                 s.hitEnemies.add(enemy);
@@ -525,7 +526,12 @@ export const EvolutionMethods = {
                 // Auto-aim to next enemy after hitting
                 this.scheduleShiningShellBounce(s, 300);
             });
-            if (this.boss?.active) this.physics.add.overlap(shell, this.boss, (s) => { if (!s.active) return; this.damageBoss(this.woodieDamage); this.scheduleShiningShellBounce(s, 300); });
+            if (this.boss?.active) this.physics.add.overlap(shell, this.boss, (s) => {
+                if (!s.active || s.hitBoss) return;
+                s.hitBoss = true;
+                this.damageBoss(this.woodieDamage);
+                this.scheduleShiningShellBounce(s, 300);
+            });
             this.time.delayedCall(25000, () => { if (shell.active) shell.destroy(); });
         }
         this.maybePolycephaly(() => this.doShiningShells());
@@ -535,6 +541,7 @@ export const EvolutionMethods = {
         this.time.delayedCall(120, () => {
             if (!shell.active) return;
             shell.hitEnemies.clear();
+            shell.hitBoss = false;
             // Aim at nearest enemy
             let nearest = null, nearestDist = Infinity;
             this.enemies.getChildren().forEach(e => {
