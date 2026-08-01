@@ -125,9 +125,11 @@ export const BaseWeaponMethods = {
                 },
             });
 
-            // Shrink continuously until it disappears
-            this.tweens.add({ targets: [field, ring], scaleX: 0, scaleY: 0, duration, ease: 'Linear',
+            // Shrink continuously until it disappears. Tracked in this.pausableShrinkTweens
+            // so GameScene.update() can pause/resume it with the game's actual pause state.
+            const shrinkTween = this.tweens.add({ targets: [field, ring], scaleX: 0, scaleY: 0, duration, ease: 'Linear',
                 onComplete: () => { tickTimer.remove(); field.destroy(); ring.destroy(); } });
+            (this.pausableShrinkTweens ??= []).push({ tween: shrinkTween, field });
         };
 
         this.physics.add.overlap(poop, this.enemies, land);
@@ -487,30 +489,36 @@ export const BaseWeaponMethods = {
                 this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 if (enemy.health <= 0) this.killEnemy(enemy);
+                this.bounceWoodieOffEnemy(w, speed);
             });
             if (this.boss?.active) {
                 this.physics.add.overlap(woodie, this.boss, (w) => {
                     if (!w.active) return;
                     this.damageBoss(this.woodieDamage);
+                    this.bounceWoodieOffEnemy(w, speed);
                 });
             }
 
-            this.scheduleWoodieBounce(woodie, speed);
+            // Safety despawn for a woodlouse that never connects with anything —
+            // bouncing is now purely a reaction to hitting an enemy/boss (see
+            // bounceWoodieOffEnemy), so nothing else would ever clear it away.
+            this.time.delayedCall(8000, () => { if (woodie.active) woodie.destroy(); });
         }
         this.maybePolycephaly(() => this.doWoodieBounce());
     },
 
-    scheduleWoodieBounce(woodie, speed) {
-        this.time.delayedCall(700, () => {
-            if (!woodie.active) return;
-            if (woodie.bouncesLeft <= 0) { woodie.destroy(); return; }
-            woodie.bouncesLeft--;
-            woodie.hitEnemies.clear(); // fresh hit window after each bounce
-            const newAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-            woodie.setVelocity(Math.cos(newAngle) * speed, Math.sin(newAngle) * speed);
-            this.tweens.add({ targets: woodie, alpha: 0.2, duration: 60, yoyo: true });
-            this.scheduleWoodieBounce(woodie, speed);
-        });
+    // Fires only when the woodlouse actually overlaps an enemy/boss (see doWoodieBounce's
+    // overlap callbacks above) — it no longer re-aims on a fixed timer regardless of contact.
+    bounceWoodieOffEnemy(woodie, speed) {
+        if (!woodie.active) return;
+        if (woodie.bouncesLeft <= 0) { woodie.destroy(); return; }
+        woodie.bouncesLeft--;
+        const newAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        woodie.setVelocity(Math.cos(newAngle) * speed, Math.sin(newAngle) * speed);
+        this.tweens.add({ targets: woodie, alpha: 0.2, duration: 60, yoyo: true });
+        // Brief delay before it can hit anything again, so it has time to actually move
+        // away from what it just bounced off instead of re-triggering the same instant.
+        this.time.delayedCall(120, () => { if (woodie.active) woodie.hitEnemies.clear(); });
     },
 
     // ─── Shared multi-status tint system ─────────────────────────────────────────
@@ -742,11 +750,13 @@ export const BaseWeaponMethods = {
         branch.body.setSize(barLen, barW);
         branch.setVelocity(Math.cos(travelAngle) * speed, Math.sin(travelAngle) * speed);
         branch.hits = 0;
-        branch.hitEnemies = new Set();
+        branch.hitCooldowns = new Map(); // per-enemy hit cooldown — same enemy can be hit again after 300ms
 
         this.physics.add.overlap(branch, this.enemies, (b, enemy) => {
-            if (!b.active || b.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy) || this.isCountdown) return;
-            b.hitEnemies.add(enemy);
+            if (!b.active || !this.canDamageEnemy(enemy) || this.isCountdown) return;
+            const lastHit = b.hitCooldowns.get(enemy) ?? 0;
+            if (this.time.now - lastHit < 300) return;
+            b.hitCooldowns.set(enemy, this.time.now);
             b.hits++;
             this.damageDealt += dmg; enemy.health -= dmg;
             this.playEnemyHurtSfx();

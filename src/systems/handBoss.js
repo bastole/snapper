@@ -101,6 +101,7 @@ export const HandBossMethods = {
         if (pDist <= radius && !this.player.reviveInvincible) {
             const pAngle = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
             if (Math.abs(Phaser.Math.Angle.Wrap(pAngle - angle)) <= halfArc) {
+                this.lastDamageSource = boss.texture.key;
                 this.playerHealth -= 30;
                 this.updateHPBar();
                 this.playerDamageFlash();
@@ -191,6 +192,7 @@ export const HandBossMethods = {
             proj.damage = 15;
             this.physics.add.overlap(proj, this.player, () => {
                 if (!proj.active || this.player.reviveInvincible) return;
+                this.lastDamageSource = boss.texture.key;
                 this.playerHealth -= proj.damage;
                 this.updateHPBar();
                 this.playerDamageFlash();
@@ -341,6 +343,7 @@ export const HandBossMethods = {
                 // An eighth of the player's default (100) max health per second standing
                 // in the fire, plus the fire status effect — its duration stacks by 1s
                 // for every second spent in the flame.
+                this.lastDamageSource = this.boss.texture.key;
                 this.playerHealth -= 12.5;
                 this.updateHPBar();
                 this.playerDamageFlash();
@@ -376,6 +379,7 @@ export const HandBossMethods = {
             if (pDist <= length && !this.player.reviveInvincible) {
                 const pAngle = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
                 if (Math.abs(Phaser.Math.Angle.Wrap(pAngle - angle)) <= 0.12) {
+                    this.lastDamageSource = boss.texture.key;
                     this.playerHealth -= 20;
                     this.updateHPBar();
                     this.playerDamageFlash();
@@ -567,6 +571,7 @@ export const HandBossMethods = {
                     proj.damage = 15;
                     this.physics.add.overlap(proj, this.player, () => {
                         if (!proj.active || this.player.reviveInvincible) return;
+                        this.lastDamageSource = boss.texture.key;
                         this.playerHealth -= proj.damage;
                         this.updateHPBar();
                         this.playerDamageFlash();
@@ -695,6 +700,7 @@ export const HandBossMethods = {
                     const d = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
                     if (d <= currentR) {
                         playerHit = true;
+                        this.lastDamageSource = boss.texture.key;
                         this.playerHealth -= 80;
                         this.updateHPBar();
                         this.playerDamageFlash();

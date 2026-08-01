@@ -19,6 +19,7 @@ export const CricketMethods = {
                         const now = this.time.now;
                         if (now - enemy.lastHitTime >= 1000) {
                             enemy.lastHitTime = now;
+                            this.lastDamageSource = enemy.texture.key;
                             this.playerHealth -= enemy.snapDamage;
                             this.updateHPBar();
                             this.playerDamageFlash();
@@ -45,7 +46,26 @@ export const CricketMethods = {
             }
             if (enemy.trapArmed || enemy.bugCaught) { enemy.setVelocity(0, 0); return; }
             if (enemy.knockbackUntil && this.time.now < enemy.knockbackUntil) return;
-            this.physics.moveToObject(enemy, this.player, enemy.speed);
+
+            // Give each enemy a fixed personal approach-angle bias plus a slow wobble, so a
+            // crowd spreads out and curves in from different angles/with small detours instead
+            // of every enemy beelining the exact same point and packing into one dense blob.
+            // Lazily assigned on first use (same pattern as cricket._spinSpeed below) rather than
+            // at every spawn site, since enemies are created from several different code paths.
+            // Fades to 0 at close range so contact is still reliable — enemies converge for real
+            // instead of orbiting the player forever without ever reaching them.
+            if (enemy.approachOffset === undefined) {
+                enemy.approachOffset  = Phaser.Math.FloatBetween(-25, 25) * (Math.PI / 180);
+                enemy.detourAmplitude = Phaser.Math.FloatBetween(10, 20) * (Math.PI / 180);
+                enemy.detourFreq      = Phaser.Math.FloatBetween(0.0006, 0.0015);
+                enemy.detourPhase     = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            }
+            const dist    = Phaser.Math.Distance.Between(enemy.x, enemy.y, px, py);
+            const spread  = Phaser.Math.Clamp((dist - 60) / 240, 0, 1);
+            const wobble  = Math.sin(this.time.now * enemy.detourFreq + enemy.detourPhase) * enemy.detourAmplitude;
+            const bearing = Phaser.Math.Angle.Between(enemy.x, enemy.y, px, py);
+            const angle   = bearing + (enemy.approachOffset + wobble) * spread;
+            enemy.setVelocity(Math.cos(angle) * enemy.speed, Math.sin(angle) * enemy.speed);
         });
 
         this.crickets.getChildren().forEach(cricket => {
@@ -233,6 +253,7 @@ export const CricketMethods = {
         if (now - enemy.lastHitTime < 1000) return;
         enemy.lastHitTime = now;
 
+        this.lastDamageSource = enemy.texture.key;
         this.playerHealth -= enemy.damage;
         this.updateHPBar();
         this.playerDamageFlash();

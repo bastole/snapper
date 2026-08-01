@@ -380,6 +380,7 @@ export const HandMiniBossMethods = {
 
         const dist = Phaser.Math.Distance.Between(mb.x, mb.y, this.player.x, this.player.y);
         if (dist < 80) {
+            this.lastDamageSource = mb.texture.key;
             this.playerHealth -= 25;
             this.playerDamageFlash();
             this.updateHPBar();

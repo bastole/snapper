@@ -1,3 +1,8 @@
+// Radius of Shining Shells' aim spread — a shell fired/ricocheted "at" an enemy
+// actually targets a random point within this radius of it, so the total possible
+// miss zone is a circle two Fullboxes wide (64px texture × 1.20 scale = 76.8px each).
+const SHELL_AIM_SPREAD = 76.8;
+
 export const EvolutionMethods = {
 
     // ─── Evolution apply methods ──────────────────────────────────────────────
@@ -11,7 +16,7 @@ export const EvolutionMethods = {
 
     evolveToSteelSlam() {
         this.ownedWeapons.delete('tailslap'); this.ownedWeapons.add('steelslam');
-        this.tailSlapDamage = Math.round(this.tailSlapDamage * 1.8);
+        this.tailSlapDamage = 60;
         this.tailSlapTimer.reset({ delay: this.tailSlapTimer.delay, callback: this.doSteelSlam, callbackScope: this, loop: true });
     },
 
@@ -34,13 +39,13 @@ export const EvolutionMethods = {
 
     evolveToStickyShot() {
         this.ownedWeapons.delete('lick'); this.ownedWeapons.add('stickyshot');
-        this.lickDamage = Math.round(this.lickDamage * 1.5);
+        this.lickDamage = 110;
         this.lickTimer.reset({ delay: 1500, callback: this.doStickyShot, callbackScope: this, loop: true });
     },
 
     evolveToAcidSnake() {
         this.ownedWeapons.delete('wormwhip'); this.ownedWeapons.add('acidsnake');
-        this.wormWhipDamage = Math.round(this.wormWhipDamage * 1.5);
+        this.wormWhipDamage = 75;
         this.wormWhipTimer.reset({ delay: 3500, callback: this.doAcidSnake, callbackScope: this, loop: true });
     },
 
@@ -57,7 +62,7 @@ export const EvolutionMethods = {
 
     evolveToShiningShells() {
         this.ownedWeapons.delete('woodiebounce'); this.ownedWeapons.add('shiningshells');
-        this.woodieDamage = Math.round(this.woodieDamage * 2.5);
+        this.woodieDamage = 80;
         this.woodieTimer.reset({ delay: 4000, callback: this.doShiningShells, callbackScope: this, loop: true });
     },
 
@@ -214,22 +219,32 @@ export const EvolutionMethods = {
                         this.slowBoss(2000, 0.5, 0x88ddff);
                     }
                     this.tweens.add({ targets: field, alpha: 0.85, duration: 120, yoyo: true });
-                    // Chase the largest nearby enemy cluster at 90px/s (45px per 500ms tick)
+                    // Chase the largest nearby enemy cluster at 90px/s (45px per 500ms tick).
+                    // Recalculated once per tick, but the actual movement is a 500ms linear
+                    // tween spanning the full gap until the next tick — so the field glides
+                    // continuously toward its target instead of teleporting 45px every tick.
                     let cx = 0, cy = 0, n = 0;
                     this.enemies.getChildren().forEach(e => {
                         if (Phaser.Math.Distance.Between(field.x, field.y, e.x, e.y) <= 250) { cx += e.x; cy += e.y; n++; }
                     });
                     if (n > 0 && field.active) {
                         const da = Math.atan2(cy / n - field.y, cx / n - field.x);
-                        field.x += Math.cos(da) * 45; field.y += Math.sin(da) * 45;
-                        ring.setPosition(field.x, field.y);
-                        ring.clear(); ring.lineStyle(3, 0x44aa00, 0.8); ring.strokeCircle(0, 0, radius);
+                        const targetX = field.x + Math.cos(da) * 45;
+                        const targetY = field.y + Math.sin(da) * 45;
+                        field.moveTween?.stop();
+                        field.moveTween = this.tweens.add({
+                            targets: field, x: targetX, y: targetY, duration: 500, ease: 'Linear',
+                            onUpdate: () => ring.setPosition(field.x, field.y),
+                        });
                     }
                 } });
                 // Shrinks like Poop's field, but only starts shrinking 4000ms after
-                // landing — stays full-size (and full damage radius) until then.
-                this.tweens.add({ targets: [field, ring], scaleX: 0, scaleY: 0, delay: 4000, duration, ease: 'Linear',
+                // landing — stays full-size (and full damage radius) until then. Tracked
+                // in this.pausableShrinkTweens so GameScene.update() can pause/resume it
+                // with the game's actual pause state (see Poop's own shrink for why).
+                const shrinkTween = this.tweens.add({ targets: [field, ring], scaleX: 0, scaleY: 0, delay: 4000, duration, ease: 'Linear',
                     onComplete: () => { tickTimer.remove(); field.destroy(); ring.destroy(); } });
+                (this.pausableShrinkTweens ??= []).push({ tween: shrinkTween, field });
             };
             this.physics.add.overlap(poop, this.enemies, land);
             if (this.boss?.active) this.physics.add.overlap(poop, this.boss, land);
@@ -502,10 +517,27 @@ export const EvolutionMethods = {
     },
 
     // ─── Evolved weapon: Shining Shells ───────────────────────────────────────
+    // Aims at a random point within SHELL_AIM_SPREAD of the nearest enemy instead of
+    // homing dead-on, so a shot fired or ricocheted toward an enemy can still miss it —
+    // falls back to a fully random direction when there's no enemy to aim near.
+    pickShellAimAngle(fromX, fromY) {
+        let nearest = null, nearestDist = Infinity;
+        this.enemies.getChildren().forEach(e => {
+            const d = Phaser.Math.Distance.Between(fromX, fromY, e.x, e.y);
+            if (d < nearestDist) { nearest = e; nearestDist = d; }
+        });
+        if (!nearest) return Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const offAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const offDist  = Phaser.Math.FloatBetween(0, SHELL_AIM_SPREAD);
+        const tx = nearest.x + Math.cos(offAngle) * offDist;
+        const ty = nearest.y + Math.sin(offAngle) * offDist;
+        return Math.atan2(ty - fromY, tx - fromX);
+    },
+
     doShiningShells() {
         if (this.isPaused || this.isCountdown) return;
         for (let i = 0; i < 3; i++) {
-            const angle  = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const angle  = this.pickShellAimAngle(this.player.x, this.player.y);
             const shell  = this.physics.add.image(this.player.x, this.player.y, 'cricket');
             shell.setTint(0xffffff).setScale(0.30).setDepth(8);
             shell.setVelocity(Math.cos(angle) * 300, Math.sin(angle) * 300);
@@ -542,15 +574,7 @@ export const EvolutionMethods = {
             if (!shell.active) return;
             shell.hitEnemies.clear();
             shell.hitBoss = false;
-            // Aim at nearest enemy
-            let nearest = null, nearestDist = Infinity;
-            this.enemies.getChildren().forEach(e => {
-                const d = Phaser.Math.Distance.Between(shell.x, shell.y, e.x, e.y);
-                if (d < nearestDist) { nearest = e; nearestDist = d; }
-            });
-            const a = nearest
-                ? Math.atan2(nearest.y - shell.y, nearest.x - shell.x)
-                : Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const a = this.pickShellAimAngle(shell.x, shell.y);
             shell.setVelocity(Math.cos(a) * speed, Math.sin(a) * speed);
             this.tweens.add({ targets: shell, alpha: 0.3, duration: 60, yoyo: true });
         });
@@ -588,7 +612,7 @@ export const EvolutionMethods = {
         const px = this.player.x, py = this.player.y;
         const ranges    = [80, 110, 140, 170];
         const range     = (ranges[this.poisonClawLevel - 1] ?? 170) + this.lickRangeBonus + 20;
-        const dmg       = 25;
+        const dmg       = 50;
         const now       = this.time.now;
         const fireOnce  = () => {
             let nearest = null, nearestDist = Infinity;
@@ -640,17 +664,18 @@ export const EvolutionMethods = {
             if (d < nearestDist) { nearest = e; nearestDist = d; }
         });
         const aimAngle = nearest ? Math.atan2(nearest.y - this.player.y, nearest.x - this.player.x) : (this.lastMoveAngle ?? 0);
-        const dmg = Math.round(22 * 2.2);
+        const dmg = 50;
         [aimAngle + Math.PI / 2, aimAngle - Math.PI / 2].forEach(travelAngle => {
             const log = this.physics.add.image(this.player.x, this.player.y, 'cricket');
             log.setDisplaySize(140, 28).setTint(0x4a2800).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
             log.body.setSize(140, 28);
             log.setVelocity(Math.cos(travelAngle) * 200, Math.sin(travelAngle) * 200);
-            log.hitCooldowns = new Map(); // per-enemy hit cooldown to prevent infinite knockback
+            log.hitCooldowns = new Map(); // per-enemy hit cooldown — 300ms, short enough that the
+            // knockback below carries an enemy back into the log for 2-3 repeat hits instead of one
             this.physics.add.overlap(log, this.enemies, (l, enemy) => {
                 if (!l.active || !this.canDamageEnemy(enemy) || this.isCountdown) return;
                 const lastHit = l.hitCooldowns.get(enemy) ?? 0;
-                if (this.time.now - lastHit < 1500) return;
+                if (this.time.now - lastHit < 300) return;
                 l.hitCooldowns.set(enemy, this.time.now);
                 this.damageDealt += dmg; enemy.health -= dmg;
                 this.playEnemyHurtSfx();
@@ -673,7 +698,7 @@ export const EvolutionMethods = {
         const angle  = (this.lastMoveAngle ?? 0) + Math.PI;
         const len    = this.dustKickLength * 1.6;
         const width  = 100;
-        const dmg    = 15;
+        const dmg    = 60;
         const cosA   = Math.cos(angle), sinA = Math.sin(angle);
         const now    = this.time.now;
         this.enemies.getChildren().forEach(enemy => {
@@ -733,7 +758,7 @@ export const EvolutionMethods = {
             const d  = Phaser.Math.FloatBetween(20, 150);
             const sx = Phaser.Math.Clamp(px + Math.cos(a) * d, 32, 3168);
             const sy = Phaser.Math.Clamp(py + Math.sin(a) * d, 32, 3168);
-            const r  = 90, dmg = Phaser.Math.Between(20, 35);
+            const r  = 90, dmg = Phaser.Math.Between(10, 250);
             this.enemies.getChildren().forEach(enemy => {
                 if (!this.canDamageEnemy(enemy)) return;
                 if (Phaser.Math.Distance.Between(sx, sy, enemy.x, enemy.y) <= r) {
@@ -762,12 +787,9 @@ export const EvolutionMethods = {
         const px = this.player.x, py = this.player.y;
         const range = 350, now = this.time.now;
 
-        // Peak damage (at the player's feet) is 1.5x a single Sticky Shot attack's
-        // damage — computed off the current lickDamage even if Sticky Shot itself
-        // hasn't been evolved, so it always tracks Lick's own upgrades/boosts.
-        // Tapers linearly down to 0 damage at the edge of the range.
-        const stickyShotDmg = Math.round(this.lickDamage * 1.5);
-        const peakDamage    = Math.round(stickyShotDmg * 1.5);
+        // Peak damage (at the player's feet) is a flat 130, tapering linearly down
+        // to 0 damage at the edge of the range.
+        const peakDamage = 130;
         const damageAt = (dist) => Math.round(peakDamage * Math.max(0, 1 - dist / range));
 
         // Sort enemies by distance to find the closest ones

@@ -1,7 +1,9 @@
 import { playSfx } from '../audio.js';
+import { recordEnemyKill } from '../progressIndex.js';
 export const EnemyDeathMethods = {
 
     killEnemy(enemy) {
+        if (enemy.texture?.key) recordEnemyKill(enemy.texture.key);
         // Hand mini-bosses: just drop a dragonfly and clean up
         if (enemy.isBossMini) {
             const idx = this.handMiniBossArray?.indexOf(enemy);
@@ -212,6 +214,7 @@ export const EnemyDeathMethods = {
             if (!this.player.reviveInvincible) {
                 const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
                 if (dist <= bombRadius) {
+                    this.lastDamageSource = enemy.texture.key;
                     this.playerHealth -= enemy.explodeDamage;
                     this.updateHPBar();
                     this.playerDamageFlash();
@@ -249,6 +252,7 @@ export const EnemyDeathMethods = {
                         });
                         return;
                     }
+                    this.lastDamageSource = enemy.texture.key;
                     this.playerHealth -= proj.damage;
                     this.updateHPBar();
                     this.playerDamageFlash();

@@ -1,4 +1,5 @@
 import { playSfx } from '../audio.js';
+import { recordWeaponLevel, recordBoostPick } from '../progressIndex.js';
 
 // Cold Glare's 4 levels (originally 7: unlock + 3 cooldown steps + 3 slow steps,
 // trimmed down to keep only the 1st/3rd/5th/7th of that progression).
@@ -463,7 +464,19 @@ export const LevelUpMethods = {
 
         const pickCard = (upgrade) => {
             playSfx(this, 'sfx_upgrade_selected');
+            const prevPassiveCount = this.ownedPassives.length;
             upgrade.effect();
+            // Record into the persistent (cross-run) progress index that powers the
+            // level-select INDEX menu. Weapon cards always carry weaponKey; boost cards
+            // don't carry an explicit name, but every boost effect() pushes exactly its
+            // own name onto ownedPassives, so a length-increase reveals which one fired
+            // without needing to touch each of the 16 individual boost card definitions.
+            if (upgrade.weaponKey) {
+                recordWeaponLevel(upgrade.weaponKey, this.getWeaponLevel(upgrade.weaponKey));
+            } else if (this.ownedPassives.length > prevPassiveCount) {
+                const boostName = this.ownedPassives[this.ownedPassives.length - 1];
+                recordBoostPick(boostName, this.getBoostLevel(boostName));
+            }
             this.updatePauseBtnGlow();
             rKeyHandler && this.input.keyboard.off('keydown-R', rKeyHandler);
             padHandler  && this.input.gamepad.off('down', padHandler);

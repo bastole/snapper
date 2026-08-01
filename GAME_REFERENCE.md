@@ -10,6 +10,7 @@
 4. [Levels & Enemies](#levels--enemies)
 5. [Bosses](#bosses)
 6. [Items & Drops](#items--drops)
+7. [INDEX Menu](#index-menu)
 
 ---
 
@@ -132,7 +133,7 @@ Max level: **2**
 ---
 
 ### Woodie Bounce
-Launches a bouncing woodlouse that ricochets between enemies. Initial launch aims at the nearest enemy; each bounce re-aims randomly.
+Launches a bouncing woodlouse. Initial launch aims at the nearest enemy. It only ricochets (picks a new random direction) when it actually hits an enemy or the boss — no more time-based re-aiming — and despawns after 8s if it never connects with anything.
 
 | Level | Damage | Woodlice | Bounces | Cooldown |
 |---|---|---|---|---|
@@ -173,7 +174,7 @@ Max level: **4**
 ---
 
 ### Branch Throw
-Fires a wide bar sideways (perpendicular to the nearest enemy). Breaks after N hits; despawns after 15s.
+Fires a wide bar sideways (perpendicular to the nearest enemy). Breaks after N hits; despawns after 15s. The same enemy can be hit again every 300ms rather than only once per bar.
 
 | Level | Damage | Bar Length | Max Hits | Cooldown |
 |---|---|---|---|---|
@@ -258,27 +259,34 @@ An evolution permanently replaces a weapon with a more powerful form. **Requirem
 | Evolution | Replaces | Paired Boost | What It Does |
 |---|---|---|---|
 | **Starved Chomp** | Bite ×4 | Hungry Forager | Kills grant 2× XP instantly with no insect drop. +20 dmg, +30 range on top of maxed Bite |
-| **Steel Slam** | Tail Slap ×2 | Hard Scales | 180° arc; dmg ×1.8; 400px/s knockback (150ms window); immobilises hit enemies for 500ms (8s cooldown per enemy) |
+| **Steel Slam** | Tail Slap ×2 | Hard Scales | 180° arc; 60 dmg; 400px/s knockback (150ms window); immobilises hit enemies for 500ms (8s cooldown per enemy) |
 | **Toxic Ocean** | Poop ×2 | Well Fed | 3 toxic fields per cast; radius ×1.4; dmg ×0.75; slows enemies 50% for 2s; fields chase the nearest enemy cluster at 90px/s; stay full-size for 4000ms then shrink to nothing over the field's duration (same shrink as Poop) |
 | **Sunbaked Ambers** | Pebble Flick ×2 | Basking | 30 ambers in a full 360° ring every 8s; burns hit enemies for 3.5s (6 dmg/300ms); burning enemies spread fire on contact for 1s (3s contagion cooldown) |
 | **Raging Roar** | Hiss ×2 | Angry | Always-active rotating 60° cone (~69°/s); 12 dmg per 500ms tick; slows all enemies inside to 50% (refreshes every tick); no timer — runs every frame |
-| **Sticky Shot** | Lick ×3 | Vitamin Supplements | 5 tongues every 1.5s; dmg ×1.5; slows hit enemies 50% for 2s |
-| **Acid Snake** | Worm Whip ×2 | Venom | Both sides simultaneously; 160° arc every 3.5s; poisons 6s; slows 50% for 2s |
+| **Sticky Shot** | Lick ×3 | Vitamin Supplements | 5 tongues every 1.5s; 110 dmg each; slows hit enemies 50% for 2s |
+| **Acid Snake** | Worm Whip ×2 | Venom | Both sides simultaneously; 160° arc every 3.5s; 75 dmg; poisons 6s; slows 50% for 2s |
 | **Bug Buster** | Pupa Mines ×3 | Bug Catcher | 8–12 mines per cast; blast radius ×2; flat 65 dmg; fuse 45s; each kill drops a standard Pupa Mine + normal XP insect |
 | **Spike Shedder** | Skin Shed ×2 | Big Fangs | 3 skins per cast every 8s; dmg ×2.5; heals 1 HP per 10 kills (tracked globally while active) |
-| **Shining Shells** | Woodie Bounce ×3 | Shiny Scales | 3 shells every 4s; dmg ×2.5; unlimited ricochets for 25s; auto-aims nearest enemy after each bounce; kills trigger a small explosion |
+| **Shining Shells** | Woodie Bounce ×3 | Shiny Scales | 3 shells every 4s; 80 dmg; unlimited ricochets for 25s; fires and ricochets toward the nearest enemy's general direction (random point within ~77px of it, so it can miss) rather than homing dead-on; kills trigger a small explosion |
 | **Dubia Defenders** | Dubia Shields ×4 | Bug Bucket | Shields spin 1.5× faster; each fires a projectile every 5s (dmg = base+15, speed 350); +20 base shield damage; every 5th shield hit on the same enemy triggers a small AOE explosion (50px radius, dmg = base shield damage) emitted from whichever shield is currently closest to it |
-| **Flashclaw** | Poison Claw ×4 | Hunter Instinct | Double strike (second fires 200ms later); 25 dmg per strike; poisons 6s; immobilises 1s (10s cooldown per enemy) |
-| **Log Lob** | Branch Throw ×4 | Aura Farming | 2 logs rolling in opposite perpendicular directions; dmg ≈48; unbreakable for 25s; slight knockback (60px/s) |
-| **Duststorm** | Dust Kick ×3 | Inflate | Width 100, length ×1.6; 15 dmg; slows 50% for 3s; immobilises enemies within 80px for 1.5s (12s cooldown per enemy) |
-| **Lucky Thrash** | Lucky Scratch ×3 | Hyperactivity | 8–14 scratch marks per cast, radius 90, dmg 20–35; hit enemies gain +25% Foodbox, +15% Treasure, +8% Fullbox drop boost |
-| **Four Chills** | Cold Glare ×4 | Polycephaly | 350px range every 25s; slows all to 15% for 8s; deals up to 1.5x a Sticky Shot attack's damage (90 by default) at the center, tapering linearly to 0 at the edge, to everything in range including the boss; the 8 closest enemies are also immobilised (15s cooldown per enemy) |
+| **Flashclaw** | Poison Claw ×4 | Hunter Instinct | Double strike (second fires 200ms later); 50 dmg per strike (100 total); poisons 6s; immobilises 1s (10s cooldown per enemy) |
+| **Log Lob** | Branch Throw ×4 | Aura Farming | 2 logs rolling in opposite perpendicular directions; 50 dmg every 300ms an enemy stays in contact with a log; unbreakable for 25s; slight knockback (60px/s) keeps the enemy bouncing back into the log for repeat hits |
+| **Duststorm** | Dust Kick ×3 | Inflate | Width 100, length ×1.6; 60 dmg; slows 50% for 3s; immobilises enemies within 80px for 1.5s (12s cooldown per enemy) |
+| **Lucky Thrash** | Lucky Scratch ×3 | Hyperactivity | 8–14 scratch marks per cast, radius 90, dmg 10–250 (wide random swing per mark, true to "Lucky"); hit enemies gain +25% Foodbox, +15% Treasure, +8% Fullbox drop boost |
+| **Four Chills** | Cold Glare ×4 | Polycephaly | 350px range every 25s; slows all to 15% for 8s; 130 dmg at the center, tapering linearly to 0 at the edge, to everything in range including the boss; the 8 closest enemies are also immobilised (15s cooldown per enemy) |
 
 ---
 
 ## Levels & Enemies
 
 Enemy damage is contact damage (1s cooldown per enemy). Enemies introduced at a given time appear in the spawn pool from that point onward. Spawn rate starts at 2500ms and ramps down every 10s, capping at 400ms.
+
+**Emergency spawn boost**: if the live enemy count is too low for how close the boss is, the spawn rate temporarily multiplies (only the strongest matching tier applies, and it lingers 5s after the trigger clears so it doesn't flicker):
+| Time left | Enemy count | Spawn rate |
+|---|---|---|
+| ≤ 7:00 | < 10 | +50% |
+| ≤ 5:00 | < 20 | +150% |
+| ≤ 2:00 | < 40 | +300% |
 
 ---
 
@@ -371,11 +379,12 @@ All bosses take half damage from every source (applied centrally in `damageBoss(
 
 - **HP**: 3000
 - **Contact damage**: 20
-- **Movement**: Walks toward player at 80px/s
+- **Movement**: Walks toward player at 80px/s, scaling up to 120px/s (+50%) as its HP drops to 0
+- **Escalation**: Walk speed, charge speed, and charge interval all scale continuously with damage taken — full strength at full HP, capped at the numbers below once HP hits 0
 
 | Attack | Cooldown | Mechanic |
 |---|---|---|
-| Charge | 3500ms | Flashes as a warning → launches at 320px/s for 800ms |
+| Charge | 3500ms → 1750ms (-50%) as HP drops | Flashes as a warning → launches at 320px/s → 480px/s (+50%) as HP drops, for 800ms |
 
 ---
 
@@ -473,3 +482,22 @@ When a special drop triggers, the type is determined as follows:
 | **Foodbox** | Remainder | Heals 50% of max HP. Drops during boss fight. Red off-screen arrow |
 
 XP insects and Treasures are despawned when the boss spawns. Foodboxes and Fullboxes persist throughout the boss fight.
+
+---
+
+## INDEX Menu
+
+A small **📖 INDEX** button on the Level Select screen opens a browsable record of every weapon, boost, evolution, and enemy ever seen across *every* playthrough — persisted to `localStorage` (`snapper_progressIndex`) via `src/progressIndex.js`, independent of the current run's `ownedWeapons`/`ownedPassives`/`appliedEvolutions`.
+
+- **WEAPONS / BOOSTS / EVOLUTIONS / ENEMIES** tabs, each a grid of cards. Weapons/boosts/evolutions have 16 cards each; Enemies has 35 (30 regular + 5 bosses) and overflows the screen, so its grid scrolls — a scrollbar (draggable thumb, mouse wheel, matching the in-game Evolutions menu's) appears on the right edge automatically whenever a tab's content doesn't fit.
+- A never-reached upgrade or never-seen enemy shows as **???**; nothing about it is revealed (no name, no sprite preview).
+- A seen enemy card shows its name, home level, a **BOSS** tag if applicable, and its kill/loss counts (`Kills N • Losses N`).
+- Clicking a card zooms in (now positioned lower on screen, y≈210, so it doesn't crowd the tabs). **◀ / ▶** side arrows (identical styling to the in-game Evolutions menu's) cycle to a *different* entry within the same tab, wrapping at the ends. For weapons/boosts specifically, a second **◀ PREVIOUS TIER** / **NEXT TIER ▶** pair sits in the bottom-right corner of the box, paging within just the currently-focused entry's already-reached tiers. Evolutions show name + description + "Evolves from: X (maxed) + Y". Enemies show an actual animated sprite (playing its real in-game `_walk` cycle), level, boss tag, and kill/loss counts — no tier pair, since enemies aren't leveled.
+- Progress is recorded live during play:
+  - `levelUp.js`'s card-pick handler records weapon levels/boost picks.
+  - `evolutionUI.js`'s `applyEvolution()` records evolutions.
+  - `GameScene.js` wraps `this.enemies.add()` (the single choke point every enemy sprite passes through regardless of which of the ~8 different spawn code paths created it) to record an enemy as "seen"; `spawnBoss()` records the 5 main bosses the same way (they never go through `this.enemies`).
+  - `killEnemy()`/`killBoss()` record kills.
+  - `showDeathOverlay()` records a "loss" against `this.lastDamageSource` — a key set right before ~19 of the ~20 places in the codebase that reduce `playerHealth`, tagging whichever enemy/boss dealt that hit (not tracked for the rare case of dying to a burn-status tick with no fresh hit in between).
+  - All via `src/progressIndex.js`, using the static per-tier/per-enemy text in `src/upgradeContent.js` (`WEAPON_CONTENT`/`BOOST_CONTENT`/`EVOLUTION_LIST`/`ENEMY_LIST`).
+- The in-game (pause menu) **EVOLUTIONS** menu also reads this record: an evolution's name/description un-mask permanently once ever acquired in any run, even in a fresh run that hasn't re-earned it yet — though its "✓ EVOLVED" active styling still only reflects the current run.

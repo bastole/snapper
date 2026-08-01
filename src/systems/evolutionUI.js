@@ -1,4 +1,5 @@
 import { playSfx } from '../audio.js';
+import { getProgressIndex, recordEvolution } from '../progressIndex.js';
 export const EvolutionUIMethods = {
 
     // Current level/count for a weapon or boost, and the "current/max" fraction text used
@@ -83,6 +84,7 @@ export const EvolutionUIMethods = {
 
     applyEvolution(ev) {
         this.appliedEvolutions.add(ev.id);
+        recordEvolution(ev.id);
         ev.effect.call(this);
     },
 
@@ -218,17 +220,28 @@ export const EvolutionUIMethods = {
             evos.forEach((ev, i) => {
                 const isAcquired = this.appliedEvolutions.has(ev.id);
                 const isAvail = !isAcquired && available.includes(ev);
+                // The name/description "???" mystery only applies to an evolution never
+                // seen in ANY past playthrough — once it's been acquired at least once,
+                // ever, it stays revealed here even in a fresh run that hasn't re-earned
+                // it yet. The white "EVOLVED"/owned styling below stays tied to isAcquired
+                // (this run) only, since that reflects whether it's actually active now.
+                const everAcquired = isAcquired || !!getProgressIndex().evolutions[ev.id];
+                // Known-but-not-active: seen in a past run (name/desc revealed) but not
+                // currently owned or available this run — needs its own readable colour
+                // tier, distinct from the near-invisible dimming used for genuine "???"
+                // mystery cards, since that dimming would make the now-visible text unreadable.
+                const isKnownOnly = everAcquired && !isAcquired && !isAvail;
                 const col = i % cols;
                 const row = Math.floor(i / cols);
                 const cx = startX + col * (cardW + 12);
                 const cy = startY + row * (cardH + 12);
 
-                const bgColor     = isAcquired ? 0xffffff : (isAvail ? 0x3a3000 : 0x1a1a1a);
-                const borderColor = isAcquired ? 0x000000 : (isAvail ? 0xffee00 : 0x444444);
-                const nameColor   = isAcquired ? '#000000' : (isAvail ? '#ffff44' : '#555555');
-                const recipeColor = isAcquired ? '#000000' : (isAvail ? '#aaaaaa' : '#333333');
-                const descColor   = isAcquired ? '#000000' : (isAvail ? '#cccccc' : '#2a2a2a');
-                const hoverColor  = isAcquired ? bgColor : (isAvail ? 0x554400 : 0x2a2a2a);
+                const bgColor     = isAcquired ? 0xffffff : (isAvail ? 0x3a3000 : (isKnownOnly ? 0x22223a : 0x1a1a1a));
+                const borderColor = isAcquired ? 0x000000 : (isAvail ? 0xffee00 : (isKnownOnly ? 0x7777bb : 0x444444));
+                const nameColor   = isAcquired ? '#000000' : (isAvail ? '#ffff44' : (isKnownOnly ? '#aaaaee' : '#555555'));
+                const recipeColor = isAcquired ? '#000000' : (isAvail ? '#aaaaaa' : (isKnownOnly ? '#9999cc' : '#333333'));
+                const descColor   = isAcquired ? '#000000' : (isAvail ? '#cccccc' : (isKnownOnly ? '#ccccee' : '#2a2a2a'));
+                const hoverColor  = isAcquired ? bgColor : (isAvail ? 0x554400 : (isKnownOnly ? 0x33335a : 0x2a2a2a));
 
                 const bg = this.add.rectangle(cx, cy, cardW, cardH, bgColor, 1)
                     .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0);
@@ -236,9 +249,9 @@ export const EvolutionUIMethods = {
                     .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0)
                     .setStrokeStyle(2, borderColor);
 
-                // Name and description stay hidden (as "???") until the evolution is
-                // actually acquired this run; requirements are always shown.
-                const nameText = this.add.text(cx, cy + 10, isAcquired ? ev.evolvedName : '???', {
+                // Name and description stay hidden (as "???") until the evolution has
+                // been acquired at least once, ever; requirements are always shown.
+                const nameText = this.add.text(cx, cy + 10, everAcquired ? ev.evolvedName : '???', {
                     fontSize: '12px', fontFamily: 'Arial Black, Arial',
                     color: nameColor,
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
@@ -246,8 +259,8 @@ export const EvolutionUIMethods = {
                     fontSize: '9px', fontFamily: 'Arial', color: recipeColor,
                     wordWrap: { width: cardW - 12 }, align: 'center',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
-                const descText = this.add.text(cx, cy + 58, isAcquired ? ev.desc : '???', {
-                    fontSize: '9px', fontFamily: isAcquired ? 'Arial' : 'Arial Black, Arial', color: descColor,
+                const descText = this.add.text(cx, cy + 58, everAcquired ? ev.desc : '???', {
+                    fontSize: '9px', fontFamily: everAcquired ? 'Arial' : 'Arial Black, Arial', color: descColor,
                     wordWrap: { width: cardW - 12 }, align: 'center',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
 
@@ -332,6 +345,7 @@ export const EvolutionUIMethods = {
             const ev = evos[zoomIdx];
             const isAcquired = this.appliedEvolutions.has(ev.id);
             const isAvail = !isAcquired && this.getAvailableEvolutions().includes(ev);
+            const everAcquired = isAcquired || !!getProgressIndex().evolutions[ev.id];
             const borderColor = isAcquired ? 0x000000 : (isAvail ? 0xffee00 : 0x444444);
             const bgColor   = isAcquired ? 0xffffff : 0x1a1a1a;
             const textColor = isAcquired ? '#000000' : '#dddddd';
@@ -340,13 +354,14 @@ export const EvolutionUIMethods = {
                 .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5);
             const border = this.add.rectangle(zoomCx, zoomCy, zoomCardW, zoomCardH)
                 .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5).setStrokeStyle(3, borderColor);
-            // Name and description stay hidden (as "???") until the evolution is
-            // actually acquired this run.
-            const nameText = this.add.text(zoomCx, zoomCy - 78, isAcquired ? ev.evolvedName : '???', {
+            // Name and description stay hidden (as "???") only for an evolution never
+            // acquired in any past playthrough — colours here were already readable in
+            // every state, so revealing the text needs no colour changes, unlike the grid.
+            const nameText = this.add.text(zoomCx, zoomCy - 78, everAcquired ? ev.evolvedName : '???', {
                 fontSize: '20px', fontFamily: 'Arial Black, Arial', color: isAcquired ? '#000000' : '#ffff44',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
-            const descText = this.add.text(zoomCx, zoomCy - 30, isAcquired ? ev.desc : '???', {
-                fontSize: '12px', fontFamily: isAcquired ? 'Arial' : 'Arial Black, Arial', color: textColor,
+            const descText = this.add.text(zoomCx, zoomCy - 30, everAcquired ? ev.desc : '???', {
+                fontSize: '12px', fontFamily: everAcquired ? 'Arial' : 'Arial Black, Arial', color: textColor,
                 wordWrap: { width: zoomCardW - 60 }, align: 'center',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
             modeItems.push(bg, border, nameText, descText);
@@ -547,12 +562,33 @@ export const EvolutionUIMethods = {
             if (!this._pauseBtnGlowTween) {
                 this.pauseBtn.setColor('#ffdd00');
                 this._pauseBtnGlowTween = this.tweens.add({ targets: this.pauseBtn, alpha: 0.3, duration: 400, yoyo: true, repeat: -1 });
+                // Big radiating golden pulse ring, once immediately and then every 5s for as
+                // long as an evolution stays available.
+                this.spawnPauseBtnPulse();
+                this._pauseBtnPulseTimer = this.time.addEvent({ delay: 5000, loop: true, callback: this.spawnPauseBtnPulse, callbackScope: this });
             }
         } else if (this._pauseBtnGlowTween) {
             this._pauseBtnGlowTween.stop(); this._pauseBtnGlowTween = null;
             this.pauseBtn.setAlpha(1);
             this.pauseBtn.setColor('#ffffff');
+            this._pauseBtnPulseTimer?.remove(); this._pauseBtnPulseTimer = null;
         }
+    },
+
+    // A single expanding, fading gold ring centred on the pause button — drawn at local
+    // (0, 0) and positioned via setPosition so it scales in place around its own center
+    // (the same fix already applied to every other AOE ring in this codebase, e.g. Cold
+    // Glare/Four Chills/Poop/Toxic Ocean, rather than drifting from a stale local offset).
+    spawnPauseBtnPulse() {
+        if (!this.pauseBtn) return;
+        const b = this.pauseBtn.getBounds();
+        const ring = this.add.graphics().setScrollFactor(0).setDepth(101).setPosition(b.centerX, b.centerY);
+        ring.lineStyle(4, 0xffdd00, 0.9);
+        ring.strokeCircle(0, 0, 16);
+        this.tweens.add({
+            targets: ring, scaleX: 5, scaleY: 5, alpha: 0, duration: 900, ease: 'Cubic.easeOut',
+            onComplete: () => ring.destroy(),
+        });
     },
 
     buildLoadoutText() {

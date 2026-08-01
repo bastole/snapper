@@ -1,9 +1,15 @@
 import { playSfx, pauseBgm, stopBgm } from '../audio.js';
+import { recordEnemyLoss } from '../progressIndex.js';
 export const GameFlowMethods = {
 
     showDeathOverlay() {
         if (this._deathOverlayShown) return;
         this._deathOverlayShown = true;
+        // Whichever enemy/boss last dealt damage (set at ~19 call sites across the
+        // codebase right before each `this.playerHealth -=`) is credited with the loss
+        // for the INDEX menu's "losses to" stat. Not tracked for the rare case of dying
+        // to a status-effect tick (burn) with no fresh hit in between.
+        if (this.lastDamageSource) recordEnemyLoss(this.lastDamageSource);
 
         playSfx(this, 'sfx_gameover');
         pauseBgm();

@@ -12,6 +12,7 @@ import { EvolutionMethods }   from '../systems/evolutions.js';
 import { EvolutionUIMethods } from '../systems/evolutionUI.js';
 import { HandBossMethods }    from '../systems/handBoss.js';
 import { HandMiniBossMethods} from '../systems/handMiniBoss.js';
+import { recordEnemySeen } from '../progressIndex.js';
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -88,6 +89,17 @@ export default class GameScene extends Phaser.Scene {
 
         // --- Groups ---
         this.enemies   = this.physics.add.group();
+        // Every enemy sprite, regardless of which of the ~8 different spawn code paths
+        // created it (the main spawnEnemy() plus Spinach Cyclone/Tempest, Coriander
+        // Carrot, Mulberry Monstrosity minions, Carrot Scorpion's mole/thug bury, Hand
+        // mini-boss summons), gets added to this group before it becomes a real, active
+        // enemy — wrapping .add() here is a single choke point to record "seen" for the
+        // INDEX menu without touching every individual spawn site.
+        const origEnemiesAdd = this.enemies.add.bind(this.enemies);
+        this.enemies.add = (child, ...args) => {
+            if (child?.texture?.key) recordEnemySeen(child.texture.key);
+            return origEnemiesAdd(child, ...args);
+        };
         this.crickets  = this.physics.add.group();
         this.offscreenArrows = this.add.graphics().setDepth(30).setScrollFactor(0);
         this.pupaGroup = this.physics.add.group(); // tracks live pupa mines for boss overlap
@@ -260,7 +272,7 @@ export default class GameScene extends Phaser.Scene {
         // --- Timers ---
         this.spawnDelay    = 2500; // initial delay between each enemy spawn (ms)
         this.spawnMinDelay = 400;  // fastest it can ever get (ms)
-        this.spawnTimer    = this.time.addEvent({ delay: this.spawnDelay, callback: this.spawnEnemy, callbackScope: this, loop: true });
+        this.spawnTimer    = this.time.addEvent({ delay: this.spawnDelay, callback: this.spawnTick, callbackScope: this, loop: true });
 
         this.maxEnemies     = 80;  // live enemy cap, grows over time
         this.maxEnemiesCap  = 250; // ceiling the cap can grow to
@@ -273,7 +285,7 @@ export default class GameScene extends Phaser.Scene {
             callback: () => {
                 if (this.spawnDelay > this.spawnMinDelay) {
                     this.spawnDelay = Math.max(this.spawnMinDelay, Math.floor(this.spawnDelay * 0.5));
-                    this.spawnTimer.reset({ delay: this.spawnDelay, callback: this.spawnEnemy, callbackScope: this, loop: true });
+                    this.spawnTimer.reset({ delay: this.spawnDelay, callback: this.spawnTick, callbackScope: this, loop: true });
                 }
                 if (this.maxEnemies < this.maxEnemiesCap) {
                     this.maxEnemies = Math.min(this.maxEnemiesCap, this.maxEnemies + this.maxEnemiesStep);
@@ -306,6 +318,17 @@ export default class GameScene extends Phaser.Scene {
 
     // ─── Update loop ─────────────────────────────────────────────────────────────
     update() {
+        // Phaser's Tween Manager runs in real time regardless of time.paused, so a
+        // duration-based shrink tween (Poop / Toxic Ocean fields) would otherwise keep
+        // visibly shrinking during pause/countdown/level-up/level-clear/game-over. Any
+        // tween pushed into this.pausableShrinkTweens gets paused/resumed here every
+        // frame in lockstep with the game's actual blocked state — checked before the
+        // isLevelingUp early-return below so it still applies during level-up too.
+        if (this.pausableShrinkTweens?.length) {
+            const shrinkBlocked = this.isPaused || this.isCountdown || this.isLevelingUp || this.isLevelClear || this.isGameOver;
+            this.pausableShrinkTweens = this.pausableShrinkTweens.filter(({ field }) => field?.active);
+            this.pausableShrinkTweens.forEach(({ tween }) => { shrinkBlocked ? tween.pause() : tween.resume(); });
+        }
         if (this.isLevelingUp) return;
         this.handleMovement();
         this.attractCrickets();
@@ -321,7 +344,7 @@ export default class GameScene extends Phaser.Scene {
                 this.updateCarrotScorpionAI();
             } else if (!this.boss.isCharging) {
                 if (this.boss.bugCaught) this.boss.setVelocity(0, 0);
-                else this.physics.moveToObject(this.boss, this.player, 80 * (this.boss.slowFactor ?? 1));
+                else this.physics.moveToObject(this.boss, this.player, 80 * this.getLettuceBeetleSpeedFactor() * (this.boss.slowFactor ?? 1));
             }
         }
         this.updateBossHealthBar();

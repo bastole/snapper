@@ -1,5 +1,46 @@
 export const EnemySpawnMethods = {
 
+    // Emergency spawn-rate boost for the final stretch before the boss — if the live
+    // enemy count is too low for how close the boss is, temporarily multiplies the
+    // spawn rate so the field doesn't feel empty. Three tiers gated by time-remaining
+    // (this.gameTime counts down from 600 to 0), only the strongest currently-matching
+    // tier applies (they don't stack) — the closer to the boss, the higher the enemy
+    // count threshold that triggers it and the bigger the boost:
+    //   last 7 min, <10 enemies → +50%  (×1.5)
+    //   last 5 min, <20 enemies → +150% (×2.5)
+    //   last 2 min, <40 enemies → +300% (×4)
+    // Once triggered, the boost lingers for 5s after the trigger condition stops being
+    // true (time window ends or the count rises back over the threshold), so it doesn't
+    // flicker on/off if the count hovers right at the line.
+    getSpawnBoostMultiplier() {
+        const timeLeft = this.gameTime;
+        const count    = this.enemies.getChildren().length;
+        let tier = 1;
+        if (timeLeft <= 120 && count < 40) tier = 4;
+        else if (timeLeft <= 300 && count < 20) tier = 2.5;
+        else if (timeLeft <= 420 && count < 10) tier = 1.5;
+
+        if (tier > 1) {
+            this.spawnBoostMultiplier = tier;
+            this.spawnBoostUntil = this.time.now + 5000;
+            return tier;
+        }
+        if (this.spawnBoostUntil && this.time.now < this.spawnBoostUntil) return this.spawnBoostMultiplier;
+        return 1;
+    },
+
+    // Fired by spawnTimer instead of spawnEnemy() directly — applies the boost above by
+    // spawning extra enemies in the same tick via a fractional accumulator, so e.g. a
+    // ×1.5 multiplier averages out to one extra enemy every other tick rather than
+    // rounding away the fraction.
+    spawnTick() {
+        this._spawnAccumulator = (this._spawnAccumulator ?? 0) + this.getSpawnBoostMultiplier();
+        while (this._spawnAccumulator >= 1) {
+            this._spawnAccumulator -= 1;
+            this.spawnEnemy();
+        }
+    },
+
     // ─── Step 2: Enemy spawning ───────────────────────────────────────────────────
     spawnEnemy() {
         if (this.enemies.getChildren().length >= this.maxEnemies) return;
@@ -215,6 +256,7 @@ export const EnemySpawnMethods = {
                                 });
                                 return;
                             }
+                            this.lastDamageSource = enemy.texture.key;
                             this.playerHealth -= proj.damage;
                             this.updateHPBar();
                             this.playerDamageFlash();
@@ -251,6 +293,7 @@ export const EnemySpawnMethods = {
                         const now = this.time.now;
                         if (now - enemy.lastHitTime >= 1000) {
                             enemy.lastHitTime = now;
+                            this.lastDamageSource = enemy.texture.key;
                             this.playerHealth -= enemy.damage;
                             this.updateHPBar();
                             this.playerDamageFlash();
@@ -286,6 +329,7 @@ export const EnemySpawnMethods = {
                         const now = this.time.now;
                         if (now - enemy.lastHitTime >= 1000) {
                             enemy.lastHitTime = now;
+                            this.lastDamageSource = enemy.texture.key;
                             this.playerHealth -= enemy.damage;
                             this.updateHPBar();
                             this.playerDamageFlash();
@@ -369,6 +413,7 @@ export const EnemySpawnMethods = {
                             const now = this.time.now;
                             if (now - (enemy.lastSweepHit ?? 0) >= 1000) {
                                 enemy.lastSweepHit = now;
+                                this.lastDamageSource = enemy.texture.key;
                                 this.playerHealth -= enemy.damage;
                                 this.updateHPBar();
                                 this.playerDamageFlash();
@@ -488,6 +533,7 @@ export const EnemySpawnMethods = {
                             });
                             return;
                         }
+                        this.lastDamageSource = enemy.texture.key;
                         this.playerHealth -= proj.damage;
                         this.updateHPBar();
                         this.playerDamageFlash();
@@ -565,6 +611,7 @@ export const EnemySpawnMethods = {
                                         const now = this.time.now;
                                         if (now - mini.lastHitTime >= 1000) {
                                             mini.lastHitTime = now;
+                                            this.lastDamageSource = mini.texture.key;
                                             this.playerHealth -= mini.damage; this.updateHPBar();
                                             this.playerDamageFlash();
                                             if (this.inflateActive) this.inflateKnockback();
@@ -640,6 +687,7 @@ export const EnemySpawnMethods = {
                         const now = this.time.now;
                         if (now - enemy.lastHitTime >= 1000) {
                             enemy.lastHitTime = now;
+                            this.lastDamageSource = enemy.texture.key;
                             this.playerHealth -= 20;
                             this.updateHPBar();
                             this.playerDamageFlash();

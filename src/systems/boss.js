@@ -1,4 +1,5 @@
 import { playSfx, crossfadeBgm } from '../audio.js';
+import { recordEnemySeen, recordEnemyKill } from '../progressIndex.js';
 export const BossMethods = {
 
     tickTimer() {
@@ -61,6 +62,7 @@ export const BossMethods = {
             const bossY = this.player.y;
 
             this.boss = this.physics.add.sprite(bossX, bossY, bossCfg.key);
+            recordEnemySeen(bossCfg.key);
             this.boss.setScale(bossCfg.scale);
             this.boss.setDepth(8);
             this.boss.health      = bossCfg.health;
@@ -162,8 +164,18 @@ export const BossMethods = {
                 };
                 scheduleNextSlam();
             } else {
-                // Lettuce Beetle: simple charge attack
-                this.bossChargeTimer = this.time.addEvent({ delay: bossCfg.chargeDelay, callback: this.bossCharge, callbackScope: this, loop: true });
+                // Lettuce Beetle: simple charge attack. Interval shrinks (down to -50%) as its
+                // health drops, so it's rescheduled fresh after every charge instead of running
+                // on a fixed-delay loop — see getLettuceBeetleProgress().
+                this.boss.baseChargeDelay = bossCfg.chargeDelay;
+                const scheduleBeetleCharge = () => {
+                    if (!this.boss?.active) return;
+                    this.bossChargeTimer = this.time.delayedCall(this.getLettuceBeetleChargeDelay(), () => {
+                        this.bossCharge();
+                        scheduleBeetleCharge();
+                    });
+                };
+                scheduleBeetleCharge();
             }
 
             this.timerText.setVisible(false);
@@ -231,11 +243,31 @@ export const BossMethods = {
         }
     },
 
+    // Lettuce Beetle: 0 at full health, ramping linearly up to 1 at 0 health — used to
+    // scale its walk speed and charge speed (both up to +50%, see getLettuceBeetleSpeedFactor)
+    // and shrink its charge interval (down to -50%, see getLettuceBeetleChargeDelay) as the
+    // fight progresses, so it escalates the closer the boss gets to dying.
+    getLettuceBeetleProgress() {
+        if (!this.boss || !this.boss.maxHealth) return 0;
+        const pct = Phaser.Math.Clamp(this.boss.health / this.boss.maxHealth, 0, 1);
+        return 1 - pct;
+    },
+
+    getLettuceBeetleSpeedFactor() {
+        return 1 + 0.5 * this.getLettuceBeetleProgress(); // 1x at full health -> 1.5x at 0 health
+    },
+
+    getLettuceBeetleChargeDelay() {
+        const base = this.boss?.baseChargeDelay ?? 3500;
+        return base * (1 - 0.5 * this.getLettuceBeetleProgress()); // base at full health -> base*0.5 at 0 health
+    },
+
     bossHitPlayer(player, boss) {
         if (player.reviveInvincible) return;
         const now = this.time.now;
         if (now - boss.lastHitTime < 1000) return;
         boss.lastHitTime = now;
+        this.lastDamageSource = boss.texture.key;
         this.playerHealth -= boss.damage;
         this.updateHPBar();
         this.playerDamageFlash();
@@ -275,7 +307,8 @@ export const BossMethods = {
             warn.destroy();
             if (!this.boss?.active) return;
             const chargeAngle = Math.atan2(targetY - this.boss.y, targetX - this.boss.x);
-            this.boss.setVelocity(Math.cos(chargeAngle) * 320, Math.sin(chargeAngle) * 320);
+            const chargeSpeed = 320 * this.getLettuceBeetleSpeedFactor();
+            this.boss.setVelocity(Math.cos(chargeAngle) * chargeSpeed, Math.sin(chargeAngle) * chargeSpeed);
             this.time.delayedCall(800, () => {
                 if (!this.boss?.active) return;
                 this.boss.setVelocity(0, 0);
@@ -621,6 +654,7 @@ export const BossMethods = {
         // Deal 25 damage if player is still nearby
         const dist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
         if (dist < 80) {
+            this.lastDamageSource = boss.texture.key;
             this.playerHealth -= 25;
             this.playerDamageFlash();
             this.updateHPBar();
@@ -772,6 +806,7 @@ export const BossMethods = {
     },
 
     killBoss() {
+        if (this.boss?.texture?.key) recordEnemyKill(this.boss.texture.key);
         if (this.bossChargeTimer)    this.bossChargeTimer.remove();
         if (this.bossLegSlamTimer)   this.bossLegSlamTimer.remove();
         if (this.handSlapTimer)      this.handSlapTimer.remove();
