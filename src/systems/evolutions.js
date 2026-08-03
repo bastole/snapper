@@ -1,7 +1,7 @@
 // Radius of Shining Shells' aim spread — a shell fired/ricocheted "at" an enemy
 // actually targets a random point within this radius of it, so the total possible
 // miss zone is a circle two Fullboxes wide (64px texture × 1.20 scale = 76.8px each).
-const SHELL_AIM_SPREAD = 76.8;
+const SHELL_AIM_SPREAD = 153.6;
 
 export const EvolutionMethods = {
 
@@ -167,7 +167,7 @@ export const EvolutionMethods = {
             }
         }
         const g = this.add.graphics().setDepth(20);
-        g.lineStyle(3, 0xaaaaaa, 0.8); g.fillStyle(0x888888, 0.25);
+        g.lineStyle(6, 0xaaaaaa, 0.8); g.fillStyle(0x888888, 0.25);
         g.slice(this.player.x, this.player.y, this.tailSlapRange, angle - arc / 2, angle + arc / 2, false);
         g.fillPath(); g.strokePath();
         this.tweens.add({ targets: g, alpha: 0, duration: 300, onComplete: () => g.destroy() });
@@ -177,13 +177,13 @@ export const EvolutionMethods = {
     // ─── Evolved weapon: Toxic Ocean ──────────────────────────────────────────
     doToxicOcean() {
         if (this.isPaused || this.isCountdown) return;
-        const radius   = 170; // ~1.4× poop radius
+        const radius   = 340; // ~1.4× poop radius
         const duration = this.poopDuration;
         for (let t = 0; t < 3; t++) {
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
             const poop  = this.physics.add.image(this.player.x, this.player.y, 'evol_toxic_ocean');
-            poop.setScale(0.18).setDepth(8);
-            poop.setVelocity(Math.cos(angle) * 180, Math.sin(angle) * 180);
+            poop.setScale(0.36).setDepth(8);
+            poop.setVelocity(Math.cos(angle) * 360, Math.sin(angle) * 360);
             poop.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             poop.landed = false;
             const land = () => {
@@ -197,7 +197,7 @@ export const EvolutionMethods = {
                 // Cold Glare/Four Chills' ring — and so it can be re-centered every
                 // tick as it chases without redrawing at a stale offset.
                 const ring  = this.add.graphics().setDepth(7).setPosition(fx, fy);
-                ring.lineStyle(3, 0x44aa00, 0.8); ring.strokeCircle(0, 0, radius);
+                ring.lineStyle(6, 0x44aa00, 0.8); ring.strokeCircle(0, 0, radius);
                 const tickTimer = this.time.addEvent({ delay: 500, loop: true, callback: () => {
                     if (this.isPaused || this.isLevelingUp || this.isCountdown) return;
                     // Hit radius tracks the field's live shrinking scale
@@ -225,12 +225,12 @@ export const EvolutionMethods = {
                     // continuously toward its target instead of teleporting 45px every tick.
                     let cx = 0, cy = 0, n = 0;
                     this.enemies.getChildren().forEach(e => {
-                        if (Phaser.Math.Distance.Between(field.x, field.y, e.x, e.y) <= 250) { cx += e.x; cy += e.y; n++; }
+                        if (Phaser.Math.Distance.Between(field.x, field.y, e.x, e.y) <= 500) { cx += e.x; cy += e.y; n++; }
                     });
                     if (n > 0 && field.active) {
                         const da = Math.atan2(cy / n - field.y, cx / n - field.x);
-                        const targetX = field.x + Math.cos(da) * 45;
-                        const targetY = field.y + Math.sin(da) * 45;
+                        const targetX = field.x + Math.cos(da) * 90;
+                        const targetY = field.y + Math.sin(da) * 90;
                         field.moveTween?.stop();
                         field.moveTween = this.tweens.add({
                             targets: field, x: targetX, y: targetY, duration: 500, ease: 'Linear',
@@ -287,8 +287,8 @@ export const EvolutionMethods = {
         for (let i = 0; i < count; i++) {
             const a      = (i / count) * Math.PI * 2;
             const amber  = this.physics.add.image(this.player.x, this.player.y, 'evol_sunbaked_amber');
-            amber.setScale(0.11).setDepth(8);
-            amber.setVelocity(Math.cos(a) * 280, Math.sin(a) * 280);
+            amber.setScale(0.22).setDepth(8);
+            amber.setVelocity(Math.cos(a) * 560, Math.sin(a) * 560);
             amber.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             this.physics.add.overlap(amber, this.enemies, (am, enemy) => {
                 if (!am.active || !this.canDamageEnemy(enemy)) return;
@@ -366,7 +366,7 @@ export const EvolutionMethods = {
         this._roarGraphics.fillStyle(0xff8844, 0.12);
         this._roarGraphics.slice(this.player.x, this.player.y, this.hissRange, this._roarAngle - arc / 2, this._roarAngle + arc / 2, false);
         this._roarGraphics.fillPath();
-        this._roarGraphics.lineStyle(2, 0xff8844, 0.4);
+        this._roarGraphics.lineStyle(4, 0xff8844, 0.4);
         this._roarGraphics.strokePath();
     },
 
@@ -374,7 +374,7 @@ export const EvolutionMethods = {
     doStickyShot() {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
-        const lickRange = ([90, 120, 150][this.lickLevel - 1] || 150) + this.lickRangeBonus;
+        const lickRange = ([180, 240, 300][this.lickLevel - 1] || 300) + this.lickRangeBonus;
         const targets = this.enemies.getChildren()
             .map(e => ({ e, d: Phaser.Math.Distance.Between(px, py, e.x, e.y) }))
             .filter(o => o.d <= lickRange && this.canDamageEnemy(o.e))
@@ -401,8 +401,8 @@ export const EvolutionMethods = {
                 this.slowBoss(2000, 0.5, 0x88ddff);
             }
             const g = this.add.graphics().setDepth(20);
-            g.lineStyle(5, 0xffaa44, 0.9); g.beginPath(); g.moveTo(px, py); g.lineTo(tx, ty); g.strokePath();
-            g.fillStyle(0xffaa44, 1); g.fillCircle(tx, ty, 6);
+            g.lineStyle(10, 0xffaa44, 0.9); g.beginPath(); g.moveTo(px, py); g.lineTo(tx, ty); g.strokePath();
+            g.fillStyle(0xffaa44, 1); g.fillCircle(tx, ty, 12);
             this.tweens.add({ targets: g, alpha: 0, duration: 200, onComplete: () => g.destroy() });
         }
         this.maybePolycephaly(() => this.doStickyShot());
@@ -441,11 +441,11 @@ export const EvolutionMethods = {
                 }
             }
             const g = this.add.graphics().setDepth(20);
-            g.lineStyle(3, 0x44ff88, 0.85); g.beginPath();
+            g.lineStyle(6, 0x44ff88, 0.85); g.beginPath();
             g.arc(px, py, this.wormWhipRange, baseAngle - arc / 2, baseAngle + arc / 2); g.strokePath();
             const tipX = px + Math.cos(baseAngle) * this.wormWhipRange;
             const tipY = py + Math.sin(baseAngle) * this.wormWhipRange;
-            g.fillStyle(0x44ff44, 1); g.fillCircle(tipX, tipY, 5);
+            g.fillStyle(0x44ff44, 1); g.fillCircle(tipX, tipY, 10);
             this.tweens.add({ targets: g, alpha: 0, duration: 220, onComplete: () => g.destroy() });
         });
         this.maybePolycephaly(() => this.doAcidSnake());
@@ -458,11 +458,11 @@ export const EvolutionMethods = {
         const busDmg = 65;
         for (let i = 0; i < count; i++) {
             const a  = Phaser.Math.FloatBetween(0, Math.PI * 2);
-            const dr = Phaser.Math.FloatBetween(30, 80);
-            const ox = Phaser.Math.Clamp(this.player.x + Math.cos(a) * dr, 32, 3168);
-            const oy = Phaser.Math.Clamp(this.player.y + Math.sin(a) * dr, 32, 3168);
+            const dr = Phaser.Math.FloatBetween(60, 160);
+            const ox = Phaser.Math.Clamp(this.player.x + Math.cos(a) * dr, 64, 6336);
+            const oy = Phaser.Math.Clamp(this.player.y + Math.sin(a) * dr, 64, 6336);
             const mine = this.physics.add.image(this.player.x, this.player.y, 'evol_bug_buster');
-            mine.setScale(0.16).setDepth(8);
+            mine.setScale(0.32).setDepth(8);
             mine.exploded = false;
             this.tweens.add({ targets: mine, x: ox, y: oy, duration: 250, ease: 'Quad.easeOut' });
             const explodeMine = () => {
@@ -498,10 +498,10 @@ export const EvolutionMethods = {
         if (this.isPaused || this.isCountdown) return;
         for (let i = 0; i < 3; i++) {
             const skin = this.physics.add.image(this.player.x, this.player.y, 'evol_spike_shedder');
-            skin.setScale(0.30).setDepth(8);
+            skin.setScale(0.60).setDepth(8);
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-            skin.setVelocity(Math.cos(angle) * 120, Math.sin(angle) * 120);
-            skin.body.setGravityY(350); skin.hitEnemies = new Set();
+            skin.setVelocity(Math.cos(angle) * 240, Math.sin(angle) * 240);
+            skin.body.setGravityY(700); skin.hitEnemies = new Set();
             this.physics.add.overlap(skin, this.enemies, (s, enemy) => {
                 if (s.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy)) return;
                 s.hitEnemies.add(enemy);
@@ -539,8 +539,8 @@ export const EvolutionMethods = {
         for (let i = 0; i < 3; i++) {
             const angle  = this.pickShellAimAngle(this.player.x, this.player.y);
             const shell  = this.physics.add.image(this.player.x, this.player.y, 'evol_shining_shell');
-            shell.setScale(0.15).setDepth(8);
-            shell.setVelocity(Math.cos(angle) * 300, Math.sin(angle) * 300);
+            shell.setScale(0.30).setDepth(8);
+            shell.setVelocity(Math.cos(angle) * 600, Math.sin(angle) * 600);
             shell.hitEnemies = new Set();
             shell.hitBoss = false;
             this.physics.add.overlap(shell, this.enemies, (s, enemy) => {
@@ -551,18 +551,18 @@ export const EvolutionMethods = {
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 if (enemy.health <= 0) {
                     // Small explosion on kill
-                    const ex = this.add.circle(enemy.x, enemy.y, 28, 0xffffff, 0.7).setDepth(16);
+                    const ex = this.add.circle(enemy.x, enemy.y, 56, 0xffffff, 0.7).setDepth(16);
                     this.tweens.add({ targets: ex, alpha: 0, scaleX: 1.5, scaleY: 1.5, duration: 200, onComplete: () => ex.destroy() });
                     this.killEnemy(enemy);
                 }
                 // Auto-aim to next enemy after hitting
-                this.scheduleShiningShellBounce(s, 300);
+                this.scheduleShiningShellBounce(s, 600);
             });
             if (this.boss?.active) this.physics.add.overlap(shell, this.boss, (s) => {
                 if (!s.active || s.hitBoss) return;
                 s.hitBoss = true;
                 this.damageBoss(this.woodieDamage);
-                this.scheduleShiningShellBounce(s, 300);
+                this.scheduleShiningShellBounce(s, 600);
             });
             this.time.delayedCall(25000, () => { if (shell.active) shell.destroy(); });
         }
@@ -591,8 +591,8 @@ export const EvolutionMethods = {
             // Fire in the direction the shield is currently facing (outward from player)
             const a = Math.atan2(shield.y - this.player.y, shield.x - this.player.x);
             const proj = this.physics.add.image(shield.x, shield.y, 'dubia_shields');
-            proj.setScale(0.12).setDepth(9);
-            proj.setVelocity(Math.cos(a) * 350, Math.sin(a) * 350);
+            proj.setScale(0.24).setDepth(9);
+            proj.setVelocity(Math.cos(a) * 700, Math.sin(a) * 700);
             this.physics.add.overlap(proj, this.enemies, (p, enemy) => {
                 if (!p.active || !this.canDamageEnemy(enemy)) return;
                 this.damageDealt += dmg; enemy.health -= dmg;
@@ -610,8 +610,8 @@ export const EvolutionMethods = {
     doFlashclaw() {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
-        const ranges    = [80, 110, 140, 170];
-        const range     = (ranges[this.poisonClawLevel - 1] ?? 170) + this.lickRangeBonus + 20;
+        const ranges    = [160, 220, 280, 340];
+        const range     = (ranges[this.poisonClawLevel - 1] ?? 340) + this.lickRangeBonus + 20;
         const dmg       = 50;
         const now       = this.time.now;
         const fireOnce  = () => {
@@ -645,9 +645,9 @@ export const EvolutionMethods = {
                 this.immobilizeBoss(1000);
             }
             const g = this.add.graphics().setDepth(20);
-            g.lineStyle(5, 0xff44ff, 0.9); g.beginPath(); g.moveTo(px, py); g.lineTo(tx, ty); g.strokePath();
+            g.lineStyle(10, 0xff44ff, 0.9); g.beginPath(); g.moveTo(px, py); g.lineTo(tx, ty); g.strokePath();
             const ta = Math.atan2(ty - py, tx - px); g.fillStyle(0xff44ff, 1);
-            for (let c = -1; c <= 1; c++) { const ca = ta + c * 0.45; g.fillTriangle(tx, ty, tx + Math.cos(ca + Math.PI) * 14, ty + Math.sin(ca + Math.PI) * 14, tx + Math.cos(ca + Math.PI + 0.4) * 7, ty + Math.sin(ca + Math.PI + 0.4) * 7); }
+            for (let c = -1; c <= 1; c++) { const ca = ta + c * 0.45; g.fillTriangle(tx, ty, tx + Math.cos(ca + Math.PI) * 28, ty + Math.sin(ca + Math.PI) * 28, tx + Math.cos(ca + Math.PI + 0.4) * 14, ty + Math.sin(ca + Math.PI + 0.4) * 14); }
             this.tweens.add({ targets: g, alpha: 0, duration: 200, onComplete: () => g.destroy() });
         };
         fireOnce();
@@ -667,9 +667,9 @@ export const EvolutionMethods = {
         const dmg = 50;
         [aimAngle + Math.PI / 2, aimAngle - Math.PI / 2].forEach(travelAngle => {
             const log = this.physics.add.image(this.player.x, this.player.y, 'evol_log_lob');
-            log.setDisplaySize(140, 28).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
-            log.body.setSize(140, 28);
-            log.setVelocity(Math.cos(travelAngle) * 200, Math.sin(travelAngle) * 200);
+            log.setDisplaySize(280, 56).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
+            log.body.setSize(280, 56);
+            log.setVelocity(Math.cos(travelAngle) * 400, Math.sin(travelAngle) * 400);
             log.hitCooldowns = new Map(); // per-enemy hit cooldown — 300ms, short enough that the
             // knockback below carries an enemy back into the log for 2-3 repeat hits instead of one
             this.physics.add.overlap(log, this.enemies, (l, enemy) => {
@@ -682,7 +682,7 @@ export const EvolutionMethods = {
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
                 // Slight knockback
                 const a = Math.atan2(enemy.y - l.y, enemy.x - l.x);
-                this.applyKnockback(enemy, a, 60);
+                this.applyKnockback(enemy, a, 120);
                 if (enemy.health <= 0) this.killEnemy(enemy);
             });
             if (this.boss?.active) this.physics.add.overlap(log, this.boss, (l) => { if (!l.active) return; this.damageBoss(dmg); });
@@ -697,7 +697,7 @@ export const EvolutionMethods = {
         const px = this.player.x, py = this.player.y;
         const angle  = (this.lastMoveAngle ?? 0) + Math.PI;
         const len    = this.dustKickLength * 1.6;
-        const width  = 100;
+        const width  = 200;
         const dmg    = 60;
         const cosA   = Math.cos(angle), sinA = Math.sin(angle);
         const now    = this.time.now;
@@ -715,10 +715,10 @@ export const EvolutionMethods = {
                     enemy.slowed = true; const bs = enemy.speed; enemy.speed = bs * 0.5; this.addStatusTint(enemy, 'slow', 0x88ddff);
                     this.time.delayedCall(3000, () => { if (enemy.active) { enemy.speed = bs; this.removeStatusTint(enemy, 'slow'); enemy.slowed = false; } });
                 }
-                // Immobilise very close enemies (80px, 12s cooldown)
+                // Immobilise very close enemies (160px, 12s cooldown)
                 const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
                 const lastStorm = enemy._lastDuststorm ?? 0;
-                if (dist <= 80 && now - lastStorm >= 12000) {
+                if (dist <= 160 && now - lastStorm >= 12000) {
                     enemy._lastDuststorm = now;
                     enemy.bugCaught = true;
                     this.addStatusTint(enemy, 'immobilize', 0xbb66ff);
@@ -731,7 +731,7 @@ export const EvolutionMethods = {
             if ((dx * cosA + dy * sinA) >= 0 && Math.abs(-dx * sinA + dy * cosA) <= width / 2) {
                 this.damageBoss(dmg);
                 this.slowBoss(3000, 0.5, 0x88ddff);
-                if (Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= 80) this.immobilizeBoss(1500);
+                if (Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y) <= 160) this.immobilizeBoss(1500);
             }
         }
         const g = this.add.graphics().setDepth(20);
@@ -743,7 +743,7 @@ export const EvolutionMethods = {
             { x: px + sinA * hw,              y: py - cosA * hw             },
         ], true);
         // Inner glow for immobilise zone
-        g.fillStyle(0xffffff, 0.12); g.fillCircle(px, py, 80);
+        g.fillStyle(0xffffff, 0.12); g.fillCircle(px, py, 160);
         this.tweens.add({ targets: g, alpha: 0, duration: 550, onComplete: () => g.destroy() });
         this.maybePolycephaly(() => this.doDuststorm());
     },
@@ -755,10 +755,10 @@ export const EvolutionMethods = {
         const scratchCount = Phaser.Math.Between(8, 14);
         for (let n = 0; n < scratchCount; n++) {
             const a  = Phaser.Math.FloatBetween(0, Math.PI * 2);
-            const d  = Phaser.Math.FloatBetween(20, 150);
-            const sx = Phaser.Math.Clamp(px + Math.cos(a) * d, 32, 3168);
-            const sy = Phaser.Math.Clamp(py + Math.sin(a) * d, 32, 3168);
-            const r  = 90, dmg = Phaser.Math.Between(10, 250);
+            const d  = Phaser.Math.FloatBetween(40, 300);
+            const sx = Phaser.Math.Clamp(px + Math.cos(a) * d, 64, 6336);
+            const sy = Phaser.Math.Clamp(py + Math.sin(a) * d, 64, 6336);
+            const r  = 180, dmg = Phaser.Math.Between(10, 250);
             this.enemies.getChildren().forEach(enemy => {
                 if (!this.canDamageEnemy(enemy)) return;
                 if (Phaser.Math.Distance.Between(sx, sy, enemy.x, enemy.y) <= r) {
@@ -772,8 +772,8 @@ export const EvolutionMethods = {
                 }
             });
             if (this.boss?.active && Phaser.Math.Distance.Between(sx, sy, this.boss.x, this.boss.y) <= r) this.damageBoss(dmg);
-            const s = 22, g = this.add.graphics().setDepth(15);
-            g.lineStyle(4, 0xff4400, 0.95);
+            const s = 44, g = this.add.graphics().setDepth(15);
+            g.lineStyle(8, 0xff4400, 0.95);
             g.beginPath(); g.moveTo(sx - s, sy - s); g.lineTo(sx + s, sy + s); g.strokePath();
             g.beginPath(); g.moveTo(sx + s, sy - s); g.lineTo(sx - s, sy + s); g.strokePath();
             this.tweens.add({ targets: g, alpha: 0, duration: 1800, onComplete: () => g.destroy() });
@@ -785,7 +785,7 @@ export const EvolutionMethods = {
     doFourChills() {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
-        const range = 350, now = this.time.now;
+        const range = 700, now = this.time.now;
 
         // Peak damage (at the player's feet) is a flat 130, tapering linearly down
         // to 0 damage at the edge of the range.
@@ -838,11 +838,11 @@ export const EvolutionMethods = {
         // at (px, py) and draw at local (0, 0) so it scales in place, not from the origin.
         const g = this.add.graphics().setDepth(20).setPosition(px, py);
         g.fillStyle(0x88ddff, 0.10); g.fillCircle(0, 0, range);
-        g.lineStyle(4, 0xaaeeff, 0.9); g.strokeCircle(0, 0, range);
+        g.lineStyle(8, 0xaaeeff, 0.9); g.strokeCircle(0, 0, range);
         // Four arcing sparks
         for (let i = 0; i < 4; i++) {
             const a = (i / 4) * Math.PI * 2;
-            g.lineStyle(2, 0xffffff, 0.7);
+            g.lineStyle(4, 0xffffff, 0.7);
             g.beginPath(); g.arc(0, 0, range * 0.5, a, a + Math.PI * 0.4); g.strokePath();
         }
         this.tweens.add({ targets: g, alpha: 0, scaleX: 1.12, scaleY: 1.12, duration: 800, onComplete: () => g.destroy() });

@@ -28,19 +28,19 @@ export const BossMethods = {
         const H = this.cameras.main.height;
 
         const bossCfg = this.level === 5
-            ? { key: 'yun_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 0.4 }
+            ? { key: 'yun_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 0.8 }
             : this.level === 4
-            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 0.3 }
+            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 0.6 }
             : this.level === 3
-            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 0.33 }
+            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 0.66 }
             : this.level === 2
-            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 0.3 }
-            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 0.3, chargeDelay: 3500 };
+            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 0.6 }
+            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 0.6, chargeDelay: 3500 };
 
         // Warning banner
-        const warn = this.add.text(W / 2, H / 2 - 60, `⚠  ${bossCfg.label} APPROACHES  ⚠`, {
-            fontSize: '22px', fontFamily: 'Arial Black, Arial',
-            color: '#ff3333', stroke: '#000', strokeThickness: 5,
+        const warn = this.add.text(W / 2, H / 2 - 120, `⚠  ${bossCfg.label} APPROACHES  ⚠`, {
+            fontSize: '44px', fontFamily: 'Arial Black, Arial',
+            color: '#ff3333', stroke: '#000', strokeThickness: 10,
         }).setScrollFactor(0).setDepth(300).setOrigin(0.5);
         this.tweens.add({ targets: warn, alpha: 0, delay: 2500, duration: 600, onComplete: () => warn.destroy() });
 
@@ -58,7 +58,7 @@ export const BossMethods = {
                 mine.destroy();
             });
 
-            const bossX = this.player.x + 450;
+            const bossX = this.player.x + 900;
             const bossY = this.player.y;
 
             this.boss = this.physics.add.sprite(bossX, bossY, bossCfg.key);
@@ -87,20 +87,20 @@ export const BossMethods = {
             this.boss.play(idleKey);
 
             // Boss health bar (world-space)
-            this.bossHpBarBg = this.add.rectangle(bossX, bossY + 30, 80, 10, 0x222222).setDepth(9);
-            this.bossHpBar   = this.add.rectangle(bossX - 40, bossY + 30, 80, 8, 0xff2222).setDepth(10).setOrigin(0, 0.5);
-            this.bossHpLabel = this.add.text(bossX, bossY - 48, bossCfg.label, {
-                fontSize: '11px', fontFamily: 'Arial Black, Arial', color: '#ff4444',
+            this.bossHpBarBg = this.add.rectangle(bossX, bossY + 60, 160, 20, 0x222222).setDepth(9);
+            this.bossHpBar   = this.add.rectangle(bossX - 80, bossY + 60, 160, 16, 0xff2222).setDepth(10).setOrigin(0, 0.5);
+            this.bossHpLabel = this.add.text(bossX, bossY - 96, bossCfg.label, {
+                fontSize: '22px', fontFamily: 'Arial Black, Arial', color: '#ff4444',
             }).setDepth(10).setOrigin(0.5);
 
             // Top-bar boss health bar — replaces XP bar
             const W = this.cameras.main.width;
             this.xpBar.setVisible(false);
             this.xpBarBg.setVisible(false);
-            this.topBossHpBarBg = this.add.rectangle(W / 2, 12, W - 40, 16, 0x440000).setScrollFactor(0).setDepth(100);
-            this.topBossHpBar   = this.add.rectangle(20, 12, W - 40, 14, 0xff2222).setScrollFactor(0).setDepth(101).setOrigin(0, 0.5);
-            this.topBossLabel   = this.add.text(W / 2, 12, bossCfg.label, {
-                fontSize: '10px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+            this.topBossHpBarBg = this.add.rectangle(W / 2, 24, W - 80, 32, 0x440000).setScrollFactor(0).setDepth(100);
+            this.topBossHpBar   = this.add.rectangle(40, 24, W - 80, 28, 0xff2222).setScrollFactor(0).setDepth(101).setOrigin(0, 0.5);
+            this.topBossLabel   = this.add.text(W / 2, 24, bossCfg.label, {
+                fontSize: '20px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
             }).setScrollFactor(0).setDepth(104).setOrigin(0.5, 0.5);
 
             // Damage + overlap
@@ -156,7 +156,7 @@ export const BossMethods = {
             } else if (this.level === 2) {
                 // Rocket Spider: wanders/circles — no charge; leg slam every 5–10s
                 this.boss.aiMode         = 'circle';
-                this.boss.aiSpeed        = 95;
+                this.boss.aiSpeed        = 190;
                 this.boss.phaseTriggered = false;
                 const scheduleNextSlam = () => {
                     this.bossLegSlamTimer = this.time.delayedCall(Phaser.Math.Between(5000, 10000), () => {
@@ -209,38 +209,38 @@ export const BossMethods = {
 
     createBossPhaseLines(boundaries) {
         this.bossPhaseLines = boundaries.map(() =>
-            this.add.rectangle(this.boss.x, this.boss.y + 30, 2, 12, 0xbb66ff, 0.9).setDepth(11)
+            this.add.rectangle(this.boss.x, this.boss.y + 60, 4, 24, 0xbb66ff, 0.9).setDepth(11)
         );
         const W = this.cameras.main.width;
         this.topBossPhaseLines = boundaries.map(() =>
-            this.add.rectangle(W / 2, 12, 2, 16, 0xbb66ff, 0.9).setScrollFactor(0).setDepth(103)
+            this.add.rectangle(W / 2, 24, 4, 32, 0xbb66ff, 0.9).setScrollFactor(0).setDepth(103)
         );
     },
 
     updateBossHealthBar() {
         if (!this.boss || !this.bossHpBar) return;
         const pct = Math.max(0, this.boss.health / this.boss.maxHealth);
-        this.bossHpBar.width    = 80 * pct;
+        this.bossHpBar.width    = 160 * pct;
         this.bossHpBarBg.x      = this.boss.x;
-        this.bossHpBarBg.y      = this.boss.y + 30;
-        this.bossHpBar.x        = this.boss.x - 40;
-        this.bossHpBar.y        = this.boss.y + 30;
+        this.bossHpBarBg.y      = this.boss.y + 60;
+        this.bossHpBar.x        = this.boss.x - 80;
+        this.bossHpBar.y        = this.boss.y + 60;
         this.bossHpLabel.x      = this.boss.x;
-        this.bossHpLabel.y      = this.boss.y - 48;
+        this.bossHpLabel.y      = this.boss.y - 96;
         if (this.topBossHpBar) {
             const W = this.cameras.main.width;
-            this.topBossHpBar.width = (W - 40) * pct;
+            this.topBossHpBar.width = (W - 80) * pct;
         }
         this.bossPhaseLines.forEach((line, i) => {
             const f = this.boss.phaseBoundaries[i] / this.boss.maxHealth;
-            line.x = this.boss.x - 40 + f * 80;
-            line.y = this.boss.y + 30;
+            line.x = this.boss.x - 80 + f * 160;
+            line.y = this.boss.y + 60;
         });
         if (this.topBossPhaseLines.length) {
             const W = this.cameras.main.width;
             this.topBossPhaseLines.forEach((line, i) => {
                 const f = this.boss.phaseBoundaries[i] / this.boss.maxHealth;
-                line.x = 20 + f * (W - 40);
+                line.x = 40 + f * (W - 80);
             });
         }
     },
@@ -295,9 +295,9 @@ export const BossMethods = {
         const warn = this.add.graphics().setDepth(18);
         warn.fillStyle(0xff0000, 0.25);
         const angle = Math.atan2(targetY - this.boss.y, targetX - this.boss.x);
-        const dist  = Phaser.Math.Distance.Between(this.boss.x, this.boss.y, targetX, targetY) + 60;
+        const dist  = Phaser.Math.Distance.Between(this.boss.x, this.boss.y, targetX, targetY) + 120;
         // Draw as a rotated rectangle centred on the charge path
-        warn.fillRect(0, -30, dist, 60);
+        warn.fillRect(0, -60, dist, 120);
         warn.setPosition(this.boss.x, this.boss.y);
         warn.setRotation(angle);
 
@@ -310,7 +310,7 @@ export const BossMethods = {
             if (!this.boss?.active) return;
             this.boss.play('lettuce_beetle_attack');
             const chargeAngle = Math.atan2(targetY - this.boss.y, targetX - this.boss.x);
-            const chargeSpeed = 320 * this.getLettuceBeetleSpeedFactor();
+            const chargeSpeed = 640 * this.getLettuceBeetleSpeedFactor();
             this.boss.setVelocity(Math.cos(chargeAngle) * chargeSpeed, Math.sin(chargeAngle) * chargeSpeed);
             this.time.delayedCall(800, () => {
                 if (!this.boss?.active) return;
@@ -351,42 +351,42 @@ export const BossMethods = {
         const slow = boss.slowFactor ?? 1;
 
         if (boss.scorpionPhase === 'chase') {
-            this.physics.moveToObject(boss, this.player, 220 * slow);
+            this.physics.moveToObject(boss, this.player, 440 * slow);
         } else {
             // Wander: keep picking new waypoints until the phase timer runs out
             if (!boss.wanderTarget) {
                 boss.wanderTarget = this.pickScorpionWanderTarget();
             }
             const dist = Phaser.Math.Distance.Between(boss.x, boss.y, boss.wanderTarget.x, boss.wanderTarget.y);
-            if (dist < 40) {
+            if (dist < 80) {
                 boss.wanderTarget = this.pickScorpionWanderTarget();
             } else {
-                this.physics.moveTo(boss, boss.wanderTarget.x, boss.wanderTarget.y, 200 * slow);
+                this.physics.moveTo(boss, boss.wanderTarget.x, boss.wanderTarget.y, 400 * slow);
             }
         }
     },
 
     pickScorpionWanderTarget() {
         const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const dist  = Phaser.Math.Between(100, 300);
+        const dist  = Phaser.Math.Between(200, 600);
         return {
-            x: Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 64, 3136),
-            y: Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 64, 3136),
+            x: Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 128, 6272),
+            y: Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 128, 6272),
         };
     },
 
     pickCycloneWanderTarget() {
         const cam = this.cameras.main;
         return {
-            x: Phaser.Math.Clamp(cam.scrollX + Phaser.Math.Between(60, cam.width  - 60), 64, 3136),
-            y: Phaser.Math.Clamp(cam.scrollY + Phaser.Math.Between(60, cam.height - 60), 64, 3136),
+            x: Phaser.Math.Clamp(cam.scrollX + Phaser.Math.Between(120, cam.width  - 120), 128, 6272),
+            y: Phaser.Math.Clamp(cam.scrollY + Phaser.Math.Between(120, cam.height - 120), 128, 6272),
         };
     },
 
     updateRocketSpiderAI() {
         const boss = this.boss;
         const now  = this.time.now;
-        const speed = (boss.aiSpeed ?? 95) * (boss.slowFactor ?? 1);
+        const speed = (boss.aiSpeed ?? 190) * (boss.slowFactor ?? 1);
 
         // Switch AI mode every 2–4 seconds
         if (!boss.aiSwitchAt || now >= boss.aiSwitchAt) {
@@ -408,12 +408,12 @@ export const BossMethods = {
             const dx   = boss.x - this.player.x;
             const dy   = boss.y - this.player.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const targetDist = 190;
+            const targetDist = 380;
             // Orbit clockwise (tangent direction)
             const tx = -dy / dist;
             const ty =  dx / dist;
             // Radial nudge to hold orbit distance
-            const radial = (dist - targetDist) / 120;
+            const radial = (dist - targetDist) / 240;
             const rx = -(dx / dist) * radial;
             const ry = -(dy / dist) * radial;
             boss.setVelocity((tx + rx) * speed, (ty + ry) * speed);
@@ -432,12 +432,12 @@ export const BossMethods = {
         this.time.delayedCall(800, () => { if (this.boss?.active) this.boss.play('rocket_spider_idle'); });
         // Spawn 3 Rocket Swords near the player
         for (let i = 0; i < 3; i++) {
-            const ox = this.player.x + Phaser.Math.Between(-130, 130);
-            const oy = this.player.y + Phaser.Math.Between(-130, 130);
+            const ox = this.player.x + Phaser.Math.Between(-260, 260);
+            const oy = this.player.y + Phaser.Math.Between(-260, 260);
             const sword = this.physics.add.sprite(ox, oy, 'rocket_sword');
-            sword.setScale(0.25).setDepth(5);
+            sword.setScale(0.50).setDepth(5);
             sword.health = 30; sword.maxHealth = 30;
-            sword.damage = 15; sword.speed = 100;
+            sword.damage = 15; sword.speed = 200;
             sword.lastHitTime = 0;
             sword.splits = false; sword.shoots = false; sword.splitsInto = null; sword.hydra = false; sword.burrowed = false; sword.whips = false; sword.emitsGas = false;
             if (!this.anims.exists('rocket_sword_walk')) {
@@ -458,8 +458,8 @@ export const BossMethods = {
         warn.fillStyle(0xff8800, 0.25);
         warn.fillTriangle(
             this.boss.x, this.boss.y,
-            this.boss.x + Math.cos(angle - 0.5) * 160, this.boss.y + Math.sin(angle - 0.5) * 160,
-            this.boss.x + Math.cos(angle + 0.5) * 160, this.boss.y + Math.sin(angle + 0.5) * 160,
+            this.boss.x + Math.cos(angle - 0.5) * 320, this.boss.y + Math.sin(angle - 0.5) * 320,
+            this.boss.x + Math.cos(angle + 0.5) * 320, this.boss.y + Math.sin(angle + 0.5) * 320,
         );
         this.tweens.add({ targets: warn, alpha: 0, delay: 140, duration: 200, onComplete: () => warn.destroy() });
 
@@ -467,7 +467,7 @@ export const BossMethods = {
             if (!this.boss?.active) return;
             this.boss.play('carrot_scorpion_attack');
             const tx = this.player.x; const ty = this.player.y;
-            this.physics.moveTo(this.boss, tx, ty, 480);
+            this.physics.moveTo(this.boss, tx, ty, 960);
             this.tweens.add({ targets: this.boss, alpha: 0.4, duration: 80, yoyo: true });
             this.time.delayedCall(300, () => {
                 if (this.boss?.active) this.boss.body?.setVelocity(0, 0);
@@ -495,18 +495,18 @@ export const BossMethods = {
         spawnList.forEach((type, i) => {
             this.time.delayedCall(i * 200, () => {
                 if (!this.boss?.active) return;
-                const ox = this.player.x + Phaser.Math.Between(-220, 220);
-                const oy = this.player.y + Phaser.Math.Between(-220, 220);
+                const ox = this.player.x + Phaser.Math.Between(-440, 440);
+                const oy = this.player.y + Phaser.Math.Between(-440, 440);
 
                 if (type === 'mole') {
                     const mole = this.physics.add.sprite(ox, oy, 'carrot_mole');
-                    mole.setScale(0.26).setDepth(5);
+                    mole.setScale(0.52).setDepth(5);
                     mole.health = 75; mole.maxHealth = 75;
                     mole.damage = 12; mole.speed = 0;
                     mole.lastHitTime = 0; mole.isUnderground = false;
                     mole.splits = false; mole.shoots = false; mole.splitsInto = null;
                     mole.hydra = false; mole.burrowed = true; mole.whips = false; mole.emitsGas = false;
-                    mole.body.setSize(45, 30);
+                    mole.body.setSize(90, 60);
                     const mKey = 'carrot_mole_walk';
                     if (!this.anims.exists(mKey)) {
                         this.anims.create({ key: mKey, frames: this.anims.generateFrameNumbers('carrot_mole', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
@@ -521,11 +521,11 @@ export const BossMethods = {
                         mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
                             if (!mole.active) return;
                             mole.isUnderground = true;
-                            mole.body.setSize(30, 22.5); mole.speed = 80;
+                            mole.body.setSize(60, 45); mole.speed = 160;
                             mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
                                 if (!mole.active) return;
                                 mole.isUnderground = false;
-                                mole.body.setSize(45, 30); mole.speed = 0;
+                                mole.body.setSize(90, 60); mole.speed = 0;
                                 if (mole.body) mole.body.setVelocity(0, 0);
                                 if (mole.active) mole.play('carrot_mole_attack');
                                 this.time.delayedCall(500, () => { if (mole.active) mole.play(mKey); });
@@ -537,9 +537,9 @@ export const BossMethods = {
                     this.enemies.add(mole);
                 } else {
                     const thug = this.physics.add.sprite(ox, oy, 'carrot_thug');
-                    thug.setScale(0.30).setDepth(5);
+                    thug.setScale(0.60).setDepth(5);
                     thug.health = 300; thug.maxHealth = 300;
-                    thug.damage = 15; thug.speed = 180;
+                    thug.damage = 15; thug.speed = 360;
                     thug.lastHitTime = 0;
                     thug.splits = false; thug.shoots = false; thug.splitsInto = null;
                     thug.hydra = false; thug.burrowed = false; thug.whips = false; thug.emitsGas = false;
@@ -568,7 +568,7 @@ export const BossMethods = {
         if (!boss?.active || boss.mantisVanishing || boss.mantisResting) return;
         if (boss.bugCaught) { boss.setVelocity(0, 0); return; }
         if (boss.mantisPhase === 1 || boss.mantisChasing) {
-            this.physics.moveToObject(boss, this.player, 210 * (boss.slowFactor ?? 1));
+            this.physics.moveToObject(boss, this.player, 420 * (boss.slowFactor ?? 1));
         }
     },
 
@@ -622,9 +622,9 @@ export const BossMethods = {
 
         // Reappear just off to one side of the player
         const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const offset = 80;
-        boss.x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * offset, 64, 3136);
-        boss.y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * offset, 64, 3136);
+        const offset = 160;
+        boss.x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * offset, 128, 6272);
+        boss.y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * offset, 128, 6272);
 
         boss.setActive(true).setVisible(true).setAlpha(0);
         boss.body.enable = true;
@@ -668,7 +668,7 @@ export const BossMethods = {
 
         // Deal 25 damage if player is still nearby
         const dist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
-        if (dist < 80) {
+        if (dist < 160) {
             this.lastDamageSource = boss.texture.key;
             this.playerHealth -= 25;
             this.playerDamageFlash();
@@ -740,7 +740,7 @@ export const BossMethods = {
 
     triggerRocketSpiderPhase2() {
         const boss = this.boss;
-        boss.aiSpeed = 220; // player base 160 + 2× Angry (+30 each)
+        boss.aiSpeed = 440; // player base 320 + 2× Angry (+60 each)
 
         // Red flash warning
         this.tweens.add({ targets: boss, alpha: 0.1, duration: 120, yoyo: true, repeat: 3 });
@@ -748,12 +748,12 @@ export const BossMethods = {
         // Ring of 20 Rocket Swords around the boss
         for (let i = 0; i < 20; i++) {
             const a  = (i / 20) * Math.PI * 2;
-            const ox = boss.x + Math.cos(a) * 90;
-            const oy = boss.y + Math.sin(a) * 90;
+            const ox = boss.x + Math.cos(a) * 180;
+            const oy = boss.y + Math.sin(a) * 180;
             const sword = this.physics.add.sprite(ox, oy, 'rocket_sword');
-            sword.setScale(0.25).setDepth(5);
+            sword.setScale(0.50).setDepth(5);
             sword.health = 30; sword.maxHealth = 30;
-            sword.damage = 15; sword.speed = 155;
+            sword.damage = 15; sword.speed = 310;
             sword.lastHitTime = 0;
             sword.splits = false; sword.shoots = false; sword.splitsInto = null; sword.hydra = false; sword.burrowed = false; sword.whips = false; sword.emitsGas = false;
             if (!this.anims.exists('rocket_sword_walk')) {
@@ -766,18 +766,18 @@ export const BossMethods = {
 
     spawnMantisPhase2Ring() {
         const COUNT  = 25;
-        const RADIUS = 900;
+        const RADIUS = 1800;
         for (let i = 0; i < COUNT; i++) {
             const angle = (i / COUNT) * Math.PI * 2;
-            const cx = Phaser.Math.Clamp(this.boss.x + Math.cos(angle) * RADIUS, 64, 3136);
-            const cy = Phaser.Math.Clamp(this.boss.y + Math.sin(angle) * RADIUS, 64, 3136);
+            const cx = Phaser.Math.Clamp(this.boss.x + Math.cos(angle) * RADIUS, 128, 6272);
+            const cy = Phaser.Math.Clamp(this.boss.y + Math.sin(angle) * RADIUS, 128, 6272);
 
             const cyclone = this.physics.add.sprite(cx, cy, 'spinach_cyclone');
-            cyclone.setScale(0.30).setDepth(5);
+            cyclone.setScale(0.60).setDepth(5);
             cyclone.health      = 200;
             cyclone.maxHealth   = 200;
             cyclone.damage      = 20;
-            cyclone.speed       = 35;
+            cyclone.speed       = 70;
             cyclone.lastHitTime = 0;
             cyclone.splits = false; cyclone.shoots = false; cyclone.splitsInto = null;
             cyclone.hydra = false; cyclone.burrowed = false; cyclone.whips = false;
@@ -795,12 +795,12 @@ export const BossMethods = {
                 if (!cyclone.active) return;
                 cyclone.cycloneTimer = this.time.delayedCall(Phaser.Math.Between(6000, 12000), () => {
                     if (!cyclone.active) return;
-                    const sx = cyclone.x + Phaser.Math.Between(-80, 80);
-                    const sy = cyclone.y + Phaser.Math.Between(-80, 80);
+                    const sx = cyclone.x + Phaser.Math.Between(-160, 160);
+                    const sy = cyclone.y + Phaser.Math.Between(-160, 160);
                     const mini = this.physics.add.sprite(sx, sy, 'spinach_small');
-                    mini.setScale(0.22).setDepth(5);
+                    mini.setScale(0.44).setDepth(5);
                     mini.health = 18; mini.maxHealth = 18;
-                    mini.damage = 9;  mini.speed = 110;
+                    mini.damage = 9;  mini.speed = 220;
                     mini.lastHitTime = 0;
                     mini.splits = false; mini.shoots = false; mini.splitsInto = null;
                     mini.hydra = false; mini.burrowed = false; mini.whips = false;

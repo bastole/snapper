@@ -10,7 +10,7 @@ export const EnemyDeathMethods = {
             if (idx >= 0) this.handMiniBossArray.splice(idx, 1);
             if (!this.bossSpawned) {
                 const drop = this.physics.add.image(enemy.x, enemy.y, 'dragonfly');
-                drop.setScale(0.80).setDepth(3).setAngle(Phaser.Math.Between(0, 359));
+                drop.setScale(1.60).setDepth(3).setAngle(Phaser.Math.Between(0, 359));
                 drop.xpValue = 10;
                 this.crickets.add(drop);
             }
@@ -74,27 +74,27 @@ export const EnemyDeathMethods = {
                 // Fullbox — 1 in 8 chance to replace a Foodbox; heals to full. Always
                 // drops, even during the boss fight.
                 const item = this.physics.add.image(enemy.x, enemy.y, 'fullbox');
-                item.setScale(1.20).setDepth(4);
+                item.setScale(2.40).setDepth(4);
                 item.xpValue = 0;
                 item.specialType = 'fullbox';
-                this.tweens.add({ targets: item, scaleX: 1.44, scaleY: 1.44, duration: 250, yoyo: true, loop: -1 });
+                this.tweens.add({ targets: item, scaleX: 2.88, scaleY: 2.88, duration: 250, yoyo: true, loop: -1 });
                 this.crickets.add(item);
             } else if (!this.bossSpawned && Math.random() < 0.05) {
                 // Treasure — 1 in 20 chance to replace a Foodbox; instant level-up.
                 // Never drops during the boss fight.
                 const item = this.physics.add.image(enemy.x, enemy.y, 'treasure');
-                item.setScale(1.10).setDepth(4);
+                item.setScale(2.20).setDepth(4);
                 item.xpValue = 0;
                 item.specialType = 'treasure';
-                this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 250, yoyo: true, loop: -1 });
+                this.tweens.add({ targets: item, scaleX: 2.60, scaleY: 2.60, duration: 250, yoyo: true, loop: -1 });
                 this.crickets.add(item);
             } else {
                 // Foodbox — always drops, even during the boss fight
                 const item = this.physics.add.image(enemy.x, enemy.y, 'foodbox');
-                item.setScale(1.10).setDepth(4);
+                item.setScale(2.20).setDepth(4);
                 item.xpValue = 0;
                 item.specialType = 'wormbox';
-                this.tweens.add({ targets: item, scaleX: 1.30, scaleY: 1.30, duration: 350, yoyo: true, loop: -1 });
+                this.tweens.add({ targets: item, scaleX: 2.60, scaleY: 2.60, duration: 350, yoyo: true, loop: -1 });
                 this.crickets.add(item);
             }
         } else if (this.bossSpawned) {
@@ -102,41 +102,41 @@ export const EnemyDeathMethods = {
         } else {
             // Normal drop
             const dropTable = {
-                lettuce_hopper:       { xpValue: 3,  key: 'vitaworm',  scale: 0.60 },
-                lettuce_shooter:      { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
-                basil_propeller:      { xpValue: 10, key: 'dragonfly', scale: 0.80 },
-                rocket_knife:         { xpValue: 3,  key: 'vitaworm',  scale: 0.60 },
-                oregano_ghost:        { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
-                oregano_fan:          { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
-                rocket_sword:         { xpValue: 10, key: 'dragonfly', scale: 0.80 },
-                coriander_whip:       { xpValue: 3,  key: 'vitaworm',  scale: 0.60 },
-                carrot_mole:          { xpValue: 3,  key: 'vitaworm',  scale: 0.60 },
-                coriander_hydra:      { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
-                carrot_dart:          { xpValue: 10, key: 'dragonfly', scale: 0.80 },
-                carrot_wheel:         { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
-                mulberry_bat:         { xpValue: 3,  key: 'vitaworm',  scale: 0.60 },
-                mulberry_snake:       { xpValue: 5,  key: 'mealworm',  scale: 0.70 },
-                spinach_cyclone:      { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                lettuce_hopper:       { xpValue: 3,  key: 'vitaworm',  scale: 1.20 },
+                lettuce_shooter:      { xpValue: 5,  key: 'mealworm',  scale: 1.40 },
+                basil_propeller:      { xpValue: 10, key: 'dragonfly', scale: 1.60 },
+                rocket_knife:         { xpValue: 3,  key: 'vitaworm',  scale: 1.20 },
+                oregano_ghost:        { xpValue: 5,  key: 'mealworm',  scale: 1.40 },
+                oregano_fan:          { xpValue: 5,  key: 'mealworm',  scale: 1.40 },
+                rocket_sword:         { xpValue: 10, key: 'dragonfly', scale: 1.60 },
+                coriander_whip:       { xpValue: 3,  key: 'vitaworm',  scale: 1.20 },
+                carrot_mole:          { xpValue: 3,  key: 'vitaworm',  scale: 1.20 },
+                coriander_hydra:      { xpValue: 5,  key: 'mealworm',  scale: 1.40 },
+                carrot_dart:          { xpValue: 10, key: 'dragonfly', scale: 1.60 },
+                carrot_wheel:         { xpValue: 5,  key: 'mealworm',  scale: 1.40 },
+                mulberry_bat:         { xpValue: 3,  key: 'vitaworm',  scale: 1.20 },
+                mulberry_snake:       { xpValue: 5,  key: 'mealworm',  scale: 1.40 },
+                spinach_cyclone:      { xpValue: 10, key: 'dragonfly', scale: 1.60 },
                 // Level 5 exclusives
-                lettuce_trap:         { xpValue: 10, key: 'dragonfly', scale: 0.80 },
-                basil_bomb:           { xpValue: 10, key: 'dragonfly', scale: 0.80 },
-                rocket_bustersword:   { xpValue: 10, key: 'dragonfly', scale: 0.80 },
-                oregano_phantom:      { xpValue: 10, key: 'dragonfly', scale: 0.80 },
-                coriander_carrot:     { xpValue: 10, key: 'dragonfly', scale: 0.80 },
-                spinach_tempest:      { xpValue: 10, key: 'dragonfly', scale: 0.80 },
-                mulberry_monstrosity: { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                lettuce_trap:         { xpValue: 10, key: 'dragonfly', scale: 1.60 },
+                basil_bomb:           { xpValue: 10, key: 'dragonfly', scale: 1.60 },
+                rocket_bustersword:   { xpValue: 10, key: 'dragonfly', scale: 1.60 },
+                oregano_phantom:      { xpValue: 10, key: 'dragonfly', scale: 1.60 },
+                coriander_carrot:     { xpValue: 10, key: 'dragonfly', scale: 1.60 },
+                spinach_tempest:      { xpValue: 10, key: 'dragonfly', scale: 1.60 },
+                mulberry_monstrosity: { xpValue: 10, key: 'dragonfly', scale: 1.60 },
             };
-            const drop = dropTable[enemy.texture?.key] ?? { xpValue: 1, scale: 0.50 };
+            const drop = dropTable[enemy.texture?.key] ?? { xpValue: 1, scale: 1.00 };
 
             if (enemy._killedByStarvedChomp) {
                 // Instant doubled XP, no cricket spawned
                 const xpGain = (drop.xpValue ?? 1) * 2;
                 this.xp += xpGain;
                 this.updateXPBar();
-                const t = this.add.text(enemy.x, enemy.y - 10, `+${xpGain} XP`, {
-                    fontSize: '10px', fontFamily: 'Arial', color: '#ffff44',
+                const t = this.add.text(enemy.x, enemy.y - 20, `+${xpGain} XP`, {
+                    fontSize: '20px', fontFamily: 'Arial', color: '#ffff44',
                 }).setDepth(25).setOrigin(0.5);
-                this.tweens.add({ targets: t, y: t.y - 28, alpha: 0, duration: 600, onComplete: () => t.destroy() });
+                this.tweens.add({ targets: t, y: t.y - 56, alpha: 0, duration: 600, onComplete: () => t.destroy() });
                 while (this.xp >= this.xpToNext) {
                     this.xp -= this.xpToNext;
                     this.xpToNext = Math.floor(this.xpToNext * 1.2);
@@ -165,13 +165,13 @@ export const EnemyDeathMethods = {
         // Lettuce Hopper splits into 2 Small Lettuces
         if (enemy.splits) {
             for (let i = 0; i < 2; i++) {
-                const ox = enemy.x + Phaser.Math.Between(-20, 20);
-                const oy = enemy.y + Phaser.Math.Between(-20, 20);
+                const ox = enemy.x + Phaser.Math.Between(-40, 40);
+                const oy = enemy.y + Phaser.Math.Between(-40, 40);
                 const split = this.physics.add.sprite(ox, oy, 'lettuce_small');
-                split.setScale(0.25);
+                split.setScale(0.50);
                 split.setDepth(5);
                 split.health = 40; split.maxHealth = 40;
-                split.damage = 5;  split.speed = 60;
+                split.damage = 5;  split.speed = 120;
                 split.lastHitTime = 0;
                 split.splits = false; split.shoots = false; split.splitsInto = null; split.hydra = false; split.burrowed = false; split.whips = false; split.emitsGas = false; split.snakeWhip = false; split.isWanderer = false;
                 if (!this.anims.exists('lettuce_small_walk')) {
@@ -185,13 +185,13 @@ export const EnemyDeathMethods = {
         // Carrot Dart splits into 2 Carrot Wheels
         if (enemy.splitsInto === 'carrot_wheel') {
             for (let i = 0; i < 2; i++) {
-                const ox = enemy.x + Phaser.Math.Between(-25, 25);
-                const oy = enemy.y + Phaser.Math.Between(-25, 25);
-                const wheelScale = (enemy.spawnScale ?? 0.25) * 0.6;
+                const ox = enemy.x + Phaser.Math.Between(-50, 50);
+                const oy = enemy.y + Phaser.Math.Between(-50, 50);
+                const wheelScale = (enemy.spawnScale ?? 0.50) * 0.6;
                 const wheel = this.physics.add.sprite(ox, oy, 'carrot_wheel');
                 wheel.setScale(wheelScale).setDepth(5);
                 wheel.health = 22; wheel.maxHealth = 22;
-                wheel.damage = 9;  wheel.speed = 130;
+                wheel.damage = 9;  wheel.speed = 260;
                 wheel.lastHitTime = 0;
                 wheel.splits = false; wheel.shoots = false; wheel.splitsInto = null; wheel.hydra = false; wheel.burrowed = false; wheel.whips = false; wheel.emitsGas = false; wheel.snakeWhip = false; wheel.isWanderer = false;
                 const wKey = 'carrot_wheel_walk';
@@ -232,8 +232,8 @@ export const EnemyDeathMethods = {
             for (let i = 0; i < 3; i++) {
                 const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
                 const proj  = this.physics.add.image(enemy.x, enemy.y, 'projectile_oregano_ghost');
-                proj.setScale(0.14).setDepth(7).setTint(0x44ff44);
-                proj.setVelocity(Math.cos(angle) * 160, Math.sin(angle) * 160);
+                proj.setScale(0.28).setDepth(7).setTint(0x44ff44);
+                proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
                 proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
                 proj.damage = enemy.damage;
                 this.physics.add.overlap(proj, this.player, () => {

@@ -25,8 +25,8 @@ export const HandMiniBossMethods = {
         const warn = this.add.graphics().setDepth(18);
         warn.fillStyle(0xff0000, 0.25);
         const angle = Math.atan2(targetY - mb.y, targetX - mb.x);
-        const dist  = Phaser.Math.Distance.Between(mb.x, mb.y, targetX, targetY) + 60;
-        warn.fillRect(0, -30, dist, 60);
+        const dist  = Phaser.Math.Distance.Between(mb.x, mb.y, targetX, targetY) + 120;
+        warn.fillRect(0, -60, dist, 120);
         warn.setPosition(mb.x, mb.y);
         warn.setRotation(angle);
 
@@ -36,7 +36,7 @@ export const HandMiniBossMethods = {
             warn.destroy();
             if (!mb.active) return;
             const chargeAngle = Math.atan2(targetY - mb.y, targetX - mb.x);
-            mb.setVelocity(Math.cos(chargeAngle) * 320, Math.sin(chargeAngle) * 320);
+            mb.setVelocity(Math.cos(chargeAngle) * 640, Math.sin(chargeAngle) * 640);
             this.time.delayedCall(800, () => {
                 if (!mb.active) return;
                 mb.setVelocity(0, 0);
@@ -54,7 +54,7 @@ export const HandMiniBossMethods = {
         }
 
         const now   = this.time.now;
-        const speed = mb.aiSpeed ?? mb.speed ?? 95;
+        const speed = mb.aiSpeed ?? mb.speed ?? 190;
 
         if (!mb.aiSwitchAt || now >= mb.aiSwitchAt) {
             const modes = ['circle', 'circle', 'wander', 'chase'];
@@ -71,10 +71,10 @@ export const HandMiniBossMethods = {
             const dx   = mb.x - this.player.x;
             const dy   = mb.y - this.player.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const targetDist = 190;
+            const targetDist = 380;
             const tx = -dy / dist;
             const ty =  dx / dist;
-            const radial = (dist - targetDist) / 120;
+            const radial = (dist - targetDist) / 240;
             const rx = -(dx / dist) * radial;
             const ry = -(dy / dist) * radial;
             mb.setVelocity((tx + rx) * speed, (ty + ry) * speed);
@@ -97,12 +97,12 @@ export const HandMiniBossMethods = {
         if (!mb?.active) return;
         this.tweens.add({ targets: mb, alpha: 0.3, duration: 100, yoyo: true });
         for (let i = 0; i < 3; i++) {
-            const ox = this.player.x + Phaser.Math.Between(-130, 130);
-            const oy = this.player.y + Phaser.Math.Between(-130, 130);
+            const ox = this.player.x + Phaser.Math.Between(-260, 260);
+            const oy = this.player.y + Phaser.Math.Between(-260, 260);
             const sword = this.physics.add.sprite(ox, oy, 'rocket_sword');
-            sword.setScale(0.25).setDepth(5);
+            sword.setScale(0.50).setDepth(5);
             sword.health = 30; sword.maxHealth = 30;
-            sword.damage = 15; sword.speed = 100;
+            sword.damage = 15; sword.speed = 200;
             sword.lastHitTime = 0;
             sword.splits = false; sword.shoots = false; sword.splitsInto = null; sword.hydra = false; sword.burrowed = false; sword.whips = false; sword.emitsGas = false;
             if (!this.anims.exists('rocket_sword_walk')) {
@@ -114,19 +114,19 @@ export const HandMiniBossMethods = {
     },
 
     triggerMiniSpiderPhase2(mb) {
-        mb.aiSpeed = (mb.aiSpeed ?? mb.speed ?? 95) * 2.32; // mirrors the 95→220 boost ratio from the original boss
+        mb.aiSpeed = (mb.aiSpeed ?? mb.speed ?? 190) * 2.32; // mirrors the 190→440 boost ratio from the original boss
 
         this.tweens.add({ targets: mb, alpha: 0.1, duration: 120, yoyo: true, repeat: 3 });
 
         const RING = 5; // scaled down from the original boss's ring of 20
         for (let i = 0; i < RING; i++) {
             const a  = (i / RING) * Math.PI * 2;
-            const ox = mb.x + Math.cos(a) * 90;
-            const oy = mb.y + Math.sin(a) * 90;
+            const ox = mb.x + Math.cos(a) * 180;
+            const oy = mb.y + Math.sin(a) * 180;
             const sword = this.physics.add.sprite(ox, oy, 'rocket_sword');
-            sword.setScale(0.25).setDepth(5);
+            sword.setScale(0.50).setDepth(5);
             sword.health = 30; sword.maxHealth = 30;
-            sword.damage = 15; sword.speed = 155;
+            sword.damage = 15; sword.speed = 310;
             sword.lastHitTime = 0;
             sword.splits = false; sword.shoots = false; sword.splitsInto = null; sword.hydra = false; sword.burrowed = false; sword.whips = false; sword.emitsGas = false;
             if (!this.anims.exists('rocket_sword_walk')) {
@@ -162,14 +162,14 @@ export const HandMiniBossMethods = {
         }
 
         if (mb.scorpionPhase === 'chase') {
-            this.physics.moveToObject(mb, this.player, 220);
+            this.physics.moveToObject(mb, this.player, 440);
         } else {
             if (!mb.wanderTarget) mb.wanderTarget = this.pickScorpionWanderTarget();
             const dist = Phaser.Math.Distance.Between(mb.x, mb.y, mb.wanderTarget.x, mb.wanderTarget.y);
-            if (dist < 40) {
+            if (dist < 80) {
                 mb.wanderTarget = this.pickScorpionWanderTarget();
             } else {
-                this.physics.moveTo(mb, mb.wanderTarget.x, mb.wanderTarget.y, 200);
+                this.physics.moveTo(mb, mb.wanderTarget.x, mb.wanderTarget.y, 400);
             }
         }
     },
@@ -199,7 +199,7 @@ export const HandMiniBossMethods = {
         this.time.delayedCall(150, () => {
             if (!mb.active) return;
             const tx = this.player.x; const ty = this.player.y;
-            this.physics.moveTo(mb, tx, ty, 480);
+            this.physics.moveTo(mb, tx, ty, 960);
             this.tweens.add({ targets: mb, alpha: 0.4, duration: 80, yoyo: true });
             this.time.delayedCall(300, () => {
                 if (mb.active) mb.body?.setVelocity(0, 0);
@@ -227,18 +227,18 @@ export const HandMiniBossMethods = {
         spawnList.forEach((type, i) => {
             this.time.delayedCall(i * 200, () => {
                 if (!mb.active) return;
-                const ox = this.player.x + Phaser.Math.Between(-220, 220);
-                const oy = this.player.y + Phaser.Math.Between(-220, 220);
+                const ox = this.player.x + Phaser.Math.Between(-440, 440);
+                const oy = this.player.y + Phaser.Math.Between(-440, 440);
 
                 if (type === 'mole') {
                     const mole = this.physics.add.sprite(ox, oy, 'carrot_mole');
-                    mole.setScale(0.26).setDepth(5);
+                    mole.setScale(0.52).setDepth(5);
                     mole.health = 75; mole.maxHealth = 75;
                     mole.damage = 12; mole.speed = 0;
                     mole.lastHitTime = 0; mole.isUnderground = false;
                     mole.splits = false; mole.shoots = false; mole.splitsInto = null;
                     mole.hydra = false; mole.burrowed = true; mole.whips = false; mole.emitsGas = false;
-                    mole.body.setSize(45, 30);
+                    mole.body.setSize(90, 60);
                     const mKey = 'carrot_mole_walk';
                     if (!this.anims.exists(mKey)) {
                         this.anims.create({ key: mKey, frames: this.anims.generateFrameNumbers('carrot_mole', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
@@ -249,11 +249,11 @@ export const HandMiniBossMethods = {
                         mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
                             if (!mole.active) return;
                             mole.isUnderground = true;
-                            mole.body.setSize(30, 22.5); mole.speed = 80;
+                            mole.body.setSize(60, 45); mole.speed = 160;
                             mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
                                 if (!mole.active) return;
                                 mole.isUnderground = false;
-                                mole.body.setSize(45, 30); mole.speed = 0;
+                                mole.body.setSize(90, 60); mole.speed = 0;
                                 if (mole.body) mole.body.setVelocity(0, 0);
                                 scheduleBurrow();
                             });
@@ -263,9 +263,9 @@ export const HandMiniBossMethods = {
                     this.enemies.add(mole);
                 } else {
                     const thug = this.physics.add.sprite(ox, oy, 'carrot_thug');
-                    thug.setScale(0.30).setDepth(5);
+                    thug.setScale(0.60).setDepth(5);
                     thug.health = 300; thug.maxHealth = 300;
-                    thug.damage = 15; thug.speed = 180;
+                    thug.damage = 15; thug.speed = 360;
                     thug.lastHitTime = 0;
                     thug.splits = false; thug.shoots = false; thug.splitsInto = null;
                     thug.hydra = false; thug.burrowed = false; thug.whips = false; thug.emitsGas = false;
@@ -299,7 +299,7 @@ export const HandMiniBossMethods = {
 
         if (!mb.active || mb.mantisVanishing || mb.mantisResting) return;
         if (mb.mantisPhase === 1 || mb.mantisChasing) {
-            this.physics.moveToObject(mb, this.player, 210);
+            this.physics.moveToObject(mb, this.player, 420);
         }
     },
 
@@ -341,9 +341,9 @@ export const HandMiniBossMethods = {
         if (!mb?.active) return;
 
         const angle  = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const offset = 80;
-        mb.x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * offset, 64, 3136);
-        mb.y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * offset, 64, 3136);
+        const offset = 160;
+        mb.x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * offset, 128, 6272);
+        mb.y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * offset, 128, 6272);
 
         mb.setVisible(true).setAlpha(0);
         mb.body.enable     = true;
@@ -379,7 +379,7 @@ export const HandMiniBossMethods = {
         this.tweens.add({ targets: mb, alpha: 0.2, duration: 80, yoyo: true, repeat: 1 });
 
         const dist = Phaser.Math.Distance.Between(mb.x, mb.y, this.player.x, this.player.y);
-        if (dist < 80) {
+        if (dist < 160) {
             this.lastDamageSource = mb.texture.key;
             this.playerHealth -= 25;
             this.playerDamageFlash();
@@ -423,18 +423,18 @@ export const HandMiniBossMethods = {
 
     spawnMiniMantisPhase2Ring(mb) {
         const COUNT  = 6; // scaled down from the original boss's ring of 25
-        const RADIUS = 350;
+        const RADIUS = 700;
         for (let i = 0; i < COUNT; i++) {
             const angle = (i / COUNT) * Math.PI * 2;
-            const cx = Phaser.Math.Clamp(mb.x + Math.cos(angle) * RADIUS, 64, 3136);
-            const cy = Phaser.Math.Clamp(mb.y + Math.sin(angle) * RADIUS, 64, 3136);
+            const cx = Phaser.Math.Clamp(mb.x + Math.cos(angle) * RADIUS, 128, 6272);
+            const cy = Phaser.Math.Clamp(mb.y + Math.sin(angle) * RADIUS, 128, 6272);
 
             const cyclone = this.physics.add.sprite(cx, cy, 'spinach_cyclone');
-            cyclone.setScale(0.30).setDepth(5);
+            cyclone.setScale(0.60).setDepth(5);
             cyclone.health      = 200;
             cyclone.maxHealth   = 200;
             cyclone.damage      = 20;
-            cyclone.speed       = 35;
+            cyclone.speed       = 70;
             cyclone.lastHitTime = 0;
             cyclone.splits = false; cyclone.shoots = false; cyclone.splitsInto = null;
             cyclone.hydra = false; cyclone.burrowed = false; cyclone.whips = false;
@@ -451,12 +451,12 @@ export const HandMiniBossMethods = {
                 if (!cyclone.active) return;
                 cyclone.cycloneTimer = this.time.delayedCall(Phaser.Math.Between(6000, 12000), () => {
                     if (!cyclone.active) return;
-                    const sx = cyclone.x + Phaser.Math.Between(-80, 80);
-                    const sy = cyclone.y + Phaser.Math.Between(-80, 80);
+                    const sx = cyclone.x + Phaser.Math.Between(-160, 160);
+                    const sy = cyclone.y + Phaser.Math.Between(-160, 160);
                     const mini = this.physics.add.sprite(sx, sy, 'spinach_small');
-                    mini.setScale(0.22).setDepth(5);
+                    mini.setScale(0.44).setDepth(5);
                     mini.health = 18; mini.maxHealth = 18;
-                    mini.damage = 9;  mini.speed = 110;
+                    mini.damage = 9;  mini.speed = 220;
                     mini.lastHitTime = 0;
                     mini.splits = false; mini.shoots = false; mini.splitsInto = null;
                     mini.hydra = false; mini.burrowed = false; mini.whips = false;

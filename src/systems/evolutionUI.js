@@ -115,9 +115,9 @@ export const EvolutionUIMethods = {
         const evos = this.evolutionDefs;
 
         const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setScrollFactor(0).setDepth(depth).setInteractive();
-        const title = this.add.text(W / 2, 30, 'EVOLUTIONS', {
-            fontSize: '28px', fontFamily: 'Arial Black, Arial', color: '#ffff00',
-            stroke: '#000000', strokeThickness: 5,
+        const title = this.add.text(W / 2, 60, 'EVOLUTIONS', {
+            fontSize: '56px', fontFamily: 'Arial Black, Arial', color: '#ffff00',
+            stroke: '#000000', strokeThickness: 10,
         }).setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5);
         const persistentItems = [overlay, title];
 
@@ -157,18 +157,18 @@ export const EvolutionUIMethods = {
         };
 
         // ─── Grid screen ────────────────────────────────────────────────────────
-        const cardW = 200, cardH = 92, cols = 3;
-        const startX = W / 2 - (cols - 1) * (cardW + 12) / 2;
-        const startY = 75;
+        const cardW = 400, cardH = 184, cols = 3;
+        const startX = W / 2 - (cols - 1) * (cardW + 24) / 2;
+        const startY = 150;
 
         // Scrollable viewport — below the title, above the CLOSE button/hint.
         // Cards beyond this range are reachable by dragging the tab on the right
         // edge, the right stick, or (if ever needed) a mouse wheel.
-        const viewportTop    = 62;
-        const viewportBottom = H - 42;
+        const viewportTop    = 124;
+        const viewportBottom = H - 84;
         const trackHeight    = viewportBottom - viewportTop;
         const rows           = Math.max(1, Math.ceil(evos.length / cols));
-        const contentBottom  = startY + (rows - 1) * (cardH + 12) + cardH;
+        const contentBottom  = startY + (rows - 1) * (cardH + 24) + cardH;
         const maxScroll       = Math.max(0, contentBottom - viewportBottom);
         let scrollY = 0;
         let thumb   = null;
@@ -233,8 +233,8 @@ export const EvolutionUIMethods = {
                 const isKnownOnly = everAcquired && !isAcquired && !isAvail;
                 const col = i % cols;
                 const row = Math.floor(i / cols);
-                const cx = startX + col * (cardW + 12);
-                const cy = startY + row * (cardH + 12);
+                const cx = startX + col * (cardW + 24);
+                const cy = startY + row * (cardH + 24);
 
                 const bgColor     = isAcquired ? 0xffffff : (isAvail ? 0x3a3000 : (isKnownOnly ? 0x22223a : 0x1a1a1a));
                 const borderColor = isAcquired ? 0x000000 : (isAvail ? 0xffee00 : (isKnownOnly ? 0x7777bb : 0x444444));
@@ -247,30 +247,30 @@ export const EvolutionUIMethods = {
                     .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0);
                 const border = this.add.rectangle(cx, cy, cardW, cardH)
                     .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5, 0)
-                    .setStrokeStyle(2, borderColor);
+                    .setStrokeStyle(4, borderColor);
 
                 // Name and description stay hidden (as "???") until the evolution has
                 // been acquired at least once, ever; requirements are always shown.
-                const nameText = this.add.text(cx, cy + 10, everAcquired ? ev.evolvedName : '???', {
-                    fontSize: '12px', fontFamily: 'Arial Black, Arial',
+                const nameText = this.add.text(cx, cy + 20, everAcquired ? ev.evolvedName : '???', {
+                    fontSize: '24px', fontFamily: 'Arial Black, Arial',
                     color: nameColor,
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
-                const recipeText = this.add.text(cx, cy + 30, isAcquired ? '✓ EVOLVED' : `Requires: ${ev.weaponLabel} maxed + ${ev.boostName}`, {
-                    fontSize: '9px', fontFamily: 'Arial', color: recipeColor,
-                    wordWrap: { width: cardW - 12 }, align: 'center',
+                const recipeText = this.add.text(cx, cy + 60, isAcquired ? '✓ EVOLVED' : `Requires: ${ev.weaponLabel} maxed + ${ev.boostName}`, {
+                    fontSize: '18px', fontFamily: 'Arial', color: recipeColor,
+                    wordWrap: { width: cardW - 24 }, align: 'center',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
-                const descText = this.add.text(cx, cy + 58, everAcquired ? ev.desc : '???', {
-                    fontSize: '9px', fontFamily: everAcquired ? 'Arial' : 'Arial Black, Arial', color: descColor,
-                    wordWrap: { width: cardW - 12 }, align: 'center',
+                const descText = this.add.text(cx, cy + 116, everAcquired ? ev.desc : '???', {
+                    fontSize: '18px', fontFamily: everAcquired ? 'Arial' : 'Arial Black, Arial', color: descColor,
+                    wordWrap: { width: cardW - 24 }, align: 'center',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 0);
 
                 modeItems.push(bg, border, nameText, recipeText, descText);
                 scrollables.push(
                     { obj: bg,         baseY: cy },
                     { obj: border,     baseY: cy },
-                    { obj: nameText,   baseY: cy + 10 },
-                    { obj: recipeText, baseY: cy + 30 },
-                    { obj: descText,   baseY: cy + 58 },
+                    { obj: nameText,   baseY: cy + 20 },
+                    { obj: recipeText, baseY: cy + 60 },
+                    { obj: descText,   baseY: cy + 116 },
                 );
                 cardRefs.push({ ev, i, cx, baseY: cy });
 
@@ -286,35 +286,35 @@ export const EvolutionUIMethods = {
 
             // ─── Controller navigation — same scheme as Level Select: D-pad/stick moves
             // a white box outline, A zooms in on whatever it's on ─────────────────────
-            selectionOutline = this.add.rectangle(0, 0, cardW + 6, cardH + 6, 0xffffff, 0)
-                .setStrokeStyle(3, 0xffffff).setScrollFactor(0).setDepth(depth + 6).setOrigin(0.5).setVisible(false);
+            selectionOutline = this.add.rectangle(0, 0, cardW + 12, cardH + 12, 0xffffff, 0)
+                .setStrokeStyle(6, 0xffffff).setScrollFactor(0).setDepth(depth + 6).setOrigin(0.5).setVisible(false);
             modeItems.push(selectionOutline);
             if (selectedIdx >= cardRefs.length) selectedIdx = 0;
             positionSelectionOutline();
 
-            const closeBtn = this.add.text(W / 2, H - 24, '[ CLOSE ]', {
-                fontSize: '13px', fontFamily: 'Arial', color: '#aaaaaa',
-                backgroundColor: '#222222', padding: { x: 16, y: 6 },
+            const closeBtn = this.add.text(W / 2, H - 48, '[ CLOSE ]', {
+                fontSize: '26px', fontFamily: 'Arial', color: '#aaaaaa',
+                backgroundColor: '#222222', padding: { x: 32, y: 12 },
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
             closeBtn.on('pointerover',  () => closeBtn.setColor('#ffffff'));
             closeBtn.on('pointerout',   () => closeBtn.setColor('#aaaaaa'));
             closeBtn.on('pointerdown',  () => closeMenu());
             modeItems.push(closeBtn);
 
-            modeItems.push(this.add.text(W / 2, H - 6, maxScroll > 0
+            modeItems.push(this.add.text(W / 2, H - 12, maxScroll > 0
                 ? '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   RS Scroll'
                 : '🎮  D-Pad/LS Navigate   A Zoom In   B Close', {
-                fontSize: '10px', fontFamily: 'Arial', color: '#888888',
+                fontSize: '20px', fontFamily: 'Arial', color: '#888888',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
 
             // Scrollbar — a draggable tab on the far right edge, only shown if content overflows
             if (maxScroll > 0) {
-                const track = this.add.rectangle(W - 10, viewportTop + trackHeight / 2, 8, trackHeight, 0x000000, 0.35)
+                const track = this.add.rectangle(W - 20, viewportTop + trackHeight / 2, 16, trackHeight, 0x000000, 0.35)
                     .setScrollFactor(0).setDepth(depth + 3);
                 modeItems.push(track);
 
-                const thumbHeight = Math.max(30, trackHeight * (trackHeight / (trackHeight + maxScroll)));
-                thumb = this.add.rectangle(W - 10, viewportTop, 14, thumbHeight, 0xffdd55, 0.9)
+                const thumbHeight = Math.max(60, trackHeight * (trackHeight / (trackHeight + maxScroll)));
+                thumb = this.add.rectangle(W - 20, viewportTop, 28, thumbHeight, 0xffdd55, 0.9)
                     .setScrollFactor(0).setDepth(depth + 4).setOrigin(0.5, 0)
                     .setInteractive({ useHandCursor: true });
                 this.input.setDraggable(thumb);
@@ -332,7 +332,7 @@ export const EvolutionUIMethods = {
 
         // ─── Zoom screen — one evolution blown up, with prev/next arrows and an
         // UNLOCK? button that's only live when the evolution is actually available ──
-        const zoomCx = W / 2, zoomCy = 150, zoomCardW = 480, zoomCardH = 200;
+        const zoomCx = W / 2, zoomCy = 300, zoomCardW = 960, zoomCardH = 400;
 
         const openZoom = (i) => { if (unlocking) return; zoomIdx = i; buildZoom(); };
         const zoomStep = (delta) => { if (unlocking) return; zoomIdx = (zoomIdx + delta + evos.length) % evos.length; buildZoom(); };
@@ -357,12 +357,12 @@ export const EvolutionUIMethods = {
             // Name and description stay hidden (as "???") only for an evolution never
             // acquired in any past playthrough — colours here were already readable in
             // every state, so revealing the text needs no colour changes, unlike the grid.
-            const nameText = this.add.text(zoomCx, zoomCy - 78, everAcquired ? ev.evolvedName : '???', {
-                fontSize: '20px', fontFamily: 'Arial Black, Arial', color: isAcquired ? '#000000' : '#ffff44',
+            const nameText = this.add.text(zoomCx, zoomCy - 156, everAcquired ? ev.evolvedName : '???', {
+                fontSize: '40px', fontFamily: 'Arial Black, Arial', color: isAcquired ? '#000000' : '#ffff44',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
-            const descText = this.add.text(zoomCx, zoomCy - 30, everAcquired ? ev.desc : '???', {
-                fontSize: '12px', fontFamily: everAcquired ? 'Arial' : 'Arial Black, Arial', color: textColor,
-                wordWrap: { width: zoomCardW - 60 }, align: 'center',
+            const descText = this.add.text(zoomCx, zoomCy - 60, everAcquired ? ev.desc : '???', {
+                fontSize: '24px', fontFamily: everAcquired ? 'Arial' : 'Arial Black, Arial', color: textColor,
+                wordWrap: { width: zoomCardW - 120 }, align: 'center',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
             modeItems.push(bg, border, nameText, descText);
 
@@ -371,27 +371,27 @@ export const EvolutionUIMethods = {
             const shakeTargets = [bg, border, nameText, descText];
 
             if (isAcquired) {
-                modeItems.push(this.add.text(zoomCx, zoomCy + 50, '✓ EVOLVED', {
-                    fontSize: '13px', fontFamily: 'Arial Black, Arial', color: '#008800',
+                modeItems.push(this.add.text(zoomCx, zoomCy + 100, '✓ EVOLVED', {
+                    fontSize: '26px', fontFamily: 'Arial Black, Arial', color: '#008800',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
             } else {
                 const { weaponLine, boostLine } = this._getEvoReqLines(ev);
-                const weaponText = this.add.text(zoomCx, zoomCy + 40, weaponLine, {
-                    fontSize: '11px', fontFamily: 'Arial', color: weaponLine.startsWith('✓') ? '#88ff88' : '#ff8888',
+                const weaponText = this.add.text(zoomCx, zoomCy + 80, weaponLine, {
+                    fontSize: '22px', fontFamily: 'Arial', color: weaponLine.startsWith('✓') ? '#88ff88' : '#ff8888',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
-                const boostText = this.add.text(zoomCx, zoomCy + 60, boostLine, {
-                    fontSize: '11px', fontFamily: 'Arial', color: boostLine.startsWith('✓') ? '#88ff88' : '#ff8888',
+                const boostText = this.add.text(zoomCx, zoomCy + 120, boostLine, {
+                    fontSize: '22px', fontFamily: 'Arial', color: boostLine.startsWith('✓') ? '#88ff88' : '#ff8888',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
                 modeItems.push(weaponText, boostText);
                 shakeTargets.push(weaponText, boostText);
             }
 
             // Prev/next arrows — cycle through every evolution, wrapping at the ends
-            const arrowLeft = this.add.text(zoomCx - zoomCardW / 2 - 30, zoomCy, '◀', {
-                fontSize: '28px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+            const arrowLeft = this.add.text(zoomCx - zoomCardW / 2 - 60, zoomCy, '◀', {
+                fontSize: '56px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
-            const arrowRight = this.add.text(zoomCx + zoomCardW / 2 + 30, zoomCy, '▶', {
-                fontSize: '28px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+            const arrowRight = this.add.text(zoomCx + zoomCardW / 2 + 60, zoomCy, '▶', {
+                fontSize: '56px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
             arrowLeft.on('pointerover',  () => arrowLeft.setColor('#ffff00'));
             arrowLeft.on('pointerout',   () => arrowLeft.setColor('#ffffff'));
@@ -403,12 +403,12 @@ export const EvolutionUIMethods = {
 
             // UNLOCK? — dormant (greyed out, non-interactive) unless this evolution is
             // actually available (weapon maxed + boost owned, and not already acquired)
-            const unlockY = zoomCy + zoomCardH / 2 + 34;
+            const unlockY = zoomCy + zoomCardH / 2 + 68;
             const unlockBtn = this.add.text(zoomCx, unlockY, isAcquired ? '✓ EVOLVED' : 'UNLOCK?', {
-                fontSize: '15px', fontFamily: 'Arial Black, Arial',
+                fontSize: '30px', fontFamily: 'Arial Black, Arial',
                 color: isAvail ? '#003300' : '#777777',
                 backgroundColor: isAvail ? '#ffee00' : '#2a2a2a',
-                padding: { x: 20, y: 8 },
+                padding: { x: 40, y: 16 },
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
             modeItems.push(unlockBtn);
             if (isAvail) {
@@ -469,17 +469,17 @@ export const EvolutionUIMethods = {
                 currentUnlockTrigger = triggerUnlock;
             }
 
-            const backBtn = this.add.text(W / 2, H - 24, '[ BACK ]', {
-                fontSize: '13px', fontFamily: 'Arial', color: '#aaaaaa',
-                backgroundColor: '#222222', padding: { x: 16, y: 6 },
+            const backBtn = this.add.text(W / 2, H - 48, '[ BACK ]', {
+                fontSize: '26px', fontFamily: 'Arial', color: '#aaaaaa',
+                backgroundColor: '#222222', padding: { x: 32, y: 12 },
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
             backBtn.on('pointerover', () => backBtn.setColor('#ffffff'));
             backBtn.on('pointerout',  () => backBtn.setColor('#aaaaaa'));
             backBtn.on('pointerdown', () => backToGrid());
             modeItems.push(backBtn);
 
-            modeItems.push(this.add.text(W / 2, H - 6, '🎮  ◀ / ▶ or LB / RB  Switch    A  Unlock    B  Back', {
-                fontSize: '10px', fontFamily: 'Arial', color: '#888888',
+            modeItems.push(this.add.text(W / 2, H - 12, '🎮  ◀ / ▶ or LB / RB  Switch    A  Unlock    B  Back', {
+                fontSize: '20px', fontFamily: 'Arial', color: '#888888',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
         };
 
@@ -583,8 +583,8 @@ export const EvolutionUIMethods = {
         if (!this.pauseBtn) return;
         const b = this.pauseBtn.getBounds();
         const ring = this.add.graphics().setScrollFactor(0).setDepth(101).setPosition(b.centerX, b.centerY);
-        ring.lineStyle(4, 0xffdd00, 0.9);
-        ring.strokeCircle(0, 0, 16);
+        ring.lineStyle(8, 0xffdd00, 0.9);
+        ring.strokeCircle(0, 0, 32);
         this.tweens.add({
             targets: ring, scaleX: 5, scaleY: 5, alpha: 0, duration: 900, ease: 'Cubic.easeOut',
             onComplete: () => ring.destroy(),

@@ -11,23 +11,23 @@ export default class TitleScene extends Phaser.Scene {
         const cx = this.cameras.main.width / 2;
         const cy = this.cameras.main.height / 2;
 
-        this.add.text(cx, cy - 80, 'SALAD SLAYER: SNAPPER', {
-            fontSize: '36px',
+        this.add.text(cx, cy - 160, 'SALAD SLAYER: SNAPPER', {
+            fontSize: '72px',
             fontFamily: 'Arial Black, Arial',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 6,
+            strokeThickness: 12,
         }).setOrigin(0.5);
 
-        this.add.text(cx, cy - 30, 'Leaf No Survivors', {
-            fontSize: '20px',
+        this.add.text(cx, cy - 60, 'Leaf No Survivors', {
+            fontSize: '40px',
             fontFamily: 'Arial',
             color: '#aaffaa',
             fontStyle: 'italic',
         }).setOrigin(0.5);
 
-        const prompt = this.add.text(cx, cy + 60, 'PRESS ANY BUTTON TO BEGIN', {
-            fontSize: '16px',
+        const prompt = this.add.text(cx, cy + 120, 'PRESS ANY BUTTON TO BEGIN', {
+            fontSize: '32px',
             fontFamily: 'Arial',
             color: '#ffff00',
         }).setOrigin(0.5);

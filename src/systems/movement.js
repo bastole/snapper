@@ -5,7 +5,7 @@ export const MovementMethods = {
         const cam = this.cameras.main;
         const W   = cam.width;
         const H   = cam.height;
-        const pad = 18; // distance from screen edge to arrow tip
+        const pad = 36; // distance from screen edge to arrow tip
 
         g.clear();
 
@@ -16,10 +16,10 @@ export const MovementMethods = {
             if (sx < 0 || sx > W || sy < 0 || sy > H) {
                 const isHand = this.level === 5;
                 const color  = isHand ? 0xff44cc : 0xcc44ff;
-                const len    = isHand ? 18 : 10;
-                const wing   = isHand ? 11 : 6;
-                const cx = Phaser.Math.Clamp(sx, pad + 6, W - pad - 6);
-                const cy = Phaser.Math.Clamp(sy, pad + 6, H - pad - 6);
+                const len    = isHand ? 36 : 20;
+                const wing   = isHand ? 22 : 12;
+                const cx = Phaser.Math.Clamp(sx, pad + 12, W - pad - 12);
+                const cy = Phaser.Math.Clamp(sy, pad + 12, H - pad - 12);
                 const angle = Math.atan2(sy - cy, sx - cx);
                 const tx = cx + Math.cos(angle) * len;
                 const ty = cy + Math.sin(angle) * len;
@@ -29,7 +29,7 @@ export const MovementMethods = {
                 const ry = cy + Math.sin(angle - Math.PI * 0.75) * wing;
                 g.fillStyle(color, 1);
                 g.fillTriangle(tx, ty, lx, ly, rx, ry);
-                g.lineStyle(isHand ? 2.5 : 1.5, 0x000000, 0.7);
+                g.lineStyle(isHand ? 5 : 3, 0x000000, 0.7);
                 g.strokeTriangle(tx, ty, lx, ly, rx, ry);
             }
         }
@@ -41,10 +41,10 @@ export const MovementMethods = {
                 const sx = mb.x - cam.scrollX;
                 const sy = mb.y - cam.scrollY;
                 if (sx < 0 || sx > W || sy < 0 || sy > H) {
-                    const cx = Phaser.Math.Clamp(sx, pad + 4, W - pad - 4);
-                    const cy = Phaser.Math.Clamp(sy, pad + 4, H - pad - 4);
+                    const cx = Phaser.Math.Clamp(sx, pad + 8, W - pad - 8);
+                    const cy = Phaser.Math.Clamp(sy, pad + 8, H - pad - 8);
                     const angle = Math.atan2(sy - cy, sx - cx);
-                    const len = 10, wing = 6;
+                    const len = 20, wing = 12;
                     const tx = cx + Math.cos(angle) * len;
                     const ty = cy + Math.sin(angle) * len;
                     const lx = cx + Math.cos(angle + Math.PI * 0.75) * wing;
@@ -53,7 +53,7 @@ export const MovementMethods = {
                     const ry = cy + Math.sin(angle - Math.PI * 0.75) * wing;
                     g.fillStyle(0xcc44ff, 1);
                     g.fillTriangle(tx, ty, lx, ly, rx, ry);
-                    g.lineStyle(1.5, 0x000000, 0.6);
+                    g.lineStyle(3, 0x000000, 0.6);
                     g.strokeTriangle(tx, ty, lx, ly, rx, ry);
                 }
             });
@@ -74,15 +74,15 @@ export const MovementMethods = {
             const color = type === 'treasure' ? 0xffd700 : type === 'fullbox' ? 0xff88ff : 0xff4444;
 
             // Clamp the arrow to the screen edge
-            const cx = Phaser.Math.Clamp(sx, pad + 4, W - pad - 4);
-            const cy = Phaser.Math.Clamp(sy, pad + 4, H - pad - 4);
+            const cx = Phaser.Math.Clamp(sx, pad + 8, W - pad - 8);
+            const cy = Phaser.Math.Clamp(sy, pad + 8, H - pad - 8);
 
             // Angle pointing toward the item from the clamped edge point
             const angle = Math.atan2(sy - cy, sx - cx);
 
             // Arrow size
-            const len  = 10;
-            const wing = 6;
+            const len  = 20;
+            const wing = 12;
 
             const tx = cx + Math.cos(angle) * len;
             const ty = cy + Math.sin(angle) * len;
@@ -96,7 +96,7 @@ export const MovementMethods = {
             g.fillTriangle(tx, ty, lx, ly, rx, ry);
 
             // Subtle dark outline
-            g.lineStyle(1.5, 0x000000, 0.6);
+            g.lineStyle(3, 0x000000, 0.6);
             g.strokeTriangle(tx, ty, lx, ly, rx, ry);
         });
     },
@@ -104,7 +104,7 @@ export const MovementMethods = {
     // ─── Dubia Shields ───────────────────────────────────────────────────────────
     createDubiaShield(layer = 'single') {
         const shield = this.add.image(this.player.x, this.player.y, 'dubia_shields');
-        shield.setScale(0.14).setDepth(6);
+        shield.setScale(0.28).setDepth(6);
         shield.layer = layer;
         shield.hitCooldowns = new Map();
         this.dubiaShields.push(shield);
@@ -127,18 +127,18 @@ export const MovementMethods = {
             const outer = this.dubiaShields.filter(s => s.layer === 'outer');
             inner.forEach((shield, i) => {
                 const a = this.dubiaAngle + (i / inner.length) * Math.PI * 2;
-                shield.setPosition(this.player.x + Math.cos(a) * 70, this.player.y + Math.sin(a) * 70);
+                shield.setPosition(this.player.x + Math.cos(a) * 140, this.player.y + Math.sin(a) * 140);
             });
             outer.forEach((shield, i) => {
                 const a = this.dubiaOuterAngle + (i / outer.length) * Math.PI * 2;
-                shield.setPosition(this.player.x + Math.cos(a) * 120, this.player.y + Math.sin(a) * 120);
+                shield.setPosition(this.player.x + Math.cos(a) * 240, this.player.y + Math.sin(a) * 240);
             });
         } else {
             const speeds = [1.2, 1.6, 2.0];
             this.dubiaAngle += (speeds[this.dubiaLevel - 1] ?? 1.2) * defSpeedMult * dt;
             this.dubiaShields.forEach((shield, i) => {
                 const a = this.dubiaAngle + (i / this.dubiaShields.length) * Math.PI * 2;
-                shield.setPosition(this.player.x + Math.cos(a) * 90, this.player.y + Math.sin(a) * 90);
+                shield.setPosition(this.player.x + Math.cos(a) * 180, this.player.y + Math.sin(a) * 180);
             });
         }
 
@@ -146,7 +146,7 @@ export const MovementMethods = {
             this.enemies.getChildren().forEach(enemy => {
                 if (!this.canDamageEnemy(enemy)) return;
                 const dist = Phaser.Math.Distance.Between(shield.x, shield.y, enemy.x, enemy.y);
-                if (dist >= 14) return;
+                if (dist >= 28) return;
                 const lastHit = shield.hitCooldowns.get(enemy) ?? 0;
                 if (now - lastHit < 800) return;
                 shield.hitCooldowns.set(enemy, now);
@@ -168,7 +168,7 @@ export const MovementMethods = {
             });
             if (this.boss?.active) {
                 const dist = Phaser.Math.Distance.Between(shield.x, shield.y, this.boss.x, this.boss.y);
-                if (dist < 48) {
+                if (dist < 96) {
                     const lastHit = shield.hitCooldowns.get(this.boss) ?? 0;
                     if (now - lastHit >= 800) {
                         shield.hitCooldowns.set(this.boss, now);
@@ -189,7 +189,7 @@ export const MovementMethods = {
         });
         if (!nearestShield) return;
         const ex = nearestShield.x, ey = nearestShield.y;
-        const radius = 50;
+        const radius = 100;
         const dmg = this.dubiaShieldDamage;
 
         const expl = this.add.circle(ex, ey, radius, 0xff8800, 0.5).setDepth(15);
@@ -214,12 +214,12 @@ export const MovementMethods = {
     // outer ring at the drag's starting point, and an inner circle that follows
     // the drag direction, clamped to the ring's border.
     setupTouchJoystick() {
-        const OUTER_R = 50;
-        const INNER_R = 22;
+        const OUTER_R = 100;
+        const INNER_R = 44;
         const DEAD    = 0.15;
 
         this.joystickOuter = this.add.circle(0, 0, OUTER_R, 0xffffff, 0.15)
-            .setStrokeStyle(3, 0xffffff, 0.5).setScrollFactor(0).setDepth(90).setVisible(false);
+            .setStrokeStyle(6, 0xffffff, 0.5).setScrollFactor(0).setDepth(90).setVisible(false);
         this.joystickInner = this.add.circle(0, 0, INNER_R, 0xffffff, 0.35)
             .setScrollFactor(0).setDepth(91).setVisible(false);
 

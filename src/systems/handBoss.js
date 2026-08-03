@@ -10,14 +10,14 @@ export const HandBossMethods = {
         this.handMiniBossArray?.forEach(mb => {
             if (!mb.active) return;
             if (mb.hpBarBg) {
-                mb.hpBarBg.setPosition(mb.x, mb.y + 30);
-                mb.hpBar.x = mb.x - 30;
-                mb.hpBar.y = mb.y + 30;
-                mb.hpBar.width = 60 * Math.max(0, mb.health / mb.maxHealth);
-                mb.hpLabel.setPosition(mb.x, mb.y - 44);
+                mb.hpBarBg.setPosition(mb.x, mb.y + 60);
+                mb.hpBar.x = mb.x - 60;
+                mb.hpBar.y = mb.y + 60;
+                mb.hpBar.width = 120 * Math.max(0, mb.health / mb.maxHealth);
+                mb.hpLabel.setPosition(mb.x, mb.y - 88);
                 if (mb.phaseLine) {
                     const f = mb.phaseBoundaries[0] / mb.maxHealth;
-                    mb.phaseLine.setPosition(mb.x - 30 + f * 60, mb.y + 30);
+                    mb.phaseLine.setPosition(mb.x - 60 + f * 120, mb.y + 60);
                 }
             }
         });
@@ -31,7 +31,7 @@ export const HandBossMethods = {
                 case 'rocket_spider':   this.updateMiniSpiderAI(mb);   break;
                 case 'carrot_scorpion': this.updateMiniScorpionAI(mb); break;
                 case 'mulberry_mantis': this.updateMiniMantisAI(mb);   break;
-                default: this.physics.moveToObject(mb, this.player, mb.speed ?? 90);
+                default: this.physics.moveToObject(mb, this.player, mb.speed ?? 180);
             }
         });
 
@@ -42,7 +42,7 @@ export const HandBossMethods = {
                 ...this.enemies.getChildren().filter(e => e.active && !e.isBossMini),
                 ...(this.handMiniBossArray?.filter(b => b.active) ?? []),
             ];
-            vacTargets.forEach(e => { if (e.body) this.physics.moveTo(e, boss.x, boss.y, 600); });
+            vacTargets.forEach(e => { if (e.body) this.physics.moveTo(e, boss.x, boss.y, 1200); });
         }
 
         if (boss.handImmobile) return;
@@ -52,10 +52,10 @@ export const HandBossMethods = {
 
         if (!boss.handWanderTarget) boss.handWanderTarget = this.pickHandWanderTarget();
         const dist = Phaser.Math.Distance.Between(boss.x, boss.y, boss.handWanderTarget.x, boss.handWanderTarget.y);
-        if (dist < 40) {
+        if (dist < 80) {
             boss.handWanderTarget = this.pickHandWanderTarget();
         } else {
-            this.physics.moveTo(boss, boss.handWanderTarget.x, boss.handWanderTarget.y, 200 * this.getHandSpeedMultiplier() * (boss.slowFactor ?? 1));
+            this.physics.moveTo(boss, boss.handWanderTarget.x, boss.handWanderTarget.y, 400 * this.getHandSpeedMultiplier() * (boss.slowFactor ?? 1));
         }
     },
 
@@ -66,10 +66,10 @@ export const HandBossMethods = {
 
     pickHandWanderTarget() {
         const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const dist  = Phaser.Math.Between(100, 300);
+        const dist  = Phaser.Math.Between(200, 600);
         return {
-            x: Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 64, 3136),
-            y: Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 64, 3136),
+            x: Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 128, 6272),
+            y: Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 128, 6272),
         };
     },
 
@@ -89,7 +89,7 @@ export const HandBossMethods = {
 
         const angle    = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
         const halfArc  = Math.PI / 2; // 90° each side = 180° total
-        const radius   = 120;
+        const radius   = 240;
         const g = this.add.graphics().setDepth(20);
         g.fillStyle(0xff8800, 0.5);
         g.slice(boss.x, boss.y, radius, angle - halfArc, angle + halfArc);
@@ -187,8 +187,8 @@ export const HandBossMethods = {
         for (let i = 0; i < COUNT; i++) {
             const a    = (i / COUNT) * Math.PI * 2;
             const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_calcium');
-            proj.setScale(0.18).setDepth(7);
-            proj.setVelocity(Math.cos(a) * 220, Math.sin(a) * 220);
+            proj.setScale(0.36).setDepth(7);
+            proj.setVelocity(Math.cos(a) * 440, Math.sin(a) * 440);
             proj.damage = 15;
             this.physics.add.overlap(proj, this.player, () => {
                 if (!proj.active || this.player.reviveInvincible) return;
@@ -220,9 +220,9 @@ export const HandBossMethods = {
 
         // Pick destination close to player so attacks land in view
         const tpAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const tpDist  = Phaser.Math.Between(250, 450);
-        const newX = Phaser.Math.Clamp(this.player.x + Math.cos(tpAngle) * tpDist, 64, 3136);
-        const newY = Phaser.Math.Clamp(this.player.y + Math.sin(tpAngle) * tpDist, 64, 3136);
+        const tpDist  = Phaser.Math.Between(500, 900);
+        const newX = Phaser.Math.Clamp(this.player.x + Math.cos(tpAngle) * tpDist, 128, 6272);
+        const newY = Phaser.Math.Clamp(this.player.y + Math.sin(tpAngle) * tpDist, 128, 6272);
 
         this.tweens.add({ targets: boss, alpha: 0, duration: 250, onComplete: () => {
             if (!boss.active) return;
@@ -265,12 +265,12 @@ export const HandBossMethods = {
         const targetX = this.player.x;
         const targetY = this.player.y;
         const angle   = Math.atan2(targetY - boss.y, targetX - boss.x);
-        const dist    = Phaser.Math.Distance.Between(boss.x, boss.y, targetX, targetY) + 60;
+        const dist    = Phaser.Math.Distance.Between(boss.x, boss.y, targetX, targetY) + 120;
 
         // Red rectangle telegraph — same style as Lettuce Beetle
         const warn = this.add.graphics().setDepth(18);
         warn.fillStyle(0xff0000, 0.25);
-        warn.fillRect(0, -30, dist, 60);
+        warn.fillRect(0, -60, dist, 120);
         warn.setPosition(boss.x, boss.y);
         warn.setRotation(angle);
         this.tweens.add({ targets: boss, alpha: 0.3, duration: 75, yoyo: true, repeat: 1 });
@@ -280,7 +280,7 @@ export const HandBossMethods = {
             warn.destroy();
             if (!boss.active) return;
             const chargeAngle = Math.atan2(targetY - boss.y, targetX - boss.x);
-            const chargeSpeed = 420 * this.getHandSpeedMultiplier();
+            const chargeSpeed = 840 * this.getHandSpeedMultiplier();
             boss.body.setVelocity(Math.cos(chargeAngle) * chargeSpeed, Math.sin(chargeAngle) * chargeSpeed);
             this.time.delayedCall(450, () => {
                 if (!boss.active) return;
@@ -299,12 +299,12 @@ export const HandBossMethods = {
 
         // Spin 360° and drop 10 fire zones
         const COUNT  = 10;
-        const RING_R = 90;
+        const RING_R = 180;
         for (let i = 0; i < COUNT; i++) {
             const a  = (i / COUNT) * Math.PI * 2;
             const fx = boss.x + Math.cos(a) * RING_R;
             const fy = boss.y + Math.sin(a) * RING_R;
-            this.spawnHandFireZone(fx, fy, 55);
+            this.spawnHandFireZone(fx, fy, 110);
         }
 
         this.tweens.add({ targets: boss, angle: boss.angle + 360, duration: 1200, onComplete: () => {
@@ -366,11 +366,11 @@ export const HandBossMethods = {
             const tx     = this.player.x;
             const ty     = this.player.y;
             const angle  = Math.atan2(ty - boss.y, tx - boss.x);
-            const length = 300;
+            const length = 600;
 
             const g = this.add.graphics().setDepth(20);
             g.fillStyle(0x88ffaa, 0.65);
-            g.fillRect(0, -10, length, 20);
+            g.fillRect(0, -20, length, 40);
             g.setPosition(boss.x, boss.y);
             g.setRotation(angle);
 
@@ -411,18 +411,18 @@ export const HandBossMethods = {
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
 
-        const label = this.add.text(boss.x, boss.y - 40, '🥗', {
-            fontSize: '40px',
+        const label = this.add.text(boss.x, boss.y - 80, '🥗', {
+            fontSize: '80px',
         }).setDepth(25).setOrigin(0.5);
-        this.tweens.add({ targets: label, y: label.y + 80, alpha: 0, duration: 1000, onComplete: () => label.destroy() });
+        this.tweens.add({ targets: label, y: label.y + 160, alpha: 0, duration: 1000, onComplete: () => label.destroy() });
 
         this.time.delayedCall(600, () => {
             if (!boss.active) return;
             const configs = [
-                { key: 'lettuce_beetle',  health: 4000,  damage: 15, speed: 70,  scale: 0.6 },
-                { key: 'rocket_spider',   health: 6000,  damage: 18, speed: 80,  scale: 0.6 },
-                { key: 'carrot_scorpion', health: 9000,  damage: 20, speed: 85,  scale: 0.65 },
-                { key: 'mulberry_mantis', health: 4000,  damage: 12, speed: 100, scale: 0.6 },
+                { key: 'lettuce_beetle',  health: 4000,  damage: 15, speed: 140, scale: 1.2 },
+                { key: 'rocket_spider',   health: 6000,  damage: 18, speed: 160, scale: 1.2 },
+                { key: 'carrot_scorpion', health: 9000,  damage: 20, speed: 170, scale: 1.3 },
+                { key: 'mulberry_mantis', health: 4000,  damage: 12, speed: 200, scale: 1.2 },
             ];
             configs.forEach(cfg => this.spawnHandMiniBoss(cfg));
             boss.handImmobile = false;
@@ -431,9 +431,9 @@ export const HandBossMethods = {
 
     spawnHandMiniBoss(cfg) {
         const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const dist  = Phaser.Math.Between(300, 500);
-        const sx    = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 64, 3136);
-        const sy    = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 64, 3136);
+        const dist  = Phaser.Math.Between(600, 1000);
+        const sx    = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 128, 6272);
+        const sy    = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 128, 6272);
 
         const mb = this.physics.add.sprite(sx, sy, cfg.key);
         mb.setScale(cfg.scale).setDepth(8);
@@ -462,10 +462,10 @@ export const HandBossMethods = {
         mb.play(animKey);
 
         // World-space health bar under the mini-boss sprite
-        mb.hpBarBg = this.add.rectangle(sx, sy + 30, 60, 8, 0x222222).setDepth(9);
-        mb.hpBar   = this.add.rectangle(sx - 30, sy + 30, 60, 6, 0xff2222).setDepth(10).setOrigin(0, 0.5);
-        mb.hpLabel = this.add.text(sx, sy - 44, cfg.key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), {
-            fontSize: '9px', fontFamily: 'Arial Black, Arial', color: '#ff8888',
+        mb.hpBarBg = this.add.rectangle(sx, sy + 60, 120, 16, 0x222222).setDepth(9);
+        mb.hpBar   = this.add.rectangle(sx - 60, sy + 60, 120, 12, 0xff2222).setDepth(10).setOrigin(0, 0.5);
+        mb.hpLabel = this.add.text(sx, sy - 88, cfg.key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), {
+            fontSize: '18px', fontFamily: 'Arial Black, Arial', color: '#ff8888',
         }).setDepth(10).setOrigin(0.5);
 
         this.enemies.add(mb);
@@ -523,18 +523,18 @@ export const HandBossMethods = {
             // Enemy ring: 30 L5-exclusive enemies around boss
             const keys = ['lettuce_trap', 'basil_bomb', 'rocket_bustersword', 'oregano_phantom', 'coriander_carrot', 'spinach_tempest', 'mulberry_monstrosity'];
             const statMap = {
-                lettuce_trap:        { health: 180, damage: 10, speed: 70,  scale: 0.28 },
-                basil_bomb:          { health: 80,  damage: 0,  speed: 190, scale: 0.25 },
-                rocket_bustersword:  { health: 90,  damage: 22, speed: 200, scale: 0.35 },
-                oregano_phantom:      { health: 250, damage: 25, speed: 50,  scale: 0.35 },
-                coriander_carrot:     { health: 500, damage: 30, speed: 20,  scale: 0.30 },
-                spinach_tempest:      { health: 500, damage: 25, speed: 160, scale: 0.40 },
-                mulberry_monstrosity: { health: 350, damage: 15, speed: 140, scale: 0.40 },
+                lettuce_trap:        { health: 180, damage: 10, speed: 140, scale: 0.56 },
+                basil_bomb:          { health: 80,  damage: 0,  speed: 380, scale: 0.50 },
+                rocket_bustersword:  { health: 90,  damage: 22, speed: 400, scale: 0.70 },
+                oregano_phantom:      { health: 250, damage: 25, speed: 100, scale: 0.70 },
+                coriander_carrot:     { health: 500, damage: 30, speed: 40,  scale: 0.60 },
+                spinach_tempest:      { health: 500, damage: 25, speed: 320, scale: 0.80 },
+                mulberry_monstrosity: { health: 350, damage: 15, speed: 280, scale: 0.80 },
             };
             for (let i = 0; i < 30; i++) {
                 const a    = (i / 30) * Math.PI * 2;
-                const ex   = Phaser.Math.Clamp(boss.x + Math.cos(a) * 350, 64, 3136);
-                const ey   = Phaser.Math.Clamp(boss.y + Math.sin(a) * 350, 64, 3136);
+                const ex   = Phaser.Math.Clamp(boss.x + Math.cos(a) * 700, 128, 6272);
+                const ey   = Phaser.Math.Clamp(boss.y + Math.sin(a) * 700, 128, 6272);
                 const key  = Phaser.Utils.Array.GetRandom(keys);
                 const stat = statMap[key];
                 const e    = this.physics.add.sprite(ex, ey, key);
@@ -566,8 +566,8 @@ export const HandBossMethods = {
                 for (let i = 0; i < 30; i++) {
                     const a    = (i / 30) * Math.PI * 2;
                     const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
-                    proj.setScale(0.18).setDepth(7);
-                    proj.setVelocity(Math.cos(a) * 250, Math.sin(a) * 250);
+                    proj.setScale(0.36).setDepth(7);
+                    proj.setVelocity(Math.cos(a) * 500, Math.sin(a) * 500);
                     proj.damage = 15;
                     this.physics.add.overlap(proj, this.player, () => {
                         if (!proj.active || this.player.reviveInvincible) return;
@@ -609,8 +609,8 @@ export const HandBossMethods = {
             for (let i = 0; i < 30; i++) {
                 const a    = (i / 30) * Math.PI * 2;
                 const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
-                proj.setScale(0.20).setDepth(7);
-                proj.setVelocity(Math.cos(a) * 200, Math.sin(a) * 200);
+                proj.setScale(0.40).setDepth(7);
+                proj.setVelocity(Math.cos(a) * 400, Math.sin(a) * 400);
                 this.physics.add.overlap(proj, this.player, () => {
                     if (!proj.active || this.player.reviveInvincible) return;
                     this.playerHealth = Math.floor(this.playerHealth / 2);
@@ -683,8 +683,8 @@ export const HandBossMethods = {
             // Fade the red tint back out
             this.tweens.add({ targets: redOverlay, alpha: 0, duration: 300, onComplete: () => { redOverlay.destroy(); this.handVacuumOverlay = null; } });
 
-            // Explosion visual — circle grows from 0 → 750px in 400ms (blast radius halved)
-            const BLAST_RADIUS = 750;
+            // Explosion visual — circle grows from 0 → 1500px in 400ms (blast radius halved)
+            const BLAST_RADIUS = 1500;
             const g = this.add.graphics().setDepth(26);
             g.fillStyle(0xffffff, 0.9);
             g.fillCircle(0, 0, BLAST_RADIUS);

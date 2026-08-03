@@ -1158,3 +1158,81 @@ Dubia Shields visual changed from `this.add.circle(...)` → `this.add.image(...
 **`sw.js`** — `CACHE_VERSION` bumped `v2` → `v3`; `PRECACHE_URLS` updated to reflect all new and renamed asset paths (old placeholder paths removed, new `enemy_`/`boss_` prefixed paths and the two new folders added).
 
 **`sprites.md`** added to the repo root documenting every sprite file, its dimensions, and frame breakdown.
+
+---
+
+## Session 36 — 2026-08-03
+
+### Two remaining placeholder sprites replaced with dedicated art
+
+**Sunbaked Ambers** — the evolution previously noted as still using `weapon_pebble_flick` with an amber tint (flagged in Session 35) now has its own sprite: `evol_sunbaked_amber.png`. The tint call was removed and the texture key updated to `'evol_sunbaked_amber'` in `evolutions.js`. Already preloaded in `BootScene.js`.
+
+**Mulberry Snake projectile** — the spit projectile was previously using `'iceberg_lettuce'` as the generic shooter fallback (no `projKey` was set in its enemy definition). Now has a dedicated `projectile_mulberry_snake.png`; `projKey: 'projectile_mulberry_snake'` and `projScale: 0.13` added to both Level 4 spawn pool entries in `enemySpawn.js`. The existing `if (def.key !== 'mulberry_snake')` guard that already excluded snake spit from the per-projectile spin (`setAngularVelocity`) was already in place.
+
+`sw.js` — `CACHE_VERSION` bumped `v3` → `v4`; both new asset paths added to `PRECACHE_URLS`. `sprites.md` updated to list both new files.
+
+---
+
+## Session 37 — 2026-08-03
+
+### Resolution upgrade: 800×450 → 1600×900 (honest ×2 scale)
+
+The game's base resolution was doubled from 800×450 to 1600×900. No camera zoom or Phaser scale tricks — every hardcoded pixel value in the game was multiplied by 2.
+
+**`src/main.js`** — `width: 800, height: 450` → `width: 1600, height: 900`.
+
+**World size** — `WORLD_W`/`WORLD_H` 3200×3200 → 6400×6400 in `GameScene.js`. World boundary clamps updated throughout: `64 → 128`, `3136 → 6272` (spawn/boss/wander systems); `32 → 64`, `3168 → 6336` (evolution mine/zone placement where a tighter margin was intentional).
+
+**Player** — `playerSpeed` 320 → 640; `setScale` 0.5 → 1.0; `magnetRange` 64 → 128; `pupaRadius` 140 → 280.
+
+**All enemy spawn pool entries** (`enemySpawn.js`) — `speed` and `scale` doubled for all 35+ entries across pools 1–5. Projectile scales, body sizes, and AI thresholds (wander arrival, melee range, charge speed, scatter ranges) all doubled.
+
+**Boss system** (`boss.js`) — all boss config scales, world HP bar geometry, phase line positions, warning banner, AI speeds (chase, wander, charge), attack ranges and offsets doubled. Top-bar HP bar uses screen-relative `W`/`H` constants so it adapts automatically. `updateBossHealthBar` fully updated.
+
+**Hand boss** (`handBoss.js`, `handMiniBoss.js`) — spawn positions, projectile scales/velocities, mini-boss stats, cyclone ring radius and entity scales, world clamps all doubled.
+
+**Weapon systems** (`baseWeapons.js`, `evolutions.js`) — all projectile scales, velocities, attack radii, claw/branch/log ranges, dust kick lengths, and lineStyle widths doubled.
+
+**HUD** (`hud.js`) — XP bar at y=24, HP bar at y=64; both bars span `W−80` with heights 32/28 and 20/16. Font sizes doubled (kill counter, timer, weapon labels). All bars use `W`/`H` constants so they scale automatically with resolution.
+
+**UI overlays** (`levelUp.js`, `evolutionUI.js`, `gameFlow.js`) — font sizes, card dimensions, overlay positions all doubled. Poison Claw reach descriptions updated to match new pixel values (160/220/280/340px).
+
+**Player movement** (`movement.js`) — off-screen arrow indicators: pad, triangle dimensions, lineStyle widths all doubled. Dubia Shield orbit radii (70→140, 90→180, 120→240), hit detection distance (14→28, 48→96), and shield scale (0.14→0.28) doubled.
+
+**Enemy behaviour** (`crickets.js`) — trap snap range (36→72), wander arrival (40→80), spread formula constants (120/480), magnet speed (220→440), Inflate knockback speed/range all doubled. Hydra phase transition speed bonus and scale formula doubled.
+
+**Enemy death** (`enemyDeath.js`) — all XP insect scales, floating text font/offsets, split-spawn scatter, and phantom death burst scale/velocity doubled.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v4` → `v5` to force PWA cache refresh.
+
+---
+
+## Session 38 — 2026-08-03
+
+### Fix: GameScene.js values doubled twice (×4 instead of ×2)
+
+Session 37's edits to `GameScene.js` were applied twice — a parallel agent that was supposed to touch only the spawn/boss/cricket files also re-edited `GameScene.js`, doubling values that had already been doubled. This produced ×4 values throughout `GameScene.js` while all other files remained correct at ×2.
+
+**Symptoms:** Snapper appeared far too large and moved far too fast compared to the original game feel.
+
+**Fix:** Halved all the over-doubled values in `GameScene.js` back to the correct ×2 targets:
+
+| Property | Wrong (×4) | Correct (×2) |
+|---|---|---|
+| `playerSpeed` | 640 | 320 |
+| `magnetRange` | 128 | 64 |
+| `biteRange` | 320 | 160 |
+| `tailSlapRange` | 400 | 200 |
+| `hissRange` | 480 | 240 |
+| `wormWhipRange` | 480 | 240 |
+| `pupaRadius` | 280 | 140 |
+| `branchWidth` | 80 | 40 |
+| `branchLength` | 480 | 240 |
+| `dustKickLength` | 720 | 360 |
+| Grid stride | 512 | 256 |
+| Lettuce Beetle walk speed | `320 × factor` | `160 × factor` |
+| `player.setScale` | 1.0 | 0.5 |
+
+No other files were affected — all 17 other JS files were confirmed correct at ×2.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v5` → `v6`.

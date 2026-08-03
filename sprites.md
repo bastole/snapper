@@ -40,9 +40,11 @@ enemy_spinach_tempest.png : 2 frames. f1, f2: looping idle animation.
 
 assets/sprites/enemy_projectiles/
 projectile_lettuce_shooter.png : sprite size: 96x96px, 1 frame
+projectile_mulberry_snake.png : sprite size: 96x96px, 1 frame
 projectile_oregano_ghost.png : sprite size: 96x96px, 1 frame
 projectile_yun_hand_calcium.png : sprite size: 96x96px, 1 frame
 projectile_yun_hand_vitamin.png : sprite size: 96x96px, 1 frame
 
 assets/sprites/weapons/  these are snappers weapons, 128x128 and all single frame.
+evol_sunbaked_amber.png
 

@@ -6,29 +6,29 @@ export const HudMethods = {
         const W = this.cameras.main.width;
 
         // XP bar
-        this.xpBarBg = this.add.rectangle(W / 2, 12, W - 40, 16, 0x333333).setScrollFactor(0).setDepth(100);
-        this.xpBar   = this.add.rectangle(20, 12, 0, 14, 0x00ff88).setScrollFactor(0).setDepth(101).setOrigin(0, 0.5);
+        this.xpBarBg = this.add.rectangle(W / 2, 24, W - 80, 32, 0x333333).setScrollFactor(0).setDepth(100);
+        this.xpBar   = this.add.rectangle(40, 24, 0, 28, 0x00ff88).setScrollFactor(0).setDepth(101).setOrigin(0, 0.5);
 
         // HP bar
-        this.add.rectangle(W / 2, 32, W - 40, 10, 0x333333).setScrollFactor(0).setDepth(100);
-        this.hpBar = this.add.rectangle(20, 32, W - 40, 8, 0xff3333).setScrollFactor(0).setDepth(101).setOrigin(0, 0.5);
+        this.add.rectangle(W / 2, 64, W - 80, 20, 0x333333).setScrollFactor(0).setDepth(100);
+        this.hpBar = this.add.rectangle(40, 64, W - 80, 16, 0xff3333).setScrollFactor(0).setDepth(101).setOrigin(0, 0.5);
 
         // Labels
-        this.levelText = this.add.text(W - 10, 4, 'Lv.1', {
-            fontSize: '12px', fontFamily: 'Arial', color: '#ffffff',
+        this.levelText = this.add.text(W - 20, 8, 'Lv.1', {
+            fontSize: '24px', fontFamily: 'Arial', color: '#ffffff',
         }).setScrollFactor(0).setDepth(102).setOrigin(1, 0);
 
-        this.timerText = this.add.text(W / 2, 5, '10:00', {
-            fontSize: '13px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+        this.timerText = this.add.text(W / 2, 10, '10:00', {
+            fontSize: '26px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
         }).setScrollFactor(0).setDepth(102).setOrigin(0.5, 0);
 
         // Pause button
         this.isPaused = false;
-        const pauseBtn = this.add.text(W - 10, 44, '⏸ PAUSE', {
-            fontSize: '11px', fontFamily: 'Arial', color: '#ffffff',
-            backgroundColor: '#333333', padding: { x: 12, y: 10 },
+        const pauseBtn = this.add.text(W - 20, 88, '⏸ PAUSE', {
+            fontSize: '22px', fontFamily: 'Arial', color: '#ffffff',
+            backgroundColor: '#333333', padding: { x: 24, y: 20 },
         }).setScrollFactor(0).setDepth(102).setOrigin(1, 0)
-          .setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-20, -10, 120, 50), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+          .setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-40, -20, 240, 100), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
 
         pauseBtn.on('pointerover', () => pauseBtn.setColor('#ffff00'));
         pauseBtn.on('pointerout',  () => pauseBtn.setColor(this._pauseBtnGlowTween ? '#ffdd00' : '#ffffff'));
@@ -60,26 +60,26 @@ export const HudMethods = {
             const W = this.cameras.main.width;
             const H = this.cameras.main.height;
             this.pauseOverlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.5).setScrollFactor(0).setDepth(150);
-            this.pauseLabel   = this.add.text(W / 2, H / 2 - 20, 'PAUSED', {
-                fontSize: '48px', fontFamily: 'Arial Black, Arial',
-                color: '#ffffff', stroke: '#000000', strokeThickness: 6,
+            this.pauseLabel   = this.add.text(W / 2, H / 2 - 40, 'PAUSED', {
+                fontSize: '96px', fontFamily: 'Arial Black, Arial',
+                color: '#ffffff', stroke: '#000000', strokeThickness: 12,
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5);
-            this.pauseSubLabel = this.add.text(W / 2, H / 2 + 30, 'PRESS ANY BUTTON TO RESUME', {
-                fontSize: '14px', fontFamily: 'Arial', color: '#cccccc',
+            this.pauseSubLabel = this.add.text(W / 2, H / 2 + 60, 'PRESS ANY BUTTON TO RESUME', {
+                fontSize: '28px', fontFamily: 'Arial', color: '#cccccc',
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5);
 
-            this.pauseStatsLine = this.add.text(W / 2, H / 2 + 60, `Level ${this.playerLevel}   •   Kills: ${this.kills}   •   Damage: ${this.damageDealt}   •   Rerolls: ${this.rerolls}`, {
-                fontSize: '13px', fontFamily: 'Arial', color: '#ffff88',
+            this.pauseStatsLine = this.add.text(W / 2, H / 2 + 120, `Level ${this.playerLevel}   •   Kills: ${this.kills}   •   Damage: ${this.damageDealt}   •   Rerolls: ${this.rerolls}`, {
+                fontSize: '26px', fontFamily: 'Arial', color: '#ffff88',
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5);
 
             const { weaponLine, boostLine } = this.buildLoadoutText();
-            this.pauseWeaponLine = this.add.text(W / 2, H / 2 + 85, weaponLine, {
-                fontSize: '11px', fontFamily: 'Arial', color: '#aaffaa',
-                align: 'center', wordWrap: { width: W - 80 },
+            this.pauseWeaponLine = this.add.text(W / 2, H / 2 + 170, weaponLine, {
+                fontSize: '22px', fontFamily: 'Arial', color: '#aaffaa',
+                align: 'center', wordWrap: { width: W - 160 },
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5, 0);
-            this.pauseBoostLine = this.add.text(W / 2, H / 2 + 120, boostLine, {
-                fontSize: '11px', fontFamily: 'Arial', color: '#aaaaff',
-                align: 'center', wordWrap: { width: W - 80 },
+            this.pauseBoostLine = this.add.text(W / 2, H / 2 + 240, boostLine, {
+                fontSize: '22px', fontFamily: 'Arial', color: '#aaaaff',
+                align: 'center', wordWrap: { width: W - 160 },
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5, 0);
 
             // EVOLUTIONS and QUIT sit side by side on one row (instead of stacked) so the
@@ -89,10 +89,10 @@ export const HudMethods = {
             const hasEvo = this.getAvailableEvolutions().length > 0;
             const evoQuitY = Math.min(H - 50, this.pauseBoostLine.y + this.pauseBoostLine.height + 20);
             this._evoBtnText = this.add.text(0, evoQuitY, '✦ EVOLUTIONS ✦', {
-                fontSize: '14px', fontFamily: 'Arial Black, Arial',
+                fontSize: '28px', fontFamily: 'Arial Black, Arial',
                 color: hasEvo ? '#ffff00' : '#444444',
                 backgroundColor: hasEvo ? '#2a2200' : '#111111',
-                padding: { x: 18, y: 7 },
+                padding: { x: 36, y: 14 },
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
             if (hasEvo) {
@@ -107,8 +107,8 @@ export const HudMethods = {
             this._pauseQuitting = false;
             this._evoMenuOpen   = false;
             this.pauseQuitBtn = this.add.text(0, evoQuitY, '[ QUIT TO MAIN MENU ]', {
-                fontSize: '13px', fontFamily: 'Arial', color: '#ff8888',
-                backgroundColor: '#330000', padding: { x: 16, y: 8 },
+                fontSize: '26px', fontFamily: 'Arial', color: '#ff8888',
+                backgroundColor: '#330000', padding: { x: 32, y: 16 },
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5).setInteractive({ useHandCursor: true });
             this.pauseQuitBtn.on('pointerover', () => this.pauseQuitBtn.setColor('#ffffff'));
             this.pauseQuitBtn.on('pointerout',  () => this.pauseQuitBtn.setColor('#ff8888'));
@@ -120,26 +120,26 @@ export const HudMethods = {
 
             // Lay the pair out side by side, centred as a group, using their actual
             // rendered widths so they never overlap regardless of font metrics.
-            const evoQuitGap = 16;
+            const evoQuitGap = 32;
             const evoQuitTotalW = this._evoBtnText.width + evoQuitGap + this.pauseQuitBtn.width;
             const evoQuitStartX = W / 2 - evoQuitTotalW / 2;
             this._evoBtnText.setX(evoQuitStartX + this._evoBtnText.width / 2);
             this.pauseQuitBtn.setX(evoQuitStartX + this._evoBtnText.width + evoQuitGap + this.pauseQuitBtn.width / 2);
 
-            this.pausePadHint = this.add.text(10, H - 10, '🎮  Y  Quit to Menu    X  Evolutions', {
-                fontSize: '11px', fontFamily: 'Arial', color: '#666666',
+            this.pausePadHint = this.add.text(20, H - 20, '🎮  Y  Quit to Menu    X  Evolutions', {
+                fontSize: '22px', fontFamily: 'Arial', color: '#666666',
             }).setScrollFactor(0).setDepth(151).setOrigin(0, 1);
 
             // Corner hint for the volume sliders: "A" to jump in, swaps to "B" to
             // back out once a slider is actually selected (see updatePauseSliderOutline).
-            this.pauseSliderHint = this.add.text(W - 10, H - 10, '🎮  A  Sliders', {
-                fontSize: '11px', fontFamily: 'Arial', color: '#666666',
+            this.pauseSliderHint = this.add.text(W - 20, H - 20, '🎮  A  Sliders', {
+                fontSize: '22px', fontFamily: 'Arial', color: '#666666',
             }).setScrollFactor(0).setDepth(151).setOrigin(1, 1);
 
             this._pauseSliderSelected = null;
             this._pauseSliderRows     = null;
-            this.createVolumeSlider('MUSIC', 20, 70,  getMusicVolume(), setMusicVolume, null, 'music');
-            this.createVolumeSlider('SFX',   20, 100, getSfxVolume(),   setSfxVolume, 'sfx_item_collect', 'sfx');
+            this.createVolumeSlider('MUSIC', 40, 140, getMusicVolume(), setMusicVolume, null, 'music');
+            this.createVolumeSlider('SFX',   40, 200, getSfxVolume(),   setSfxVolume, 'sfx_item_collect', 'sfx');
 
             // Any key resumes (exclude P/ESC which already have their own toggle handlers)
             this.pauseAnyKey = this.input.keyboard.on('keydown', (e) => {
@@ -245,23 +245,23 @@ export const HudMethods = {
     // `sliderKey` ('music'/'sfx'), if given, registers this row's bounds so the
     // gamepad selection outline can be positioned over it.
     createVolumeSlider(label, x, y, value, onChange, previewSfxKey = null, sliderKey = null) {
-        const trackW = 100;
-        const trackX = x + 45;
+        const trackW = 200;
+        const trackX = x + 90;
         let lastPreview = 0;
 
         const labelText = this.add.text(x, y, label, {
-            fontSize: '11px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+            fontSize: '22px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
         }).setScrollFactor(0).setDepth(151).setOrigin(0, 0.5);
 
-        const track = this.add.rectangle(trackX + trackW / 2, y, trackW, 6, 0x444444)
+        const track = this.add.rectangle(trackX + trackW / 2, y, trackW, 12, 0x444444)
             .setStrokeStyle(1, 0x888888).setScrollFactor(0).setDepth(151).setOrigin(0.5)
             .setInteractive({ useHandCursor: true });
 
-        const valueText = this.add.text(trackX + trackW + 12, y, `${Math.round(value * 100)}`, {
-            fontSize: '10px', fontFamily: 'Arial', color: '#aaaaaa',
+        const valueText = this.add.text(trackX + trackW + 24, y, `${Math.round(value * 100)}`, {
+            fontSize: '20px', fontFamily: 'Arial', color: '#aaaaaa',
         }).setScrollFactor(0).setDepth(151).setOrigin(0, 0.5);
 
-        const knob = this.add.circle(trackX + value * trackW, y, 8, 0xffdd00)
+        const knob = this.add.circle(trackX + value * trackW, y, 16, 0xffdd00)
             .setStrokeStyle(2, 0x000000).setScrollFactor(0).setDepth(152).setOrigin(0.5)
             .setInteractive({ useHandCursor: true });
         this.input.setDraggable(knob);
@@ -319,24 +319,24 @@ export const HudMethods = {
             return;
         }
         if (!this._pauseSliderOutline) {
-            this._pauseSliderOutline = this.add.rectangle(row.centerX, row.y, row.width + 6, 22, 0xffffff, 0)
+            this._pauseSliderOutline = this.add.rectangle(row.centerX, row.y, row.width + 12, 44, 0xffffff, 0)
                 .setStrokeStyle(2, 0xffffff).setScrollFactor(0).setDepth(153).setOrigin(0.5);
         } else {
             this._pauseSliderOutline.setPosition(row.centerX, row.y);
-            this._pauseSliderOutline.setSize(row.width + 6, 22);
+            this._pauseSliderOutline.setSize(row.width + 12, 44);
             this._pauseSliderOutline.setVisible(true);
         }
     },
 
     updateXPBar() {
         const W = this.cameras.main.width;
-        this.xpBar.width = ((this.xp / this.xpToNext) * (W - 40));
+        this.xpBar.width = ((this.xp / this.xpToNext) * (W - 80));
         this.levelText.setText(`Lv.${this.playerLevel}`);
     },
 
     updateHPBar() {
         const W = this.cameras.main.width;
-        this.hpBar.width = Math.max(0, (this.playerHealth / this.playerMaxHealth) * (W - 40));
+        this.hpBar.width = Math.max(0, (this.playerHealth / this.playerMaxHealth) * (W - 80));
     },
 
     // Sets the player on fire — the HP bar turns orange and 3 dmg/500ms ticks until the

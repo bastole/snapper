@@ -13,12 +13,12 @@ export default class LevelSelectScene extends Phaser.Scene {
         const cx = this.cameras.main.width / 2;
         const cy = this.cameras.main.height;
 
-        this.add.text(cx, 50, 'SELECT LEVEL', {
-            fontSize: '28px',
+        this.add.text(cx, 100, 'SELECT LEVEL', {
+            fontSize: '56px',
             fontFamily: 'Arial Black, Arial',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 5,
+            strokeThickness: 10,
         }).setOrigin(0.5);
 
         const maxUnlocked = parseInt(localStorage.getItem('snapper_unlocked') ?? '1');
@@ -42,18 +42,18 @@ export default class LevelSelectScene extends Phaser.Scene {
 
             levelDefs.forEach((def, i) => {
                 const unlocked = allUnlocked || def.number <= maxUnlocked;
-                const y = 130 + i * 60;
+                const y = 260 + i * 120;
                 const colour = unlocked ? '#ffffff' : '#666666';
                 const label  = unlocked
                     ? `Level ${def.number} – ${def.name}`
                     : `Level ${def.number} – ${def.name}  🔒`;
 
                 const btn = this.add.text(cx, y, label, {
-                    fontSize: '16px',
+                    fontSize: '32px',
                     fontFamily: 'Arial',
                     color: colour,
                     backgroundColor: unlocked ? '#333333' : '#1a1a1a',
-                    padding: { x: 20, y: 10 },
+                    padding: { x: 40, y: 20 },
                 }).setOrigin(0.5);
 
                 if (unlocked) {
@@ -72,7 +72,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
         // White box outline drawn around whichever level is currently gamepad-selected
         const selectionOutline = this.add.rectangle(0, 0, 10, 10, 0xffffff, 0)
-            .setStrokeStyle(4, 0xffffff).setDepth(5).setVisible(false);
+            .setStrokeStyle(8, 0xffffff).setDepth(5).setVisible(false);
 
         // Gamepad navigation
         let selectedIdx = 0;
@@ -146,12 +146,12 @@ export default class LevelSelectScene extends Phaser.Scene {
         updateHighlight();
 
         // ALL LEVELS toggle — experimental testing button
-        const allBtn = this.add.text(cx, cy - 20, '🧪 ALL LEVELS', {
-            fontSize: '12px',
+        const allBtn = this.add.text(cx, cy - 40, '🧪 ALL LEVELS', {
+            fontSize: '24px',
             fontFamily: 'Arial',
             color: '#888888',
             backgroundColor: '#1a1a1a',
-            padding: { x: 14, y: 8 },
+            padding: { x: 28, y: 16 },
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
         allBtn.on('pointerover', () => allBtn.setColor('#ffff00'));
@@ -165,12 +165,12 @@ export default class LevelSelectScene extends Phaser.Scene {
         });
 
         // INDEX — browse every weapon/boost/evolution ever unlocked across all playthroughs
-        const indexBtn = this.add.text(this.cameras.main.width - 14, 14, '📖 INDEX', {
-            fontSize: '12px',
+        const indexBtn = this.add.text(this.cameras.main.width - 28, 28, '📖 INDEX', {
+            fontSize: '24px',
             fontFamily: 'Arial',
             color: '#888888',
             backgroundColor: '#1a1a1a',
-            padding: { x: 14, y: 8 },
+            padding: { x: 28, y: 16 },
         }).setOrigin(1, 0).setDepth(5).setInteractive({ useHandCursor: true });
         indexBtn.on('pointerover', () => indexBtn.setColor('#ffff00'));
         indexBtn.on('pointerout',  () => indexBtn.setColor('#888888'));
@@ -178,8 +178,8 @@ export default class LevelSelectScene extends Phaser.Scene {
 
         // Gamepad hint for the Y-opens-INDEX shortcut above, matching the corner-hint
         // style used elsewhere (e.g. the in-game pause menu's gamepad hints in hud.js).
-        this.add.text(10, this.cameras.main.height - 10, '🎮  Y  Index', {
-            fontSize: '11px', fontFamily: 'Arial', color: '#666666',
+        this.add.text(20, this.cameras.main.height - 20, '🎮  Y  Index', {
+            fontSize: '22px', fontFamily: 'Arial', color: '#666666',
         }).setOrigin(0, 1).setDepth(5);
     }
 
@@ -215,9 +215,9 @@ export default class LevelSelectScene extends Phaser.Scene {
         const entriesFor = (sec) => sec === 'weapon' ? weaponEntries : sec === 'boost' ? boostEntries : sec === 'evolution' ? evoEntries : enemyEntries;
 
         const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.9).setDepth(depth).setInteractive();
-        const title = this.add.text(W / 2, 18, 'INDEX', {
-            fontSize: '22px', fontFamily: 'Arial Black, Arial', color: '#ffff00',
-            stroke: '#000000', strokeThickness: 5,
+        const title = this.add.text(W / 2, 36, 'INDEX', {
+            fontSize: '44px', fontFamily: 'Arial Black, Arial', color: '#ffff00',
+            stroke: '#000000', strokeThickness: 10,
         }).setDepth(depth + 1).setOrigin(0.5);
         const persistentItems = [overlay, title];
 
@@ -250,8 +250,8 @@ export default class LevelSelectScene extends Phaser.Scene {
 
         // ─── Grid — scrollable, since Enemies (35 entries) overflows the screen even
         // though Weapons/Boosts/Evolutions (16 each) don't ─────────────────────────────
-        const cols = 4, cardW = 168, gap = 12;
-        const viewportTop = 82, viewportBottom = H - 40;
+        const cols = 4, cardW = 336, gap = 24;
+        const viewportTop = 164, viewportBottom = H - 80;
         const trackHeight = viewportBottom - viewportTop;
         let scrollY = 0, maxScroll = 0, thumb = null, scrollables = [];
 
@@ -266,7 +266,7 @@ export default class LevelSelectScene extends Phaser.Scene {
             const card = cardRefs[selectedIdx];
             if (!card || !selectionOutline) return;
             selectionOutline.setPosition(card.cx, card.baseY - scrollY + currentCardH / 2);
-            selectionOutline.setSize(cardW + 6, currentCardH + 6);
+            selectionOutline.setSize(cardW + 12, currentCardH + 12);
             selectionOutline.setVisible(true);
         };
 
@@ -294,10 +294,10 @@ export default class LevelSelectScene extends Phaser.Scene {
             destroyModeItems();
             scrollY = 0; thumb = null; scrollables = []; cardRefs = [];
             const entries = entriesFor(section);
-            const cardH = section === 'enemy' ? 70 : 62;
+            const cardH = section === 'enemy' ? 140 : 124;
             currentCardH = cardH;
             if (selectedIdx >= entries.length) selectedIdx = 0;
-            const rowGap = 10;
+            const rowGap = 20;
             const startX = W / 2 - (cols - 1) * (cardW + gap) / 2;
 
             entries.forEach((entry, i) => {
@@ -310,9 +310,9 @@ export default class LevelSelectScene extends Phaser.Scene {
                     .setOrigin(0.5, 0).setDepth(depth + 1)
                     .setStrokeStyle(2, known ? 0x66cc66 : 0x444444)
                     .setInteractive({ useHandCursor: true });
-                const nameText = this.add.text(cx, baseCy + 14, known ? entry.label : '???', {
-                    fontSize: '11px', fontFamily: 'Arial Black, Arial', color: known ? '#ffffff' : '#555555',
-                    wordWrap: { width: cardW - 12 }, align: 'center',
+                const nameText = this.add.text(cx, baseCy + 28, known ? entry.label : '???', {
+                    fontSize: '22px', fontFamily: 'Arial Black, Arial', color: known ? '#ffffff' : '#555555',
+                    wordWrap: { width: cardW - 24 }, align: 'center',
                 }).setOrigin(0.5).setDepth(depth + 2);
 
                 let subLabel, subColor;
@@ -320,20 +320,20 @@ export default class LevelSelectScene extends Phaser.Scene {
                 else if (entry.section === 'evolution') { subLabel = '✓ Unlocked'; subColor = '#88cc88'; }
                 else if (entry.section === 'enemy') { subLabel = `Lv.${entry.level}${entry.isBoss ? '  •  BOSS' : ''}`; subColor = entry.isBoss ? '#ff8888' : '#88cc88'; }
                 else { subLabel = `Reached Tier ${entry.gotten}/${entry.tiers.length}`; subColor = '#88cc88'; }
-                const subText = this.add.text(cx, baseCy + 34, subLabel, {
-                    fontSize: '9px', fontFamily: 'Arial', color: subColor,
+                const subText = this.add.text(cx, baseCy + 68, subLabel, {
+                    fontSize: '18px', fontFamily: 'Arial', color: subColor,
                 }).setOrigin(0.5).setDepth(depth + 2);
 
                 modeItems.push(bg, nameText, subText);
-                scrollables.push({ obj: bg, baseY: baseCy }, { obj: nameText, baseY: baseCy + 14 }, { obj: subText, baseY: baseCy + 34 });
+                scrollables.push({ obj: bg, baseY: baseCy }, { obj: nameText, baseY: baseCy + 28 }, { obj: subText, baseY: baseCy + 68 });
                 cardRefs.push({ cx, baseY: baseCy });
 
                 if (known && entry.section === 'enemy') {
-                    const statText = this.add.text(cx, baseCy + 52, `Kills ${entry.kills}  •  Losses ${entry.losses}`, {
-                        fontSize: '8px', fontFamily: 'Arial', color: '#aaaaaa',
+                    const statText = this.add.text(cx, baseCy + 104, `Kills ${entry.kills}  •  Losses ${entry.losses}`, {
+                        fontSize: '16px', fontFamily: 'Arial', color: '#aaaaaa',
                     }).setOrigin(0.5).setDepth(depth + 2);
                     modeItems.push(statText);
-                    scrollables.push({ obj: statText, baseY: baseCy + 52 });
+                    scrollables.push({ obj: statText, baseY: baseCy + 104 });
                 }
 
                 bg.on('pointerover', () => bg.setFillStyle(known ? 0x1e3a1e : 0x2a2a2a));
@@ -346,17 +346,17 @@ export default class LevelSelectScene extends Phaser.Scene {
             maxScroll = Math.max(0, contentBottom - viewportBottom);
 
             // White box outline drawn around whichever card is currently gamepad-selected
-            selectionOutline = this.add.rectangle(0, 0, cardW + 6, cardH + 6, 0xffffff, 0)
-                .setStrokeStyle(3, 0xffffff).setDepth(depth + 3).setOrigin(0.5).setVisible(false);
+            selectionOutline = this.add.rectangle(0, 0, cardW + 12, cardH + 12, 0xffffff, 0)
+                .setStrokeStyle(6, 0xffffff).setDepth(depth + 3).setOrigin(0.5).setVisible(false);
             modeItems.push(selectionOutline);
 
             // Scrollbar — a draggable tab on the far-right edge, matching the in-game
             // Evolutions menu's scrollbar exactly. Only appears when content overflows.
             if (maxScroll > 0) {
-                const track = this.add.rectangle(W - 10, viewportTop + trackHeight / 2, 8, trackHeight, 0x000000, 0.35).setDepth(depth + 1);
+                const track = this.add.rectangle(W - 20, viewportTop + trackHeight / 2, 16, trackHeight, 0x000000, 0.35).setDepth(depth + 1);
                 modeItems.push(track);
-                const thumbHeight = Math.max(24, trackHeight * (trackHeight / (trackHeight + maxScroll)));
-                thumb = this.add.rectangle(W - 10, viewportTop, 14, thumbHeight, 0xffdd55, 0.9)
+                const thumbHeight = Math.max(48, trackHeight * (trackHeight / (trackHeight + maxScroll)));
+                thumb = this.add.rectangle(W - 20, viewportTop, 28, thumbHeight, 0xffdd55, 0.9)
                     .setOrigin(0.5, 0).setDepth(depth + 3).setInteractive({ useHandCursor: true });
                 this.input.setDraggable(thumb);
                 modeItems.push(thumb);
@@ -367,19 +367,19 @@ export default class LevelSelectScene extends Phaser.Scene {
                 });
             }
 
-            const closeBtn = this.add.text(W / 2, H - 36, '[ CLOSE ]', {
-                fontSize: '13px', fontFamily: 'Arial', color: '#aaaaaa',
-                backgroundColor: '#222222', padding: { x: 16, y: 6 },
+            const closeBtn = this.add.text(W / 2, H - 72, '[ CLOSE ]', {
+                fontSize: '26px', fontFamily: 'Arial', color: '#aaaaaa',
+                backgroundColor: '#222222', padding: { x: 32, y: 12 },
             }).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
             closeBtn.on('pointerover', () => closeBtn.setColor('#ffffff'));
             closeBtn.on('pointerout',  () => closeBtn.setColor('#aaaaaa'));
             closeBtn.on('pointerdown', () => closeMenu());
             modeItems.push(closeBtn);
 
-            modeItems.push(this.add.text(W / 2, H - 4, maxScroll > 0
+            modeItems.push(this.add.text(W / 2, H - 8, maxScroll > 0
                 ? '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   LB/RB Category   •   RS Scroll'
                 : '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   LB/RB Category', {
-                fontSize: '9px', fontFamily: 'Arial', color: '#888888',
+                fontSize: '18px', fontFamily: 'Arial', color: '#888888',
             }).setDepth(depth + 2).setOrigin(0.5, 1));
 
             applyScroll(0);
@@ -389,7 +389,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         // to the in-game Evolutions menu's) cycling to a different entry entirely, plus
         // (for weapons/boosts) a NEXT/PREVIOUS TIER pair in the box's bottom-right corner
         // paging within just that entry's already-reached tiers ─────────────────────────
-        const zoomCx = W / 2, zoomCy = 210;
+        const zoomCx = W / 2, zoomCy = 420;
 
         const buildZoom = () => {
             mode = 'zoom';
@@ -398,10 +398,10 @@ export default class LevelSelectScene extends Phaser.Scene {
             const entry = entries[zoomIdx];
             const known = entry.gotten > 0;
             const isEnemy = entry.section === 'enemy';
-            const zoomW = 480, zoomH = isEnemy ? 250 : 190;
+            const zoomW = 960, zoomH = isEnemy ? 500 : 380;
 
             const bg = this.add.rectangle(zoomCx, zoomCy, zoomW, zoomH, known ? 0x152a15 : 0x1a1a1a)
-                .setDepth(depth + 1).setOrigin(0.5).setStrokeStyle(3, known ? 0x66cc66 : 0x444444);
+                .setDepth(depth + 1).setOrigin(0.5).setStrokeStyle(6, known ? 0x66cc66 : 0x444444);
             modeItems.push(bg);
 
             if (isEnemy) {
@@ -413,21 +413,21 @@ export default class LevelSelectScene extends Phaser.Scene {
                 if (!this.anims.exists(animKey)) {
                     this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(entry.key, { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
                 }
-                const preview = this.add.sprite(zoomCx, zoomCy - 78, entry.key).setDepth(depth + 2);
-                if (entry.isBoss) preview.setScale(0.4); else preview.setScale(0.8);
+                const preview = this.add.sprite(zoomCx, zoomCy - 156, entry.key).setDepth(depth + 2);
+                if (entry.isBoss) preview.setScale(0.8); else preview.setScale(1.6);
                 if (!known) preview.setTint(0x000000);
                 preview.play(animKey);
                 modeItems.push(preview);
 
-                const nameText = this.add.text(zoomCx, zoomCy - 5, known ? entry.label : '???', {
-                    fontSize: '18px', fontFamily: 'Arial Black, Arial', color: known ? '#ffffff' : '#ffff44',
+                const nameText = this.add.text(zoomCx, zoomCy - 10, known ? entry.label : '???', {
+                    fontSize: '36px', fontFamily: 'Arial Black, Arial', color: known ? '#ffffff' : '#ffff44',
                 }).setDepth(depth + 2).setOrigin(0.5);
                 modeItems.push(nameText);
-                modeItems.push(this.add.text(zoomCx, zoomCy + 20, known ? `Level ${entry.level}${entry.isBoss ? '   •   BOSS' : ''}` : 'Level ???', {
-                    fontSize: '12px', fontFamily: 'Arial', color: known ? (entry.isBoss ? '#ff8888' : '#aaaaaa') : '#666666',
+                modeItems.push(this.add.text(zoomCx, zoomCy + 40, known ? `Level ${entry.level}${entry.isBoss ? '   •   BOSS' : ''}` : 'Level ???', {
+                    fontSize: '24px', fontFamily: 'Arial', color: known ? (entry.isBoss ? '#ff8888' : '#aaaaaa') : '#666666',
                 }).setDepth(depth + 2).setOrigin(0.5));
-                modeItems.push(this.add.text(zoomCx, zoomCy + 44, known ? `Kills: ${entry.kills}     Losses to this enemy: ${entry.losses}` : 'Kills: ???     Losses to this enemy: ???', {
-                    fontSize: '11px', fontFamily: 'Arial', color: known ? '#dddddd' : '#666666',
+                modeItems.push(this.add.text(zoomCx, zoomCy + 88, known ? `Kills: ${entry.kills}     Losses to this enemy: ${entry.losses}` : 'Kills: ???     Losses to this enemy: ???', {
+                    fontSize: '22px', fontFamily: 'Arial', color: known ? '#dddddd' : '#666666',
                 }).setDepth(depth + 2).setOrigin(0.5));
             } else {
                 let nameLabel = '???', descLabel = '???';
@@ -440,34 +440,34 @@ export default class LevelSelectScene extends Phaser.Scene {
                         descLabel = entry.tiers[zoomTier - 1].desc;
                     }
                 }
-                const nameText = this.add.text(zoomCx, zoomCy - 68, nameLabel, {
-                    fontSize: '18px', fontFamily: 'Arial Black, Arial', color: known ? '#ffffff' : '#ffff44',
+                const nameText = this.add.text(zoomCx, zoomCy - 136, nameLabel, {
+                    fontSize: '36px', fontFamily: 'Arial Black, Arial', color: known ? '#ffffff' : '#ffff44',
                 }).setDepth(depth + 2).setOrigin(0.5);
-                const descText = this.add.text(zoomCx, zoomCy - 20, descLabel, {
-                    fontSize: '12px', fontFamily: known ? 'Arial' : 'Arial Black, Arial', color: '#dddddd',
-                    wordWrap: { width: zoomW - 60 }, align: 'center',
+                const descText = this.add.text(zoomCx, zoomCy - 40, descLabel, {
+                    fontSize: '24px', fontFamily: known ? 'Arial' : 'Arial Black, Arial', color: '#dddddd',
+                    wordWrap: { width: zoomW - 120 }, align: 'center',
                 }).setDepth(depth + 2).setOrigin(0.5);
                 modeItems.push(nameText, descText);
 
                 if (entry.section === 'evolution' && known) {
-                    modeItems.push(this.add.text(zoomCx, zoomCy + 40, `Evolves from: ${entry.weaponLabel} (maxed) + ${entry.boostName}`, {
-                        fontSize: '10px', fontFamily: 'Arial', color: '#aaaaaa',
+                    modeItems.push(this.add.text(zoomCx, zoomCy + 80, `Evolves from: ${entry.weaponLabel} (maxed) + ${entry.boostName}`, {
+                        fontSize: '20px', fontFamily: 'Arial', color: '#aaaaaa',
                     }).setDepth(depth + 2).setOrigin(0.5));
                 }
 
                 // NEXT/PREVIOUS TIER — bottom-right corner of the box, weapons/boosts only,
                 // only cycling through tiers actually reached (never the full possible max).
                 if (entry.section !== 'evolution' && known) {
-                    const tierY = zoomCy + zoomH / 2 - 18;
+                    const tierY = zoomCy + zoomH / 2 - 36;
                     const canPrevTier = zoomTier > 1;
                     const canNextTier = zoomTier < entry.gotten;
-                    const prevTierBtn = this.add.text(zoomCx + zoomW / 2 - 210, tierY, '◀ PREVIOUS TIER', {
-                        fontSize: '9px', fontFamily: 'Arial', color: canPrevTier ? '#ffffff' : '#555555',
-                        backgroundColor: '#222222', padding: { x: 8, y: 4 },
+                    const prevTierBtn = this.add.text(zoomCx + zoomW / 2 - 420, tierY, '◀ PREVIOUS TIER', {
+                        fontSize: '18px', fontFamily: 'Arial', color: canPrevTier ? '#ffffff' : '#555555',
+                        backgroundColor: '#222222', padding: { x: 16, y: 8 },
                     }).setDepth(depth + 2).setOrigin(0, 0.5);
-                    const nextTierBtn = this.add.text(zoomCx + zoomW / 2 - 12, tierY, 'NEXT TIER ▶', {
-                        fontSize: '9px', fontFamily: 'Arial', color: canNextTier ? '#ffffff' : '#555555',
-                        backgroundColor: '#222222', padding: { x: 8, y: 4 },
+                    const nextTierBtn = this.add.text(zoomCx + zoomW / 2 - 24, tierY, 'NEXT TIER ▶', {
+                        fontSize: '18px', fontFamily: 'Arial', color: canNextTier ? '#ffffff' : '#555555',
+                        backgroundColor: '#222222', padding: { x: 16, y: 8 },
                     }).setDepth(depth + 2).setOrigin(1, 0.5);
                     modeItems.push(prevTierBtn, nextTierBtn);
                     if (canPrevTier) {
@@ -493,11 +493,11 @@ export default class LevelSelectScene extends Phaser.Scene {
                 zoomTier = list[zoomIdx].gotten > 0 ? 1 : 0;
                 buildZoom();
             };
-            const arrowLeft = this.add.text(zoomCx - zoomW / 2 - 30, zoomCy, '◀', {
-                fontSize: '28px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+            const arrowLeft = this.add.text(zoomCx - zoomW / 2 - 60, zoomCy, '◀', {
+                fontSize: '56px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
             }).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
-            const arrowRight = this.add.text(zoomCx + zoomW / 2 + 30, zoomCy, '▶', {
-                fontSize: '28px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+            const arrowRight = this.add.text(zoomCx + zoomW / 2 + 60, zoomCy, '▶', {
+                fontSize: '56px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
             }).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
             arrowLeft.on('pointerover',  () => arrowLeft.setColor('#ffff00'));
             arrowLeft.on('pointerout',   () => arrowLeft.setColor('#ffffff'));
@@ -507,17 +507,17 @@ export default class LevelSelectScene extends Phaser.Scene {
             arrowRight.on('pointerdown', () => switchEntry(1));
             modeItems.push(arrowLeft, arrowRight);
 
-            const backBtn = this.add.text(W / 2, H - 36, '[ BACK ]', {
-                fontSize: '13px', fontFamily: 'Arial', color: '#aaaaaa',
-                backgroundColor: '#222222', padding: { x: 16, y: 6 },
+            const backBtn = this.add.text(W / 2, H - 72, '[ BACK ]', {
+                fontSize: '26px', fontFamily: 'Arial', color: '#aaaaaa',
+                backgroundColor: '#222222', padding: { x: 32, y: 12 },
             }).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
             backBtn.on('pointerover', () => backBtn.setColor('#ffffff'));
             backBtn.on('pointerout',  () => backBtn.setColor('#aaaaaa'));
             backBtn.on('pointerdown', () => backToGrid());
             modeItems.push(backBtn);
 
-            modeItems.push(this.add.text(W / 2, H - 4, '🎮  ◀/▶ or LB/RB  Switch Entry   B  Back', {
-                fontSize: '9px', fontFamily: 'Arial', color: '#888888',
+            modeItems.push(this.add.text(W / 2, H - 8, '🎮  ◀/▶ or LB/RB  Switch Entry   B  Back', {
+                fontSize: '18px', fontFamily: 'Arial', color: '#888888',
             }).setDepth(depth + 2).setOrigin(0.5, 1));
         };
 
@@ -543,11 +543,11 @@ export default class LevelSelectScene extends Phaser.Scene {
         // white gamepad-selection box doesn't jump back to wherever it was left before.
         const backToGrid = () => { selectedIdx = zoomIdx; buildGrid(); };
         const tabBtns = sections.map(([key, label], i) => {
-            const tx = W / 2 - 255 + i * 170;
-            const btn = this.add.text(tx, 48, label, {
-                fontSize: '12px', fontFamily: 'Arial Black, Arial',
+            const tx = W / 2 - 510 + i * 340;
+            const btn = this.add.text(tx, 96, label, {
+                fontSize: '24px', fontFamily: 'Arial Black, Arial',
                 color: section === key ? '#ffff00' : '#888888',
-                backgroundColor: '#222222', padding: { x: 12, y: 5 },
+                backgroundColor: '#222222', padding: { x: 24, y: 10 },
             }).setDepth(depth + 1).setOrigin(0.5).setInteractive({ useHandCursor: true });
             btn.on('pointerdown', () => switchSection(key));
             return btn;
@@ -599,7 +599,7 @@ export default class LevelSelectScene extends Phaser.Scene {
             const pad = this.input.gamepad.pad1;
             if (!pad) return;
             const ry = pad.rightStick.y;
-            if (Math.abs(ry) > 0.2) applyScroll(scrollY + ry * 400 * (delta / 1000));
+            if (Math.abs(ry) > 0.2) applyScroll(scrollY + ry * 800 * (delta / 1000));
         };
         this.events.on('update', scrollUpdateHandler);
 

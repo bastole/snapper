@@ -33,24 +33,24 @@ export const GameFlowMethods = {
         addUI(this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.75)
             .setScrollFactor(0).setDepth(500));
 
-        addUI(this.add.text(W / 2, H / 2 - 90, 'GAME OVER', {
-            fontSize: '48px', fontFamily: 'Arial Black, Arial',
-            color: '#ff3333', stroke: '#000000', strokeThickness: 6,
+        addUI(this.add.text(W / 2, H / 2 - 180, 'GAME OVER', {
+            fontSize: '96px', fontFamily: 'Arial Black, Arial',
+            color: '#ff3333', stroke: '#000000', strokeThickness: 12,
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
 
         // RETRY
-        const retryBtn = addUI(this.add.text(W / 2, H / 2 + 10, '[ RETRY ]', {
-            fontSize: '20px', fontFamily: 'Arial',
-            color: '#ffffff', backgroundColor: '#333333', padding: { x: 20, y: 10 },
+        const retryBtn = addUI(this.add.text(W / 2, H / 2 + 20, '[ RETRY ]', {
+            fontSize: '40px', fontFamily: 'Arial',
+            color: '#ffffff', backgroundColor: '#333333', padding: { x: 40, y: 20 },
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
         retryBtn.on('pointerover', () => retryBtn.setColor('#ffff00'));
         retryBtn.on('pointerout',  () => retryBtn.setColor('#ffffff'));
         retryBtn.on('pointerdown', () => { stopBgm(); this.scene.start('GameScene', { level: this.level }); });
 
         // MAIN MENU
-        const menuBtn = addUI(this.add.text(W / 2, H / 2 + 70, '[ MAIN MENU ]', {
-            fontSize: '20px', fontFamily: 'Arial',
-            color: '#ffffff', backgroundColor: '#333333', padding: { x: 20, y: 10 },
+        const menuBtn = addUI(this.add.text(W / 2, H / 2 + 140, '[ MAIN MENU ]', {
+            fontSize: '40px', fontFamily: 'Arial',
+            color: '#ffffff', backgroundColor: '#333333', padding: { x: 40, y: 20 },
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
         menuBtn.on('pointerover', () => menuBtn.setColor('#ffff00'));
         menuBtn.on('pointerout',  () => menuBtn.setColor('#ffffff'));
@@ -63,8 +63,8 @@ export const GameFlowMethods = {
             if (idx === 1) menuBtn.emit('pointerdown');
         };
         this.input.gamepad.on('down', this._deathPadHandler);
-        addUI(this.add.text(W / 2, H / 2 + 120, '🎮  A  Retry    B  Menu', {
-            fontSize: '11px', fontFamily: 'Arial', color: '#666666',
+        addUI(this.add.text(W / 2, H / 2 + 240, '🎮  A  Retry    B  Menu', {
+            fontSize: '22px', fontFamily: 'Arial', color: '#666666',
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
     },
 
@@ -86,17 +86,17 @@ export const GameFlowMethods = {
 
         this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.8).setScrollFactor(0).setDepth(300);
 
-        this.add.text(W / 2, H / 2 - 80, 'LEVEL CLEAR!', {
-            fontSize: '52px', fontFamily: 'Arial Black, Arial',
-            color: '#00ff88', stroke: '#000000', strokeThickness: 8,
+        this.add.text(W / 2, H / 2 - 160, 'LEVEL CLEAR!', {
+            fontSize: '104px', fontFamily: 'Arial Black, Arial',
+            color: '#00ff88', stroke: '#000000', strokeThickness: 16,
         }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
 
-        this.add.text(W / 2, H / 2 - 10, `Level ${this.level} Complete`, {
-            fontSize: '18px', fontFamily: 'Arial', color: '#ffffff',
+        this.add.text(W / 2, H / 2 - 20, `Level ${this.level} Complete`, {
+            fontSize: '36px', fontFamily: 'Arial', color: '#ffffff',
         }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
 
-        this.add.text(W / 2, H / 2 + 28, `Player Level: ${this.playerLevel}   •   Kills: ${this.kills}   •   Damage: ${this.damageDealt}`, {
-            fontSize: '15px', fontFamily: 'Arial', color: '#ffff88',
+        this.add.text(W / 2, H / 2 + 56, `Player Level: ${this.playerLevel}   •   Kills: ${this.kills}   •   Damage: ${this.damageDealt}`, {
+            fontSize: '30px', fontFamily: 'Arial', color: '#ffff88',
         }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
 
         const levelNames = {
@@ -113,17 +113,17 @@ export const GameFlowMethods = {
             else this.scene.start('LevelSelectScene');
         };
 
-        const next = this.add.text(W / 2, H / 2 + 70, nextLabel, {
-            fontSize: '20px', fontFamily: 'Arial', color: '#ffffff', align: 'center',
-            backgroundColor: '#226622', padding: { x: 24, y: 12 },
+        const next = this.add.text(W / 2, H / 2 + 140, nextLabel, {
+            fontSize: '40px', fontFamily: 'Arial', color: '#ffffff', align: 'center',
+            backgroundColor: '#226622', padding: { x: 48, y: 24 },
         }).setScrollFactor(0).setDepth(301).setOrigin(0.5).setInteractive({ useHandCursor: true });
         next.on('pointerover', () => next.setColor('#00ff88'));
         next.on('pointerout',  () => next.setColor('#ffffff'));
         next.on('pointerdown', goNext);
 
-        const menu = this.add.text(W / 2, H / 2 + 140, '[ MAIN MENU ]', {
-            fontSize: '16px', fontFamily: 'Arial', color: '#aaaaaa',
-            backgroundColor: '#333333', padding: { x: 20, y: 10 },
+        const menu = this.add.text(W / 2, H / 2 + 280, '[ MAIN MENU ]', {
+            fontSize: '32px', fontFamily: 'Arial', color: '#aaaaaa',
+            backgroundColor: '#333333', padding: { x: 40, y: 20 },
         }).setScrollFactor(0).setDepth(301).setOrigin(0.5).setInteractive({ useHandCursor: true });
         menu.on('pointerover', () => menu.setColor('#ffffff'));
         menu.on('pointerout',  () => menu.setColor('#aaaaaa'));
@@ -132,8 +132,8 @@ export const GameFlowMethods = {
         // Gamepad: A always moves on (next level, or Continue on the final level),
         // B always goes to the main menu — fixed bindings, not a toggle-then-confirm
         // scheme, so the hint below stays true regardless of anything else on screen.
-        this.add.text(W / 2, H / 2 + 185, hasNextLevel ? '🎮  A  Next Level    B  Main Menu' : '🎮  A  Continue    B  Main Menu', {
-            fontSize: '11px', fontFamily: 'Arial', color: '#666666',
+        this.add.text(W / 2, H / 2 + 370, hasNextLevel ? '🎮  A  Next Level    B  Main Menu' : '🎮  A  Continue    B  Main Menu', {
+            fontSize: '22px', fontFamily: 'Arial', color: '#666666',
         }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
 
         const lcPadHandler = (pad, button) => {

@@ -40,8 +40,8 @@ import GameOverScene from './scenes/GameOverScene.js';
 
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 450,
+    width: 1600,
+    height: 900,
     backgroundColor: '#000000',
     input: { gamepad: true, activePointers: 2 },
     physics: {

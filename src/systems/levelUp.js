@@ -32,13 +32,13 @@ export const LevelUpMethods = {
         const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.75).setScrollFactor(0).setDepth(200);
         ui.push(overlay);
 
-        ui.push(this.add.text(W / 2, H / 2 - 150, 'LEVEL UP!', {
-            fontSize: '40px', fontFamily: 'Arial Black, Arial',
-            color: '#ffff00', stroke: '#000000', strokeThickness: 6,
+        ui.push(this.add.text(W / 2, H / 2 - 300, 'LEVEL UP!', {
+            fontSize: '80px', fontFamily: 'Arial Black, Arial',
+            color: '#ffff00', stroke: '#000000', strokeThickness: 12,
         }).setScrollFactor(0).setDepth(201).setOrigin(0.5));
 
-        ui.push(this.add.text(W / 2, H / 2 - 100, 'Choose one upgrade:', {
-            fontSize: '15px', fontFamily: 'Arial', color: '#cccccc',
+        ui.push(this.add.text(W / 2, H / 2 - 200, 'Choose one upgrade:', {
+            fontSize: '30px', fontFamily: 'Arial', color: '#cccccc',
         }).setScrollFactor(0).setDepth(201).setOrigin(0.5));
 
         // Weapons — only offered if not yet owned; upgrades offered if already owned
@@ -218,10 +218,10 @@ export const LevelUpMethods = {
             {
                 name: this.weaponCardLabel('poisonclaw', 'Poison Claw'),
                 desc: [
-                    'Lunge a venomous claw at nearest enemy (80px) — poisons for 3s',
-                    'Longer reach (110px) — poisons for 5s',
-                    'Even longer reach (140px) — poisons for 6s',
-                    'Max reach (170px) — poisons for 7s',
+                    'Lunge a venomous claw at nearest enemy (160px) — poisons for 3s',
+                    'Longer reach (220px) — poisons for 5s',
+                    'Even longer reach (280px) — poisons for 6s',
+                    'Max reach (340px) — poisons for 7s',
                 ][this.poisonClawLevel] ?? 'Poison Claw',
                 type: 'weapon',
                 weaponKey: 'poisonclaw', available: () => this.poisonClawLevel < 4,
@@ -433,24 +433,24 @@ export const LevelUpMethods = {
 
         // Loadout panel — shown below the cards
         const { weaponLine, boostLine } = this.buildLoadoutText();
-        ui.push(this.add.text(W / 2, H / 2 + 110, weaponLine, {
-            fontSize: '11px', fontFamily: 'Arial', color: '#aaffaa',
-            align: 'center', wordWrap: { width: W - 80 },
+        ui.push(this.add.text(W / 2, H / 2 + 220, weaponLine, {
+            fontSize: '22px', fontFamily: 'Arial', color: '#aaffaa',
+            align: 'center', wordWrap: { width: W - 160 },
         }).setScrollFactor(0).setDepth(201).setOrigin(0.5, 0));
-        ui.push(this.add.text(W / 2, H / 2 + 135, boostLine, {
-            fontSize: '11px', fontFamily: 'Arial', color: '#aaaaff',
-            align: 'center', wordWrap: { width: W - 80 },
+        ui.push(this.add.text(W / 2, H / 2 + 270, boostLine, {
+            fontSize: '22px', fontFamily: 'Arial', color: '#aaaaff',
+            align: 'center', wordWrap: { width: W - 160 },
         }).setScrollFactor(0).setDepth(201).setOrigin(0.5, 0));
 
-        const cardW  = 190;
-        const cardH  = 130;
-        const gap    = 20;
+        const cardW  = 380;
+        const cardH  = 260;
+        const gap    = 40;
         const startX = W / 2 - (cardW * 1.5 + gap);
 
         // Reroll button (above cards, top-right area)
-        const rerollBtn = this.add.text(W / 2, H / 2 - 73, `🎲 Reroll  (${this.rerolls})`, {
-            fontSize: '13px', fontFamily: 'Arial', color: this.rerolls > 0 ? '#ffdd55' : '#666666',
-            backgroundColor: '#222222', padding: { x: 12, y: 6 },
+        const rerollBtn = this.add.text(W / 2, H / 2 - 146, `🎲 Reroll  (${this.rerolls})`, {
+            fontSize: '26px', fontFamily: 'Arial', color: this.rerolls > 0 ? '#ffdd55' : '#666666',
+            backgroundColor: '#222222', padding: { x: 24, y: 12 },
         }).setScrollFactor(0).setDepth(202).setOrigin(0.5);
         if (this.rerolls > 0) rerollBtn.setInteractive({ useHandCursor: true });
         ui.push(rerollBtn);
@@ -491,8 +491,8 @@ export const LevelUpMethods = {
             const isActive = () => this.scene.isActive();
 
             const countLabel = this.add.text(W / 2, H / 2, '3', {
-                fontSize: '72px', fontFamily: 'Arial Black, Arial',
-                color: '#ffffff', stroke: '#000000', strokeThickness: 8,
+                fontSize: '144px', fontFamily: 'Arial Black, Arial',
+                color: '#ffffff', stroke: '#000000', strokeThickness: 16,
             }).setScrollFactor(0).setDepth(210).setOrigin(0.5);
 
             this.isCountdown = true;
@@ -563,7 +563,7 @@ export const LevelUpMethods = {
 
             currentChoices.forEach((upgrade, i) => {
                 const cx = startX + i * (cardW + gap) + cardW / 2;
-                const cy = H / 2 + 30;
+                const cy = H / 2 + 60;
 
                 const isWeapon  = upgrade.type === 'weapon';
                 const cardColor = isWeapon ? 0x2a1a00 : 0x1a1a44;
@@ -573,14 +573,14 @@ export const LevelUpMethods = {
                 const card = this.add.rectangle(cx, cy, cardW, cardH, cardColor)
                     .setScrollFactor(0).setDepth(201).setInteractive({ useHandCursor: true });
 
-                const title = this.add.text(cx, cy - 32, upgrade.name, {
-                    fontSize: '15px', fontFamily: 'Arial Black, Arial',
-                    color: titleColor, align: 'center', wordWrap: { width: cardW - 20 },
+                const title = this.add.text(cx, cy - 64, upgrade.name, {
+                    fontSize: '30px', fontFamily: 'Arial Black, Arial',
+                    color: titleColor, align: 'center', wordWrap: { width: cardW - 40 },
                 }).setScrollFactor(0).setDepth(202).setOrigin(0.5);
 
-                const desc = this.add.text(cx, cy + 10, upgrade.desc, {
-                    fontSize: '12px', fontFamily: 'Arial', color: '#cccccc',
-                    align: 'center', wordWrap: { width: cardW - 20 },
+                const desc = this.add.text(cx, cy + 20, upgrade.desc, {
+                    fontSize: '24px', fontFamily: 'Arial', color: '#cccccc',
+                    align: 'center', wordWrap: { width: cardW - 40 },
                 }).setScrollFactor(0).setDepth(202).setOrigin(0.5);
 
                 cardEls.push(card, title, desc);
@@ -625,8 +625,8 @@ export const LevelUpMethods = {
         this.input.gamepad.on('down', padHandler);
 
         // Gamepad hint below reroll button
-        ui.push(this.add.text(W / 2, H / 2 - 55, '🎮  LB / RB  Navigate    A  Pick    Y  Reroll', {
-            fontSize: '11px', fontFamily: 'Arial', color: '#888888',
+        ui.push(this.add.text(W / 2, H / 2 - 110, '🎮  LB / RB  Navigate    A  Pick    Y  Reroll', {
+            fontSize: '22px', fontFamily: 'Arial', color: '#888888',
         }).setScrollFactor(0).setDepth(202).setOrigin(0.5));
 
         drawCards();

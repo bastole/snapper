@@ -76,12 +76,12 @@ export const BaseWeaponMethods = {
     doPoop() {
         if (this.isPaused || this.isCountdown) return;
         const angle      = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const speed      = 220;
-        const radius     = 120;
+        const speed      = 440;
+        const radius     = 240;
         const duration   = this.poopDuration;
 
         const poop = this.physics.add.image(this.player.x, this.player.y, 'weapon_poop');
-        poop.setScale(0.15).setDepth(8);
+        poop.setScale(0.30).setDepth(8);
         poop.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
         poop.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
         poop.landed = false;
@@ -157,9 +157,9 @@ export const BaseWeaponMethods = {
             const offset = (i - Math.floor(count / 2)) * spread;
             const a      = targetAngle + offset;
             const pebble = this.physics.add.image(this.player.x, this.player.y, 'weapon_pebble_flick');
-            pebble.setScale(0.10);
+            pebble.setScale(0.20);
             pebble.setDepth(8);
-            pebble.setVelocity(Math.cos(a) * 300, Math.sin(a) * 300);
+            pebble.setVelocity(Math.cos(a) * 600, Math.sin(a) * 600);
             pebble.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
             pebble.damage = this.pebbleDamage;
             pebble.hits   = 0;
@@ -228,7 +228,7 @@ export const BaseWeaponMethods = {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x;
         const py = this.player.y;
-        const lickRange = ([90, 120, 150][this.lickLevel - 1] || 90) + this.lickRangeBonus;
+        const lickRange = ([180, 240, 300][this.lickLevel - 1] || 180) + this.lickRangeBonus;
         const tongueCount = this.lickLevel;
 
         // Find up to tongueCount nearest enemies within range
@@ -324,7 +324,7 @@ export const BaseWeaponMethods = {
     spawnPupaMine(x, y) {
         if (!this.pupaGroup) return;
         const mine = this.physics.add.image(x, y, 'weapon_pupae_mines');
-        mine.setScale(0.15).setDepth(8);
+        mine.setScale(0.30).setDepth(8);
         mine.exploded = false;
         const explodeMine = () => {
             if (mine.exploded || !mine.active || this.isCountdown) return;
@@ -367,7 +367,7 @@ export const BaseWeaponMethods = {
             const oy = this.player.y + Math.sin(spreadAngle) * spreadDist;
 
             const mine = this.physics.add.image(this.player.x, this.player.y, 'weapon_pupae_mines');
-            mine.setScale(0.15);
+            mine.setScale(0.30);
             mine.setDepth(8);
             mine.exploded = false;
 
@@ -421,11 +421,11 @@ export const BaseWeaponMethods = {
 
         for (let i = 0; i < count; i++) {
             const skin = this.physics.add.image(this.player.x, this.player.y, 'weapon_skin_shed');
-            skin.setScale(0.28);
+            skin.setScale(0.56);
             skin.setDepth(8);
             // Fling outward then arc downward via gravity
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-            skin.setVelocity(Math.cos(angle) * 100, Math.sin(angle) * 100);
+            skin.setVelocity(Math.cos(angle) * 200, Math.sin(angle) * 200);
             skin.setAngularVelocity(0.2 * 360);
             skin.body.setGravityY(400);
             skin.hitEnemies = new Set();
@@ -469,9 +469,9 @@ export const BaseWeaponMethods = {
 
         for (let i = 0; i < count; i++) {
             const angle  = targetAngle;
-            const speed  = 230;
+            const speed  = 460;
             const woodie = this.physics.add.image(this.player.x, this.player.y, 'weapon_woodie_bounce');
-            woodie.setScale(0.14);
+            woodie.setScale(0.28);
             woodie.setDepth(8);
             woodie.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
             woodie.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
@@ -672,9 +672,9 @@ export const BaseWeaponMethods = {
     doPoisonClaw() {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
-        const ranges    = [80, 110, 140, 170];
+        const ranges    = [160, 220, 280, 340];
         const durations = [3000, 5000, 6000, 7000];
-        const range     = (ranges[this.poisonClawLevel - 1] ?? 80) + this.lickRangeBonus;
+        const range     = (ranges[this.poisonClawLevel - 1] ?? 160) + this.lickRangeBonus;
         const duration  = durations[this.poisonClawLevel - 1] ?? 3000;
         const damage    = 15;
 
@@ -736,7 +736,7 @@ export const BaseWeaponMethods = {
 
         const barLen  = this.branchLength;
         const barW    = this.branchWidth;
-        const speed   = 300;
+        const speed   = 600;
         const maxHits = this.branchMaxHits;
         const dmg     = 22;
 
@@ -775,7 +775,7 @@ export const BaseWeaponMethods = {
         const px = this.player.x, py = this.player.y;
         const angle  = (this.lastMoveAngle ?? 0) + Math.PI;
         const len    = this.dustKickLength;
-        const width  = 30;
+        const width  = 60;
         const dmg    = 8;
         const cosA   = Math.cos(angle), sinA = Math.sin(angle);
 
@@ -828,10 +828,10 @@ export const BaseWeaponMethods = {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
         const a   = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const d   = Phaser.Math.FloatBetween(20, 80);
-        const sx  = Phaser.Math.Clamp(px + Math.cos(a) * d, 32, 3168);
-        const sy  = Phaser.Math.Clamp(py + Math.sin(a) * d, 32, 3168);
-        const r   = this.scratchLevel >= 3 ? 80 : 60;
+        const d   = Phaser.Math.FloatBetween(40, 160);
+        const sx  = Phaser.Math.Clamp(px + Math.cos(a) * d, 64, 6336);
+        const sy  = Phaser.Math.Clamp(py + Math.sin(a) * d, 64, 6336);
+        const r   = this.scratchLevel >= 3 ? 160 : 120;
         const dmg = Phaser.Math.Between(15, 25);
 
         this.enemies.getChildren().forEach(enemy => {
@@ -865,7 +865,7 @@ export const BaseWeaponMethods = {
     doColdGlare() {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
-        const range = 120;
+        const range = 240;
 
         this.enemies.getChildren().forEach(enemy => {
             if (!this.canDamageEnemy(enemy)) return;

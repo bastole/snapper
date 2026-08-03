@@ -10,7 +10,7 @@ export const CricketMethods = {
             // Lettuce Trap: snap shut when player walks over it
             if (enemy.trapArmed) {
                 const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
-                if (dist < 36) {
+                if (dist < 72) {
                     enemy.trapArmed = false;
                     enemy.setFrame(1);
                     this.time.delayedCall(200, () => { if (enemy.active) enemy.setFrame(2); });
@@ -38,7 +38,7 @@ export const CricketMethods = {
             if (enemy.isWanderer) {
                 if (!enemy.wanderTarget) enemy.wanderTarget = this.pickCycloneWanderTarget();
                 const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, enemy.wanderTarget.x, enemy.wanderTarget.y);
-                if (d < 40) {
+                if (d < 80) {
                     enemy.wanderTarget = this.pickCycloneWanderTarget();
                 } else {
                     this.physics.moveTo(enemy, enemy.wanderTarget.x, enemy.wanderTarget.y, enemy.speed);
@@ -62,7 +62,7 @@ export const CricketMethods = {
                 enemy.detourPhase     = Phaser.Math.FloatBetween(0, Math.PI * 2);
             }
             const dist    = Phaser.Math.Distance.Between(enemy.x, enemy.y, px, py);
-            const spread  = Phaser.Math.Clamp((dist - 60) / 240, 0, 1);
+            const spread  = Phaser.Math.Clamp((dist - 120) / 480, 0, 1);
             const wobble  = Math.sin(this.time.now * enemy.detourFreq + enemy.detourPhase) * enemy.detourAmplitude;
             const bearing = Phaser.Math.Angle.Between(enemy.x, enemy.y, px, py);
             const angle   = bearing + (enemy.approachOffset + wobble) * spread;
@@ -73,7 +73,7 @@ export const CricketMethods = {
             if (cricket.specialType === 'treasure' || cricket.specialType === 'wormbox' || cricket.specialType === 'fullbox') return;
             const dist = Phaser.Math.Distance.Between(px, py, cricket.x, cricket.y);
             if (dist < this.magnetRange) {
-                this.physics.moveToObject(cricket, this.player, 220);
+                this.physics.moveToObject(cricket, this.player, 440);
                 if (cricket._spinSpeed === undefined) cricket._spinSpeed = Phaser.Math.FloatBetween(0.2, 1) * 360;
                 cricket.setAngularVelocity(cricket._spinSpeed);
             } else {
@@ -136,8 +136,8 @@ export const CricketMethods = {
         if (heads < enemy.hydraHeads) {
             enemy.hydraHeads = heads;
             // Speed increases and shrinks slightly as heads are lost
-            enemy.speed += 18;
-            const newScale = 0.32 - (3 - heads) * 0.04;
+            enemy.speed += 36;
+            const newScale = 0.64 - (3 - heads) * 0.08;
             enemy.setScale(newScale);
             this.tweens.add({ targets: enemy, alpha: 0.1, duration: 120, yoyo: true, repeat: 2 });
         }
@@ -161,8 +161,8 @@ export const CricketMethods = {
         // enemy hit to also inflict a random ailment for 1-3s.
         const level = this.ownedPassives.filter(p => p === 'Inflate').length;
         const dmg   = level >= 2 ? 30 : 15;
-        const speed = level >= 2 ? 440 : 220;
-        const range = 110;
+        const speed = level >= 2 ? 880 : 440;
+        const range = 220;
         const burst = this.add.circle(this.player.x, this.player.y, range, 0xffffff, 0.25).setDepth(20);
         this.tweens.add({ targets: burst, alpha: 0, scaleX: 1.3, scaleY: 1.3, duration: 250, onComplete: () => burst.destroy() });
         const toKill = [];

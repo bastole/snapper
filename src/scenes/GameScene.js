@@ -45,8 +45,8 @@ export default class GameScene extends Phaser.Scene {
             }
         });
 
-        const WORLD_W = 3200;
-        const WORLD_H = 3200;
+        const WORLD_W = 6400;
+        const WORLD_H = 6400;
 
         this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
 
@@ -56,7 +56,7 @@ export default class GameScene extends Phaser.Scene {
 
         // --- Player ---
         this.player = this.physics.add.sprite(WORLD_W / 2, WORLD_H / 2, 'snapper');
-        this.player.setScale(0.25);
+        this.player.setScale(0.5);
         this.player.setCollideWorldBounds(true);
         this.player.setDepth(10);
         this.anims.create({
@@ -105,7 +105,7 @@ export default class GameScene extends Phaser.Scene {
         this.pupaGroup = this.physics.add.group(); // tracks live pupa mines for boss overlap
 
         // --- Player stats ---
-        this.playerSpeed    = 160;
+        this.playerSpeed    = 320;
         this.playerHealth   = 100;
         this.playerMaxHealth = 100;
         this.playerBurning   = false;
@@ -114,7 +114,7 @@ export default class GameScene extends Phaser.Scene {
         this.xp             = 0;
         this.xpToNext       = 5;
         this.playerLevel    = 1;
-        this.magnetRange    = 32;
+        this.magnetRange    = 64;
         this.isLevelingUp   = false;
         this.isCountdown    = false;
         this.isLevelClear   = false;
@@ -150,7 +150,7 @@ export default class GameScene extends Phaser.Scene {
 
         // --- Bite weapon stats ---
         this.biteDamage = 20;
-        this.biteRange  = 80;
+        this.biteRange  = 160;
         this.biteRate   = 3000;
         this.biteLevel  = 1;
         this.starvedChompActive = false;
@@ -161,7 +161,7 @@ export default class GameScene extends Phaser.Scene {
 
         // --- Other weapon stats (initialised when unlocked) ---
         this.tailSlapDamage   = 25;
-        this.tailSlapRange    = 100;
+        this.tailSlapRange    = 200;
         this.tailSlapUpgraded = false;
         this.poopDamage       = 7.5;
         this.poopDuration     = 3000;
@@ -169,17 +169,17 @@ export default class GameScene extends Phaser.Scene {
         this.pebbleDamage     = 15;
         this.pebbleCount      = 3;
         this.pebblePierce     = 1;
-        this.hissRange        = 120;
+        this.hissRange        = 240;
         this.hissUpgraded     = false;
         this.lickDamage       = 40;
         this.lickLevel        = 0;
         this.lickRangeBonus   = 0;
         this.wormWhipDamage   = 25;
-        this.wormWhipRange    = 120;
+        this.wormWhipRange    = 240;
         this.wormWhipLevel    = 0;
         this._whipSide        = 1;
         this.pupaDamage       = 50;
-        this.pupaRadius       = 70;
+        this.pupaRadius       = 140;
         this.pupaLevel        = 0;
         this.skinDamage       = 45;
         this.skinLevel        = 0;
@@ -194,11 +194,11 @@ export default class GameScene extends Phaser.Scene {
         // --- New weapons ---
         this.poisonClawLevel   = 0;
         this.branchLevel       = 0;
-        this.branchWidth       = 20;
-        this.branchLength      = 120;
+        this.branchWidth       = 40;
+        this.branchLength      = 240;
         this.branchMaxHits     = 15;
         this.dustKickLevel     = 0;
-        this.dustKickLength    = 180;
+        this.dustKickLength    = 360;
         this.dustKickSlowDuration = 2000;
         this.scratchLevel      = 0;
 
@@ -309,9 +309,9 @@ export default class GameScene extends Phaser.Scene {
     // ─── Background grid ────────────────────────────────────────────────────────
     addGrid(w, h) {
         const g = this.add.graphics();
-        g.lineStyle(1, 0x2a5a2a, 0.5);
-        for (let x = 0; x <= w; x += 128) { g.moveTo(x, 0); g.lineTo(x, h); }
-        for (let y = 0; y <= h; y += 128) { g.moveTo(0, y); g.lineTo(w, y); }
+        g.lineStyle(2, 0x2a5a2a, 0.5);
+        for (let x = 0; x <= w; x += 256) { g.moveTo(x, 0); g.lineTo(x, h); }
+        for (let y = 0; y <= h; y += 256) { g.moveTo(0, y); g.lineTo(w, y); }
         g.strokePath();
     }
 
@@ -344,7 +344,7 @@ export default class GameScene extends Phaser.Scene {
                 this.updateCarrotScorpionAI();
             } else if (!this.boss.isCharging) {
                 if (this.boss.bugCaught) this.boss.setVelocity(0, 0);
-                else this.physics.moveToObject(this.boss, this.player, 80 * this.getLettuceBeetleSpeedFactor() * (this.boss.slowFactor ?? 1));
+                else this.physics.moveToObject(this.boss, this.player, 160 * this.getLettuceBeetleSpeedFactor() * (this.boss.slowFactor ?? 1));
             }
         }
         this.updateBossHealthBar();
