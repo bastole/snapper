@@ -1086,3 +1086,75 @@ Note for future sessions: this is an easy mistake to repeat, since nothing enfor
 
 ### A note on verification this session
 Diagnosing this required a lot of trial and error with the Service Worker/Cache Storage APIs directly in the Browser pane, since this same origin's Cache Storage had accumulated a lot of leftover state from many manual register/unregister cycles across earlier sessions' testing — several intermediate checks gave confusing results (an "activated" worker with an empty precache) that turned out to be artifacts of that leftover state rather than real bugs, only resolved by testing in a freshly-cleared tab with a genuine full page navigation instead of manual `register()` calls. The one test that actually matters — does the page receive current code through the service worker, and does a real user-shaped flow (click through title, press Y) work end to end — passed cleanly.
+
+---
+
+## Session 35 — 2026-08-03
+
+### Real sprite art integrated; all placeholders retired
+
+New real-art PNGs added to `assets/sprites/` with a revised naming convention. Every placeholder was retired and the codebase updated throughout.
+
+**New file conventions:**
+- Enemies: `assets/sprites/enemies/enemy_<key>.png`
+- Bosses: `assets/sprites/bosses/boss_<key>.png`
+- Enemy projectiles: `assets/sprites/enemy_projectiles/projectile_<name>.png` (new folder)
+- Weapons: `assets/sprites/weapons/weapon_<name>.png` / `evol_<name>.png` (new folder)
+
+**Eight entities renamed** (internal texture key and ENEMY_LIST label updated everywhere):
+
+| Old key | New key | Label |
+|---|---|---|
+| `iceberg_lettuce` | `lettuce_small` | Small Lettuce |
+| `basil` | `basil_small` | Small Basil |
+| `rocket` | `rocket_small` | Small Rocket |
+| `coriander` | `coriander_small` | Small Coriander |
+| `spinach` | `spinach_medium` | Medium Spinach |
+| `small_spinach` | `spinach_small` | Small Spinach |
+| `rocket_great_sword` | `rocket_bustersword` | Rocket Buster Sword |
+| `the_hand` | `yun_hand` | The Hand |
+
+Renames propagated to all 13 affected files: `BootScene.js`, `upgradeContent.js`, `enemySpawn.js` (spawn pools, sub-pools, `spawnsEnemy` fields), `boss.js`, `handBoss.js`, `handMiniBoss.js`, `enemyDeath.js` (drop table, Hopper split spawn).
+
+**Boss frame size change** — all boss sprites are now 256×256 per frame (was 128×128) with 4 frames: idle (f0–f1) and attack (f2–f3). `BootScene.js` updated to `frameWidth: 256, frameHeight: 256`. Boss scale in `boss.js` halved (was `0.8`, now `0.4`) to maintain the same on-screen footprint. Two named animations now created per boss at spawn: `{key}_idle` (frames 0–1, 4fps) and `{key}_attack` (frames 2–3, 8fps). Attack animations triggered at the start of each boss's signature moves and return to idle when they resolve:
+- **Lettuce Beetle**: attack on charge flash/dash, idle on charge expiry
+- **Rocket Spider**: attack on leg slam, idle after
+- **Carrot Scorpion**: attack on claw swipe and stinger bury start, idle when each ends
+- **Mulberry Mantis**: attack during the 400ms strike window after reappear, idle after
+- **The Hand (Yun Hand)**: attack on ground slap, tweezers charge, spray, and projectile ring; idle when each resolves
+
+INDEX zoom view updated: boss sprites now play `{key}_idle` (not `{key}_walk`) and are displayed at `setScale(0.4)` to fit the 256×256 frames within the zoom box.
+
+**New multi-frame enemies:**
+- `carrot_dart` — 4 frames: idle loop (0–1), darting/flying (2–3). Switches to `carrot_dart_fly` animation when the charge velocity fires; returns to `carrot_dart_walk` when the charge resolves.
+- `carrot_mole` — 4 frames: underground idle (0–1), surfacing/attack (2–3). Plays `carrot_mole_attack` when the mole transitions from burrowed to surfaced (500ms, then returns to `carrot_mole_walk`).
+- `lettuce_trap` — 3 frames: dormant (0), snap activation (1), post-snap (2). Frames advance in `crickets.js` at the snap trigger point (`trapArmed = false`) — frame 1 immediately, frame 2 after 200ms.
+- `rocket_bustersword` — 4 frames (idle 0–1, additional 2–3 available).
+
+**Weapon sprites wired up** — every weapon and evolution that previously spawned a tinted `'cricket'` image now uses its dedicated texture key; tint calls removed and scales halved to compensate for 128×128 vs 64×64:
+
+| Weapon/Evo | New key |
+|---|---|
+| Poop (travel) | `weapon_poop` |
+| Pebble Flick + Sunbaked Ambers ambers | `weapon_pebble_flick` |
+| Pupa Mines + Bug Buster mines | `weapon_pupae_mines` / `evol_bug_buster` |
+| Skin Shed + Spike Shedder | `weapon_skin_shed` / `evol_spike_shedder` |
+| Woodie Bounce + Shining Shells | `weapon_woodie_bounce` / `evol_shining_shell` |
+| Branch Throw | `weapon_branch_throw` (keeps `setDisplaySize` for hitbox) |
+| Toxic Ocean travel | `evol_toxic_ocean` |
+| Log Lob | `evol_log_lob` (keeps `setDisplaySize` for hitbox) |
+| Dubia Shields + Dubia Defenders projectile | `dubia_shields` |
+
+Dubia Shields visual changed from `this.add.circle(...)` → `this.add.image(..., 'dubia_shields').setScale(0.14)` in `movement.js`. Hit detection is position-based and unaffected.
+
+*(Sunbaked Ambers has no dedicated sprite yet — uses `weapon_pebble_flick` with an amber tint, flagged for artist.)*
+
+**Enemy projectile sprites wired up** — replaced all reused enemy textures used as projectiles:
+- Lettuce Shooter shots: `def.projKey` fallback `'iceberg_lettuce'` → `'projectile_lettuce_shooter'`
+- Oregano Fan + Oregano Phantom shots (including death burst): `'oregano_fan'` → `'projectile_oregano_ghost'`
+- The Hand phase-4 ring: `'iceberg_lettuce'` → `'projectile_yun_hand_calcium'`
+- The Hand phase-3 salad rings + spray: `'iceberg_lettuce'` → `'projectile_yun_hand_vitamin'`
+
+**`sw.js`** — `CACHE_VERSION` bumped `v2` → `v3`; `PRECACHE_URLS` updated to reflect all new and renamed asset paths (old placeholder paths removed, new `enemy_`/`boss_` prefixed paths and the two new folders added).
+
+**`sprites.md`** added to the repo root documenting every sprite file, its dimensions, and frame breakdown.

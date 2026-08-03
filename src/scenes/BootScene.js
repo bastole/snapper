@@ -7,24 +7,41 @@ export default class BootScene extends Phaser.Scene {
         // Player (512x128 sheet = 4 frames of 128x128)
         this.load.spritesheet('snapper', 'assets/sprites/player/snapper.png', { frameWidth: 128, frameHeight: 128 });
 
-        // Enemies (256x128 sheet = 2 frames of 128x128)
-        const enemies = [
-            'iceberg_lettuce', 'basil', 'lettuce_hopper', 'lettuce_shooter', 'basil_propeller',
-            'rocket', 'rocket_knife', 'oregano_skunk', 'oregano_ghost', 'oregano_fan', 'rocket_sword',
-            'coriander', 'coriander_whip', 'carrot_mole', 'coriander_hydra', 'carrot_dart', 'carrot_wheel', 'carrot_thug',
-            'spinach', 'small_spinach', 'mulberry_bat', 'mulberry_snake', 'spinach_cyclone',
-            'lettuce_trap', 'basil_bomb', 'rocket_great_sword', 'oregano_phantom',
-            'coriander_carrot', 'spinach_tempest', 'mulberry_monstrosity',
+        // Standard 2-frame enemies (path: enemy_<key>.png, 256x128 = 2 frames of 128x128)
+        const enemies2 = [
+            'lettuce_small', 'basil_small', 'lettuce_hopper', 'lettuce_shooter', 'basil_propeller',
+            'rocket_small', 'rocket_knife', 'oregano_skunk', 'oregano_ghost', 'oregano_fan', 'rocket_sword',
+            'coriander_small', 'coriander_whip', 'carrot_thug', 'carrot_wheel', 'coriander_hydra', 'coriander_carrot',
+            'spinach_medium', 'spinach_small', 'mulberry_bat', 'mulberry_snake', 'spinach_cyclone',
+            'basil_bomb', 'oregano_phantom', 'spinach_tempest', 'mulberry_monstrosity',
         ];
-        enemies.forEach(key => {
-            this.load.spritesheet(key, `assets/sprites/enemies/${key}.png`, { frameWidth: 128, frameHeight: 128 });
+        enemies2.forEach(key => {
+            this.load.spritesheet(key, `assets/sprites/enemies/enemy_${key}.png`, { frameWidth: 128, frameHeight: 128 });
         });
 
-        // Bosses (256x128 sheet = 2 frames of 128x128)
-        const bosses = ['lettuce_beetle', 'rocket_spider', 'carrot_scorpion', 'mulberry_mantis', 'the_hand'];
+        // Multi-frame enemies (4 frames each: walk 0-1, special 2-3; lettuce_trap 3 frames)
+        this.load.spritesheet('carrot_mole',        'assets/sprites/enemies/enemy_carrot_mole.png',        { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('carrot_dart',        'assets/sprites/enemies/enemy_carrot_dart.png',        { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('lettuce_trap',       'assets/sprites/enemies/enemy_lettuce_trap.png',       { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('rocket_bustersword', 'assets/sprites/enemies/enemy_rocket_bustersword.png', { frameWidth: 128, frameHeight: 128 });
+
+        // Bosses (1024x256 sheet = 4 frames of 256x256: idle 0-1, attack 2-3)
+        const bosses = ['lettuce_beetle', 'rocket_spider', 'carrot_scorpion', 'mulberry_mantis', 'yun_hand'];
         bosses.forEach(key => {
-            this.load.spritesheet(key, `assets/sprites/bosses/${key}.png`, { frameWidth: 128, frameHeight: 128 });
+            this.load.spritesheet(key, `assets/sprites/bosses/boss_${key}.png`, { frameWidth: 256, frameHeight: 256 });
         });
+
+        // Enemy projectiles (static images, 96x96)
+        ['projectile_lettuce_shooter', 'projectile_oregano_ghost',
+         'projectile_yun_hand_calcium', 'projectile_yun_hand_vitamin']
+            .forEach(key => this.load.image(key, `assets/sprites/enemy_projectiles/${key}.png`));
+
+        // Weapons (static images, 128x128)
+        ['weapon_poop', 'weapon_pebble_flick', 'weapon_pupae_mines', 'weapon_skin_shed',
+         'weapon_woodie_bounce', 'weapon_branch_throw', 'dubia_shields',
+         'evol_bug_buster', 'evol_log_lob', 'evol_shining_shell', 'evol_spike_shedder',
+         'evol_toxic_ocean']
+            .forEach(key => this.load.image(key, `assets/sprites/weapons/${key}.png`));
 
         // Items (64x64 static)
         this.load.image('cricket', 'assets/sprites/items/cricket.png');

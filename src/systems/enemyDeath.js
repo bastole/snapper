@@ -120,7 +120,7 @@ export const EnemyDeathMethods = {
                 // Level 5 exclusives
                 lettuce_trap:         { xpValue: 10, key: 'dragonfly', scale: 0.80 },
                 basil_bomb:           { xpValue: 10, key: 'dragonfly', scale: 0.80 },
-                rocket_great_sword:   { xpValue: 10, key: 'dragonfly', scale: 0.80 },
+                rocket_bustersword:   { xpValue: 10, key: 'dragonfly', scale: 0.80 },
                 oregano_phantom:      { xpValue: 10, key: 'dragonfly', scale: 0.80 },
                 coriander_carrot:     { xpValue: 10, key: 'dragonfly', scale: 0.80 },
                 spinach_tempest:      { xpValue: 10, key: 'dragonfly', scale: 0.80 },
@@ -162,22 +162,22 @@ export const EnemyDeathMethods = {
             }
         }
 
-        // Lettuce Hopper splits into 2 Iceberg Lettuces
+        // Lettuce Hopper splits into 2 Small Lettuces
         if (enemy.splits) {
             for (let i = 0; i < 2; i++) {
                 const ox = enemy.x + Phaser.Math.Between(-20, 20);
                 const oy = enemy.y + Phaser.Math.Between(-20, 20);
-                const split = this.physics.add.sprite(ox, oy, 'iceberg_lettuce');
+                const split = this.physics.add.sprite(ox, oy, 'lettuce_small');
                 split.setScale(0.25);
                 split.setDepth(5);
                 split.health = 40; split.maxHealth = 40;
                 split.damage = 5;  split.speed = 60;
                 split.lastHitTime = 0;
                 split.splits = false; split.shoots = false; split.splitsInto = null; split.hydra = false; split.burrowed = false; split.whips = false; split.emitsGas = false; split.snakeWhip = false; split.isWanderer = false;
-                if (!this.anims.exists('iceberg_lettuce_walk')) {
-                    this.anims.create({ key: 'iceberg_lettuce_walk', frames: this.anims.generateFrameNumbers('iceberg_lettuce', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+                if (!this.anims.exists('lettuce_small_walk')) {
+                    this.anims.create({ key: 'lettuce_small_walk', frames: this.anims.generateFrameNumbers('lettuce_small', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
                 }
-                split.play('iceberg_lettuce_walk');
+                split.play('lettuce_small_walk');
                 this.enemies.add(split);
             }
         }
@@ -231,7 +231,7 @@ export const EnemyDeathMethods = {
         if (enemy.phantom) {
             for (let i = 0; i < 3; i++) {
                 const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-                const proj  = this.physics.add.image(enemy.x, enemy.y, 'oregano_fan');
+                const proj  = this.physics.add.image(enemy.x, enemy.y, 'projectile_oregano_ghost');
                 proj.setScale(0.14).setDepth(7).setTint(0x44ff44);
                 proj.setVelocity(Math.cos(angle) * 160, Math.sin(angle) * 160);
                 proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);

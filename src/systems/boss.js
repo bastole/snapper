@@ -28,14 +28,14 @@ export const BossMethods = {
         const H = this.cameras.main.height;
 
         const bossCfg = this.level === 5
-            ? { key: 'the_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 0.8 }
+            ? { key: 'yun_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 0.4 }
             : this.level === 4
-            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 0.6 }
+            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 0.3 }
             : this.level === 3
-            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 0.65 }
+            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 0.33 }
             : this.level === 2
-            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 0.6 }
-            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 0.6, chargeDelay: 3500 };
+            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 0.3 }
+            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 0.3, chargeDelay: 3500 };
 
         // Warning banner
         const warn = this.add.text(W / 2, H / 2 - 60, `⚠  ${bossCfg.label} APPROACHES  ⚠`, {
@@ -78,11 +78,13 @@ export const BossMethods = {
             this.boss.bugCaught         = false;
             this.boss._nextImmobilizeAt = 0;
 
-            const animKey = `${bossCfg.key}_walk`;
-            if (!this.anims.exists(animKey)) {
-                this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(bossCfg.key, { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
-            }
-            this.boss.play(animKey);
+            const idleKey   = `${bossCfg.key}_idle`;
+            const attackKey = `${bossCfg.key}_attack`;
+            if (!this.anims.exists(idleKey))
+                this.anims.create({ key: idleKey,   frames: this.anims.generateFrameNumbers(bossCfg.key, { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+            if (!this.anims.exists(attackKey))
+                this.anims.create({ key: attackKey, frames: this.anims.generateFrameNumbers(bossCfg.key, { start: 2, end: 3 }), frameRate: 8, repeat: -1 });
+            this.boss.play(idleKey);
 
             // Boss health bar (world-space)
             this.bossHpBarBg = this.add.rectangle(bossX, bossY + 30, 80, 10, 0x222222).setDepth(9);
@@ -306,6 +308,7 @@ export const BossMethods = {
         this.time.delayedCall(150, () => {
             warn.destroy();
             if (!this.boss?.active) return;
+            this.boss.play('lettuce_beetle_attack');
             const chargeAngle = Math.atan2(targetY - this.boss.y, targetX - this.boss.x);
             const chargeSpeed = 320 * this.getLettuceBeetleSpeedFactor();
             this.boss.setVelocity(Math.cos(chargeAngle) * chargeSpeed, Math.sin(chargeAngle) * chargeSpeed);
@@ -313,6 +316,7 @@ export const BossMethods = {
                 if (!this.boss?.active) return;
                 this.boss.setVelocity(0, 0);
                 this.boss.isCharging = false;
+                this.boss.play('lettuce_beetle_idle');
             });
         });
     },
@@ -424,6 +428,8 @@ export const BossMethods = {
         if (!this.boss?.active) return;
         // Brief flash warning on boss
         this.tweens.add({ targets: this.boss, alpha: 0.3, duration: 100, yoyo: true });
+        this.boss.play('rocket_spider_attack');
+        this.time.delayedCall(800, () => { if (this.boss?.active) this.boss.play('rocket_spider_idle'); });
         // Spawn 3 Rocket Swords near the player
         for (let i = 0; i < 3; i++) {
             const ox = this.player.x + Phaser.Math.Between(-130, 130);
@@ -459,12 +465,14 @@ export const BossMethods = {
 
         this.time.delayedCall(150, () => {
             if (!this.boss?.active) return;
+            this.boss.play('carrot_scorpion_attack');
             const tx = this.player.x; const ty = this.player.y;
             this.physics.moveTo(this.boss, tx, ty, 480);
             this.tweens.add({ targets: this.boss, alpha: 0.4, duration: 80, yoyo: true });
             this.time.delayedCall(300, () => {
                 if (this.boss?.active) this.boss.body?.setVelocity(0, 0);
                 this.boss.isCharging = false;
+                if (this.boss?.active) this.boss.play('carrot_scorpion_idle');
             });
         });
     },
@@ -503,6 +511,9 @@ export const BossMethods = {
                     if (!this.anims.exists(mKey)) {
                         this.anims.create({ key: mKey, frames: this.anims.generateFrameNumbers('carrot_mole', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
                     }
+                    if (!this.anims.exists('carrot_mole_attack')) {
+                        this.anims.create({ key: 'carrot_mole_attack', frames: this.anims.generateFrameNumbers('carrot_mole', { start: 2, end: 3 }), frameRate: 8, repeat: -1 });
+                    }
                     mole.play(mKey);
                     // Start the burrow cycle on this mole
                     const scheduleBurrow = () => {
@@ -516,6 +527,8 @@ export const BossMethods = {
                                 mole.isUnderground = false;
                                 mole.body.setSize(45, 30); mole.speed = 0;
                                 if (mole.body) mole.body.setVelocity(0, 0);
+                                if (mole.active) mole.play('carrot_mole_attack');
+                                this.time.delayedCall(500, () => { if (mole.active) mole.play(mKey); });
                                 scheduleBurrow();
                             });
                         });
@@ -650,6 +663,8 @@ export const BossMethods = {
 
         // Red flash warning
         this.tweens.add({ targets: boss, alpha: 0.2, duration: 80, yoyo: true, repeat: 1 });
+        boss.play('mulberry_mantis_attack');
+        this.time.delayedCall(400, () => { if (this.boss?.active) this.boss.play('mulberry_mantis_idle'); });
 
         // Deal 25 damage if player is still nearby
         const dist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
@@ -782,7 +797,7 @@ export const BossMethods = {
                     if (!cyclone.active) return;
                     const sx = cyclone.x + Phaser.Math.Between(-80, 80);
                     const sy = cyclone.y + Phaser.Math.Between(-80, 80);
-                    const mini = this.physics.add.sprite(sx, sy, 'small_spinach');
+                    const mini = this.physics.add.sprite(sx, sy, 'spinach_small');
                     mini.setScale(0.22).setDepth(5);
                     mini.health = 18; mini.maxHealth = 18;
                     mini.damage = 9;  mini.speed = 110;
@@ -790,9 +805,9 @@ export const BossMethods = {
                     mini.splits = false; mini.shoots = false; mini.splitsInto = null;
                     mini.hydra = false; mini.burrowed = false; mini.whips = false;
                     mini.emitsGas = false; mini.snakeWhip = false;
-                    const miniAnim = 'small_spinach_walk';
+                    const miniAnim = 'spinach_small_walk';
                     if (!this.anims.exists(miniAnim)) {
-                        this.anims.create({ key: miniAnim, frames: this.anims.generateFrameNumbers('small_spinach', { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
+                        this.anims.create({ key: miniAnim, frames: this.anims.generateFrameNumbers('spinach_small', { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
                     }
                     mini.play(miniAnim);
                     this.physics.moveToObject(mini, this.player, mini.speed);

@@ -80,8 +80,8 @@ export const BaseWeaponMethods = {
         const radius     = 120;
         const duration   = this.poopDuration;
 
-        const poop = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-        poop.setTint(0x885500).setScale(0.3).setDepth(8);
+        const poop = this.physics.add.image(this.player.x, this.player.y, 'weapon_poop');
+        poop.setScale(0.15).setDepth(8);
         poop.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
         poop.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
         poop.landed = false;
@@ -156,9 +156,8 @@ export const BaseWeaponMethods = {
         for (let i = 0; i < count; i++) {
             const offset = (i - Math.floor(count / 2)) * spread;
             const a      = targetAngle + offset;
-            const pebble = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            pebble.setTint(0xaaaaaa);
-            pebble.setScale(0.2);
+            const pebble = this.physics.add.image(this.player.x, this.player.y, 'weapon_pebble_flick');
+            pebble.setScale(0.10);
             pebble.setDepth(8);
             pebble.setVelocity(Math.cos(a) * 300, Math.sin(a) * 300);
             pebble.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
@@ -324,8 +323,8 @@ export const BaseWeaponMethods = {
     // directly at the death spot instead of a walk-over pickup.
     spawnPupaMine(x, y) {
         if (!this.pupaGroup) return;
-        const mine = this.physics.add.image(x, y, 'cricket');
-        mine.setTint(0xffdd00).setScale(0.3).setDepth(8);
+        const mine = this.physics.add.image(x, y, 'weapon_pupae_mines');
+        mine.setScale(0.15).setDepth(8);
         mine.exploded = false;
         const explodeMine = () => {
             if (mine.exploded || !mine.active || this.isCountdown) return;
@@ -367,9 +366,8 @@ export const BaseWeaponMethods = {
             const ox = this.player.x + Math.cos(spreadAngle) * spreadDist;
             const oy = this.player.y + Math.sin(spreadAngle) * spreadDist;
 
-            const mine = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            mine.setTint(0xffdd00);
-            mine.setScale(0.3);
+            const mine = this.physics.add.image(this.player.x, this.player.y, 'weapon_pupae_mines');
+            mine.setScale(0.15);
             mine.setDepth(8);
             mine.exploded = false;
 
@@ -422,9 +420,8 @@ export const BaseWeaponMethods = {
         const cam   = this.cameras.main;
 
         for (let i = 0; i < count; i++) {
-            const skin = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            skin.setTint(0xddbb99);
-            skin.setScale(0.55);
+            const skin = this.physics.add.image(this.player.x, this.player.y, 'weapon_skin_shed');
+            skin.setScale(0.28);
             skin.setDepth(8);
             // Fling outward then arc downward via gravity
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -473,9 +470,8 @@ export const BaseWeaponMethods = {
         for (let i = 0; i < count; i++) {
             const angle  = targetAngle;
             const speed  = 230;
-            const woodie = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            woodie.setTint(0x886644);
-            woodie.setScale(0.28);
+            const woodie = this.physics.add.image(this.player.x, this.player.y, 'weapon_woodie_bounce');
+            woodie.setScale(0.14);
             woodie.setDepth(8);
             woodie.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
             woodie.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
@@ -744,9 +740,9 @@ export const BaseWeaponMethods = {
         const maxHits = this.branchMaxHits;
         const dmg     = 22;
 
-        const branch = this.physics.add.image(this.player.x, this.player.y, 'cricket');
+        const branch = this.physics.add.image(this.player.x, this.player.y, 'weapon_branch_throw');
         // Visual angle = aim direction so the bar faces the enemy; travel = perpendicular
-        branch.setDisplaySize(barLen, barW).setTint(0x6b3a1f).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
+        branch.setDisplaySize(barLen, barW).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
         branch.body.setSize(barLen, barW);
         branch.setVelocity(Math.cos(travelAngle) * speed, Math.sin(travelAngle) * speed);
         branch.hits = 0;

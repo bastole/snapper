@@ -409,11 +409,12 @@ export default class LevelSelectScene extends Phaser.Scene {
                 // (silhouette: shape and movement readable, texture colors hidden) instead
                 // of being omitted, so its outline is a discoverable hint without spoiling
                 // what it actually looks like.
-                const animKey = `${entry.key}_walk`;
+                const animKey = entry.isBoss ? `${entry.key}_idle` : `${entry.key}_walk`;
                 if (!this.anims.exists(animKey)) {
                     this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(entry.key, { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
                 }
-                const preview = this.add.sprite(zoomCx, zoomCy - 78, entry.key).setScale(0.8).setDepth(depth + 2);
+                const preview = this.add.sprite(zoomCx, zoomCy - 78, entry.key).setDepth(depth + 2);
+                if (entry.isBoss) preview.setScale(0.4); else preview.setScale(0.8);
                 if (!known) preview.setTint(0x000000);
                 preview.play(animKey);
                 modeItems.push(preview);

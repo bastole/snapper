@@ -186,8 +186,8 @@ export const HandBossMethods = {
         const COUNT = 10;
         for (let i = 0; i < COUNT; i++) {
             const a    = (i / COUNT) * Math.PI * 2;
-            const proj = this.physics.add.image(boss.x, boss.y, 'iceberg_lettuce');
-            proj.setScale(0.18).setDepth(7).setTint(0xff8800);
+            const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_calcium');
+            proj.setScale(0.18).setDepth(7);
             proj.setVelocity(Math.cos(a) * 220, Math.sin(a) * 220);
             proj.damage = 15;
             this.physics.add.overlap(proj, this.player, () => {
@@ -521,11 +521,11 @@ export const HandBossMethods = {
 
         if (Math.random() < 0.5) {
             // Enemy ring: 30 L5-exclusive enemies around boss
-            const keys = ['lettuce_trap', 'basil_bomb', 'rocket_great_sword', 'oregano_phantom', 'coriander_carrot', 'spinach_tempest', 'mulberry_monstrosity'];
+            const keys = ['lettuce_trap', 'basil_bomb', 'rocket_bustersword', 'oregano_phantom', 'coriander_carrot', 'spinach_tempest', 'mulberry_monstrosity'];
             const statMap = {
-                lettuce_trap:         { health: 180, damage: 10, speed: 70,  scale: 0.28 },
-                basil_bomb:           { health: 80,  damage: 0,  speed: 190, scale: 0.25 },
-                rocket_great_sword:   { health: 90,  damage: 22, speed: 200, scale: 0.35 },
+                lettuce_trap:        { health: 180, damage: 10, speed: 70,  scale: 0.28 },
+                basil_bomb:          { health: 80,  damage: 0,  speed: 190, scale: 0.25 },
+                rocket_bustersword:  { health: 90,  damage: 22, speed: 200, scale: 0.35 },
                 oregano_phantom:      { health: 250, damage: 25, speed: 50,  scale: 0.35 },
                 coriander_carrot:     { health: 500, damage: 30, speed: 20,  scale: 0.30 },
                 spinach_tempest:      { health: 500, damage: 25, speed: 160, scale: 0.40 },
@@ -546,7 +546,7 @@ export const HandBossMethods = {
                 e.hydra = false; e.burrowed = false; e.whips = false;
                 e.emitsGas = false; e.snakeWhip = false;
                 e.trap = (key === 'lettuce_trap'); e.trapArmed = e.trap; e.bomb = (key === 'basil_bomb');
-                e.explodeDamage = e.bomb ? 30 : 0; e.sweeps = (key === 'rocket_great_sword');
+                e.explodeDamage = e.bomb ? 30 : 0; e.sweeps = (key === 'rocket_bustersword');
                 e.phantom = (key === 'oregano_phantom'); e.spawnsCarrotCori = false;
                 e.spawnsAnySpinach = (key === 'spinach_tempest'); e.vineWhip = (key === 'mulberry_monstrosity');
                 e.spawnsMinion = null; e.isWanderer = e.spawnsAnySpinach; e.isBossMini = false;
@@ -565,8 +565,8 @@ export const HandBossMethods = {
                 if (!boss.active) return;
                 for (let i = 0; i < 30; i++) {
                     const a    = (i / 30) * Math.PI * 2;
-                    const proj = this.physics.add.image(boss.x, boss.y, 'iceberg_lettuce');
-                    proj.setScale(0.18).setDepth(7).setTint(0x88ffaa);
+                    const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
+                    proj.setScale(0.18).setDepth(7);
                     proj.setVelocity(Math.cos(a) * 250, Math.sin(a) * 250);
                     proj.damage = 15;
                     this.physics.add.overlap(proj, this.player, () => {
@@ -608,8 +608,8 @@ export const HandBossMethods = {
             fired++;
             for (let i = 0; i < 30; i++) {
                 const a    = (i / 30) * Math.PI * 2;
-                const proj = this.physics.add.image(boss.x, boss.y, 'iceberg_lettuce');
-                proj.setScale(0.20).setDepth(7).setTint(0xff44cc);
+                const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
+                proj.setScale(0.20).setDepth(7);
                 proj.setVelocity(Math.cos(a) * 200, Math.sin(a) * 200);
                 this.physics.add.overlap(proj, this.player, () => {
                     if (!proj.active || this.player.reviveInvincible) return;

@@ -103,9 +103,8 @@ export const MovementMethods = {
 
     // ─── Dubia Shields ───────────────────────────────────────────────────────────
     createDubiaShield(layer = 'single') {
-        const shield = this.add.circle(this.player.x, this.player.y, 9, 0xcc7700);
-        shield.setStrokeStyle(2, 0x884400);
-        shield.setDepth(6);
+        const shield = this.add.image(this.player.x, this.player.y, 'dubia_shields');
+        shield.setScale(0.14).setDepth(6);
         shield.layer = layer;
         shield.hitCooldowns = new Map();
         this.dubiaShields.push(shield);

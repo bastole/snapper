@@ -181,8 +181,8 @@ export const EvolutionMethods = {
         const duration = this.poopDuration;
         for (let t = 0; t < 3; t++) {
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-            const poop  = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            poop.setTint(0x226600).setScale(0.35).setDepth(8);
+            const poop  = this.physics.add.image(this.player.x, this.player.y, 'evol_toxic_ocean');
+            poop.setScale(0.18).setDepth(8);
             poop.setVelocity(Math.cos(angle) * 180, Math.sin(angle) * 180);
             poop.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             poop.landed = false;
@@ -286,8 +286,8 @@ export const EvolutionMethods = {
         const count = 30, burnDur = 3500, dmg = this.pebbleDamage + 5;
         for (let i = 0; i < count; i++) {
             const a      = (i / count) * Math.PI * 2;
-            const amber  = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            amber.setTint(0xff8800).setScale(0.22).setDepth(8);
+            const amber  = this.physics.add.image(this.player.x, this.player.y, 'weapon_pebble_flick');
+            amber.setTint(0xff8800).setScale(0.11).setDepth(8);
             amber.setVelocity(Math.cos(a) * 280, Math.sin(a) * 280);
             amber.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             this.physics.add.overlap(amber, this.enemies, (am, enemy) => {
@@ -461,8 +461,8 @@ export const EvolutionMethods = {
             const dr = Phaser.Math.FloatBetween(30, 80);
             const ox = Phaser.Math.Clamp(this.player.x + Math.cos(a) * dr, 32, 3168);
             const oy = Phaser.Math.Clamp(this.player.y + Math.sin(a) * dr, 32, 3168);
-            const mine = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            mine.setTint(0xffdd00).setScale(0.32).setDepth(8);
+            const mine = this.physics.add.image(this.player.x, this.player.y, 'evol_bug_buster');
+            mine.setScale(0.16).setDepth(8);
             mine.exploded = false;
             this.tweens.add({ targets: mine, x: ox, y: oy, duration: 250, ease: 'Quad.easeOut' });
             const explodeMine = () => {
@@ -497,8 +497,8 @@ export const EvolutionMethods = {
     doSpikeShedder() {
         if (this.isPaused || this.isCountdown) return;
         for (let i = 0; i < 3; i++) {
-            const skin = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            skin.setTint(0xdddddd).setScale(0.60).setDepth(8);
+            const skin = this.physics.add.image(this.player.x, this.player.y, 'evol_spike_shedder');
+            skin.setScale(0.30).setDepth(8);
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
             skin.setVelocity(Math.cos(angle) * 120, Math.sin(angle) * 120);
             skin.body.setGravityY(350); skin.hitEnemies = new Set();
@@ -538,8 +538,8 @@ export const EvolutionMethods = {
         if (this.isPaused || this.isCountdown) return;
         for (let i = 0; i < 3; i++) {
             const angle  = this.pickShellAimAngle(this.player.x, this.player.y);
-            const shell  = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            shell.setTint(0xffffff).setScale(0.30).setDepth(8);
+            const shell  = this.physics.add.image(this.player.x, this.player.y, 'evol_shining_shell');
+            shell.setScale(0.15).setDepth(8);
             shell.setVelocity(Math.cos(angle) * 300, Math.sin(angle) * 300);
             shell.hitEnemies = new Set();
             shell.hitBoss = false;
@@ -590,8 +590,8 @@ export const EvolutionMethods = {
         this.dubiaShields.forEach(shield => {
             // Fire in the direction the shield is currently facing (outward from player)
             const a = Math.atan2(shield.y - this.player.y, shield.x - this.player.x);
-            const proj = this.physics.add.image(shield.x, shield.y, 'cricket');
-            proj.setTint(0xffaa00).setScale(0.25).setDepth(9);
+            const proj = this.physics.add.image(shield.x, shield.y, 'dubia_shields');
+            proj.setScale(0.12).setDepth(9);
             proj.setVelocity(Math.cos(a) * 350, Math.sin(a) * 350);
             this.physics.add.overlap(proj, this.enemies, (p, enemy) => {
                 if (!p.active || !this.canDamageEnemy(enemy)) return;
@@ -666,8 +666,8 @@ export const EvolutionMethods = {
         const aimAngle = nearest ? Math.atan2(nearest.y - this.player.y, nearest.x - this.player.x) : (this.lastMoveAngle ?? 0);
         const dmg = 50;
         [aimAngle + Math.PI / 2, aimAngle - Math.PI / 2].forEach(travelAngle => {
-            const log = this.physics.add.image(this.player.x, this.player.y, 'cricket');
-            log.setDisplaySize(140, 28).setTint(0x4a2800).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
+            const log = this.physics.add.image(this.player.x, this.player.y, 'evol_log_lob');
+            log.setDisplaySize(140, 28).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
             log.body.setSize(140, 28);
             log.setVelocity(Math.cos(travelAngle) * 200, Math.sin(travelAngle) * 200);
             log.hitCooldowns = new Map(); // per-enemy hit cooldown — 300ms, short enough that the

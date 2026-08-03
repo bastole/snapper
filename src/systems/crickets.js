@@ -12,6 +12,8 @@ export const CricketMethods = {
                 const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
                 if (dist < 36) {
                     enemy.trapArmed = false;
+                    enemy.setFrame(1);
+                    this.time.delayedCall(200, () => { if (enemy.active) enemy.setFrame(2); });
                     // Flash and deal snap damage
                     this.tweens.add({ targets: enemy, scaleX: enemy.scaleX * 1.3, scaleY: enemy.scaleY * 1.3, duration: 80, yoyo: true });
                     if (!this.player.reviveInvincible) {

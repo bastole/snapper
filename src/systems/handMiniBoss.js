@@ -453,7 +453,7 @@ export const HandMiniBossMethods = {
                     if (!cyclone.active) return;
                     const sx = cyclone.x + Phaser.Math.Between(-80, 80);
                     const sy = cyclone.y + Phaser.Math.Between(-80, 80);
-                    const mini = this.physics.add.sprite(sx, sy, 'small_spinach');
+                    const mini = this.physics.add.sprite(sx, sy, 'spinach_small');
                     mini.setScale(0.22).setDepth(5);
                     mini.health = 18; mini.maxHealth = 18;
                     mini.damage = 9;  mini.speed = 110;
@@ -461,9 +461,9 @@ export const HandMiniBossMethods = {
                     mini.splits = false; mini.shoots = false; mini.splitsInto = null;
                     mini.hydra = false; mini.burrowed = false; mini.whips = false;
                     mini.emitsGas = false; mini.snakeWhip = false;
-                    const miniAnim = 'small_spinach_walk';
+                    const miniAnim = 'spinach_small_walk';
                     if (!this.anims.exists(miniAnim)) {
-                        this.anims.create({ key: miniAnim, frames: this.anims.generateFrameNumbers('small_spinach', { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
+                        this.anims.create({ key: miniAnim, frames: this.anims.generateFrameNumbers('spinach_small', { start: 0, end: 1 }), frameRate: 5, repeat: -1 });
                     }
                     mini.play(miniAnim);
                     this.physics.moveToObject(mini, this.player, mini.speed);
