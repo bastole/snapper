@@ -129,47 +129,19 @@ export const GameFlowMethods = {
         menu.on('pointerout',  () => menu.setColor('#aaaaaa'));
         menu.on('pointerdown', () => this.scene.start('LevelSelectScene'));
 
-        // Gamepad: d-pad/stick to toggle, A to confirm
-        this.add.text(W / 2, H / 2 + 185, '🎮  A  Confirm    ↕  Navigate', {
+        // Gamepad: A always moves on (next level, or Continue on the final level),
+        // B always goes to the main menu — fixed bindings, not a toggle-then-confirm
+        // scheme, so the hint below stays true regardless of anything else on screen.
+        this.add.text(W / 2, H / 2 + 185, hasNextLevel ? '🎮  A  Next Level    B  Main Menu' : '🎮  A  Continue    B  Main Menu', {
             fontSize: '11px', fontFamily: 'Arial', color: '#666666',
         }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
 
-        let lcSelected = 0; // 0 = next level, 1 = menu
-        const lcButtons = [next, menu];
-        const lcColors  = ['#00ff88', '#ffffff'];
-        const lcDefault = ['#ffffff', '#aaaaaa'];
-        const lcHighlight = () => {
-            lcButtons.forEach((b, i) => b.setColor(i === lcSelected ? lcColors[i] : lcDefault[i]));
-        };
-        lcHighlight();
-
         const lcPadHandler = (pad, button) => {
             const idx = button.index;
-            if (idx === 12 || idx === 13) {
-                lcSelected = lcSelected === 0 ? 1 : 0;
-                lcHighlight();
-            } else if (idx === 0) {
-                if (lcSelected === 0) goNext();
-                else this.scene.start('LevelSelectScene');
-            }
+            if (idx === 0) goNext();                                    // A
+            else if (idx === 1) this.scene.start('LevelSelectScene');   // B
         };
         this.input.gamepad.on('down', lcPadHandler);
-
-        // Also handle left-stick for navigation
-        this._lcNavCooldown = 0;
-        this.events.on('update', (_, delta) => {
-            if (!this.isLevelClear) return;
-            this._lcNavCooldown -= delta;
-            if (this._lcNavCooldown > 0) return;
-            const pad = this.input.gamepad.pad1;
-            if (!pad) return;
-            const y = pad.leftStick.y;
-            if (Math.abs(y) > 0.5) {
-                lcSelected = lcSelected === 0 ? 1 : 0;
-                lcHighlight();
-                this._lcNavCooldown = 250;
-            }
-        });
     }
 
 

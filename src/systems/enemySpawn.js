@@ -199,7 +199,6 @@ export const EnemySpawnMethods = {
                     if (!enemy.active) return;
                     // Go underground
                     enemy.isUnderground = true;
-                    enemy.setAlpha(0.25);
                     enemy.body.setSize(30, 22.5);
                     enemy.speed = 80;
                     // Move toward player while underground for 3–5s
@@ -208,7 +207,6 @@ export const EnemySpawnMethods = {
                         if (!enemy.active) return;
                         // Resurface
                         enemy.isUnderground = false;
-                        enemy.setAlpha(1);
                         enemy.body.setSize(45, 30);
                         enemy.speed = 0;
                         if (enemy.body) enemy.body.setVelocity(0, 0);
@@ -278,7 +276,6 @@ export const EnemySpawnMethods = {
         // Oregano Skunk: larger gas-cloud physics body for proximity damage
         if (def.emitsGas) {
             enemy.body.setSize(66, 66);
-            this.tweens.add({ targets: enemy, alpha: 0.55, duration: 900, yoyo: true, loop: -1 });
         }
 
         // Coriander Whip: wider contact hitbox for regular melee, plus a ranged lash attack
@@ -386,9 +383,8 @@ export const EnemySpawnMethods = {
             scheduleCycloneSpawn();
         }
 
-        // Lettuce Trap: starts dormant and nearly invisible; activates when the player steps on it
+        // Lettuce Trap: starts dormant; activates when the player steps on it
         if (def.trap) {
-            enemy.setAlpha(0.22);
             if (enemy.body) enemy.body.setVelocity(0, 0);
         }
 

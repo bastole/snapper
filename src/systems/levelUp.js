@@ -284,7 +284,7 @@ export const LevelUpMethods = {
                 name: this.weaponCardLabel('coldglare', 'Cold Glare'),
                 desc: (() => {
                     if (!this.coldGlareActive)
-                        return 'Freeze nearby enemies for 1s every 30s';
+                        return 'Freezes enemies in the radius for 1s, happens every 30s';
                     const cd   = this.coldGlareCooldown / 1000;
                     const slow = this.coldGlareSlow / 1000;
                     const next = COLD_GLARE_LEVELS[this.coldGlareLevel] ?? COLD_GLARE_LEVELS[COLD_GLARE_LEVELS.length - 1];

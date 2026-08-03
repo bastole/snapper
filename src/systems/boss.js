@@ -492,7 +492,7 @@ export const BossMethods = {
 
                 if (type === 'mole') {
                     const mole = this.physics.add.sprite(ox, oy, 'carrot_mole');
-                    mole.setScale(0.26).setDepth(5).setAlpha(0.35);
+                    mole.setScale(0.26).setDepth(5);
                     mole.health = 75; mole.maxHealth = 75;
                     mole.damage = 12; mole.speed = 0;
                     mole.lastHitTime = 0; mole.isUnderground = false;
@@ -510,11 +510,11 @@ export const BossMethods = {
                         mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
                             if (!mole.active) return;
                             mole.isUnderground = true;
-                            mole.setAlpha(0.25); mole.body.setSize(30, 22.5); mole.speed = 80;
+                            mole.body.setSize(30, 22.5); mole.speed = 80;
                             mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
                                 if (!mole.active) return;
                                 mole.isUnderground = false;
-                                mole.setAlpha(1); mole.body.setSize(45, 30); mole.speed = 0;
+                                mole.body.setSize(45, 30); mole.speed = 0;
                                 if (mole.body) mole.body.setVelocity(0, 0);
                                 scheduleBurrow();
                             });

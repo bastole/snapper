@@ -118,6 +118,8 @@ export default class LevelSelectScene extends Phaser.Scene {
                 }
             } else if (idx === 1) { // B = back to title
                 this.scene.start('TitleScene');
+            } else if (idx === 3) { // Y = open INDEX
+                this.showIndexMenu();
             }
         });
 
@@ -173,6 +175,12 @@ export default class LevelSelectScene extends Phaser.Scene {
         indexBtn.on('pointerover', () => indexBtn.setColor('#ffff00'));
         indexBtn.on('pointerout',  () => indexBtn.setColor('#888888'));
         indexBtn.on('pointerdown', () => this.showIndexMenu());
+
+        // Gamepad hint for the Y-opens-INDEX shortcut above, matching the corner-hint
+        // style used elsewhere (e.g. the in-game pause menu's gamepad hints in hud.js).
+        this.add.text(10, this.cameras.main.height - 10, '🎮  Y  Index', {
+            fontSize: '11px', fontFamily: 'Arial', color: '#666666',
+        }).setOrigin(0, 1).setDepth(5);
     }
 
     // ─── INDEX menu — browse every weapon/boost/evolution/enemy ever seen, across every
@@ -219,6 +227,13 @@ export default class LevelSelectScene extends Phaser.Scene {
         let zoomIdx = 0;
         let zoomTier = 1;
 
+        // Grid gamepad navigation — same scheme as the in-game Evolutions menu
+        // (D-pad/left-stick moves a white box outline, A zooms in on whatever it's on).
+        let selectedIdx = 0;
+        let selectionOutline = null;
+        let cardRefs = [];   // { cx, baseY } per card, indexed same as the current section's entries
+        let currentCardH = 62;
+
         const destroyModeItems = () => { modeItems.forEach(o => o.destroy()); modeItems = []; };
 
         const closeMenu = () => {
@@ -228,6 +243,8 @@ export default class LevelSelectScene extends Phaser.Scene {
             this.input.keyboard.off('keydown', keyHandler);
             this.input.gamepad.off('down', padHandler);
             this.input.off('wheel', wheelHandler);
+            this.events.off('update', navPollHandler);
+            this.events.off('update', scrollUpdateHandler);
             requestAnimationFrame(() => { this._indexMenuOpen = false; });
         };
 
@@ -242,14 +259,44 @@ export default class LevelSelectScene extends Phaser.Scene {
             scrollY = Phaser.Math.Clamp(y, 0, maxScroll);
             scrollables.forEach(s => { s.obj.y = s.baseY - scrollY; });
             if (thumb) thumb.y = viewportTop + (maxScroll > 0 ? (scrollY / maxScroll) * (trackHeight - thumb.height) : 0);
+            positionSelectionOutline();
+        };
+
+        const positionSelectionOutline = () => {
+            const card = cardRefs[selectedIdx];
+            if (!card || !selectionOutline) return;
+            selectionOutline.setPosition(card.cx, card.baseY - scrollY + currentCardH / 2);
+            selectionOutline.setSize(cardW + 6, currentCardH + 6);
+            selectionOutline.setVisible(true);
+        };
+
+        const ensureSelectedVisible = () => {
+            const card = cardRefs[selectedIdx];
+            if (!card) return;
+            const topY = card.baseY - scrollY;
+            const botY = card.baseY - scrollY + currentCardH;
+            if (topY < viewportTop) applyScroll(scrollY - (viewportTop - topY));
+            else if (botY > viewportBottom) applyScroll(scrollY + (botY - viewportBottom));
+            else positionSelectionOutline();
+        };
+
+        const moveGridSelection = (delta, sameRowOnly = false) => {
+            const entries = entriesFor(section);
+            const newIdx = selectedIdx + delta;
+            if (newIdx < 0 || newIdx >= entries.length) return;
+            if (sameRowOnly && Math.floor(newIdx / cols) !== Math.floor(selectedIdx / cols)) return;
+            selectedIdx = newIdx;
+            ensureSelectedVisible();
         };
 
         const buildGrid = () => {
             mode = 'grid';
             destroyModeItems();
-            scrollY = 0; thumb = null; scrollables = [];
+            scrollY = 0; thumb = null; scrollables = []; cardRefs = [];
             const entries = entriesFor(section);
             const cardH = section === 'enemy' ? 70 : 62;
+            currentCardH = cardH;
+            if (selectedIdx >= entries.length) selectedIdx = 0;
             const rowGap = 10;
             const startX = W / 2 - (cols - 1) * (cardW + gap) / 2;
 
@@ -279,6 +326,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
                 modeItems.push(bg, nameText, subText);
                 scrollables.push({ obj: bg, baseY: baseCy }, { obj: nameText, baseY: baseCy + 14 }, { obj: subText, baseY: baseCy + 34 });
+                cardRefs.push({ cx, baseY: baseCy });
 
                 if (known && entry.section === 'enemy') {
                     const statText = this.add.text(cx, baseCy + 52, `Kills ${entry.kills}  •  Losses ${entry.losses}`, {
@@ -297,6 +345,11 @@ export default class LevelSelectScene extends Phaser.Scene {
             const contentBottom = viewportTop + (rows - 1) * (cardH + rowGap) + cardH;
             maxScroll = Math.max(0, contentBottom - viewportBottom);
 
+            // White box outline drawn around whichever card is currently gamepad-selected
+            selectionOutline = this.add.rectangle(0, 0, cardW + 6, cardH + 6, 0xffffff, 0)
+                .setStrokeStyle(3, 0xffffff).setDepth(depth + 3).setOrigin(0.5).setVisible(false);
+            modeItems.push(selectionOutline);
+
             // Scrollbar — a draggable tab on the far-right edge, matching the in-game
             // Evolutions menu's scrollbar exactly. Only appears when content overflows.
             if (maxScroll > 0) {
@@ -314,7 +367,7 @@ export default class LevelSelectScene extends Phaser.Scene {
                 });
             }
 
-            const closeBtn = this.add.text(W / 2, H - 18, '[ CLOSE ]', {
+            const closeBtn = this.add.text(W / 2, H - 36, '[ CLOSE ]', {
                 fontSize: '13px', fontFamily: 'Arial', color: '#aaaaaa',
                 backgroundColor: '#222222', padding: { x: 16, y: 6 },
             }).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -322,6 +375,12 @@ export default class LevelSelectScene extends Phaser.Scene {
             closeBtn.on('pointerout',  () => closeBtn.setColor('#aaaaaa'));
             closeBtn.on('pointerdown', () => closeMenu());
             modeItems.push(closeBtn);
+
+            modeItems.push(this.add.text(W / 2, H - 4, maxScroll > 0
+                ? '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   LB/RB Category   •   RS Scroll'
+                : '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   LB/RB Category', {
+                fontSize: '9px', fontFamily: 'Arial', color: '#888888',
+            }).setDepth(depth + 2).setOrigin(0.5, 1));
 
             applyScroll(0);
         };
@@ -346,31 +405,29 @@ export default class LevelSelectScene extends Phaser.Scene {
             modeItems.push(bg);
 
             if (isEnemy) {
-                if (known) {
-                    const animKey = `${entry.key}_walk`;
-                    if (!this.anims.exists(animKey)) {
-                        this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(entry.key, { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
-                    }
-                    const preview = this.add.sprite(zoomCx, zoomCy - 78, entry.key).setScale(0.8).setDepth(depth + 2);
-                    preview.play(animKey);
-                    modeItems.push(preview);
+                // Sprite/animation shows either way — a locked enemy is tinted pure black
+                // (silhouette: shape and movement readable, texture colors hidden) instead
+                // of being omitted, so its outline is a discoverable hint without spoiling
+                // what it actually looks like.
+                const animKey = `${entry.key}_walk`;
+                if (!this.anims.exists(animKey)) {
+                    this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(entry.key, { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
                 }
+                const preview = this.add.sprite(zoomCx, zoomCy - 78, entry.key).setScale(0.8).setDepth(depth + 2);
+                if (!known) preview.setTint(0x000000);
+                preview.play(animKey);
+                modeItems.push(preview);
+
                 const nameText = this.add.text(zoomCx, zoomCy - 5, known ? entry.label : '???', {
                     fontSize: '18px', fontFamily: 'Arial Black, Arial', color: known ? '#ffffff' : '#ffff44',
                 }).setDepth(depth + 2).setOrigin(0.5);
                 modeItems.push(nameText);
-                if (known) {
-                    modeItems.push(this.add.text(zoomCx, zoomCy + 20, `Level ${entry.level}${entry.isBoss ? '   •   BOSS' : ''}`, {
-                        fontSize: '12px', fontFamily: 'Arial', color: entry.isBoss ? '#ff8888' : '#aaaaaa',
-                    }).setDepth(depth + 2).setOrigin(0.5));
-                    modeItems.push(this.add.text(zoomCx, zoomCy + 44, `Kills: ${entry.kills}     Losses to this enemy: ${entry.losses}`, {
-                        fontSize: '11px', fontFamily: 'Arial', color: '#dddddd',
-                    }).setDepth(depth + 2).setOrigin(0.5));
-                } else {
-                    modeItems.push(this.add.text(zoomCx, zoomCy + 20, 'Not yet encountered', {
-                        fontSize: '11px', fontFamily: 'Arial', color: '#666666',
-                    }).setDepth(depth + 2).setOrigin(0.5));
-                }
+                modeItems.push(this.add.text(zoomCx, zoomCy + 20, known ? `Level ${entry.level}${entry.isBoss ? '   •   BOSS' : ''}` : 'Level ???', {
+                    fontSize: '12px', fontFamily: 'Arial', color: known ? (entry.isBoss ? '#ff8888' : '#aaaaaa') : '#666666',
+                }).setDepth(depth + 2).setOrigin(0.5));
+                modeItems.push(this.add.text(zoomCx, zoomCy + 44, known ? `Kills: ${entry.kills}     Losses to this enemy: ${entry.losses}` : 'Kills: ???     Losses to this enemy: ???', {
+                    fontSize: '11px', fontFamily: 'Arial', color: known ? '#dddddd' : '#666666',
+                }).setDepth(depth + 2).setOrigin(0.5));
             } else {
                 let nameLabel = '???', descLabel = '???';
                 if (known) {
@@ -449,18 +506,41 @@ export default class LevelSelectScene extends Phaser.Scene {
             arrowRight.on('pointerdown', () => switchEntry(1));
             modeItems.push(arrowLeft, arrowRight);
 
-            const backBtn = this.add.text(W / 2, H - 18, '[ BACK ]', {
+            const backBtn = this.add.text(W / 2, H - 36, '[ BACK ]', {
                 fontSize: '13px', fontFamily: 'Arial', color: '#aaaaaa',
                 backgroundColor: '#222222', padding: { x: 16, y: 6 },
             }).setDepth(depth + 2).setOrigin(0.5).setInteractive({ useHandCursor: true });
             backBtn.on('pointerover', () => backBtn.setColor('#ffffff'));
             backBtn.on('pointerout',  () => backBtn.setColor('#aaaaaa'));
-            backBtn.on('pointerdown', () => buildGrid());
+            backBtn.on('pointerdown', () => backToGrid());
             modeItems.push(backBtn);
+
+            modeItems.push(this.add.text(W / 2, H - 4, '🎮  ◀/▶ or LB/RB  Switch Entry   B  Back', {
+                fontSize: '9px', fontFamily: 'Arial', color: '#888888',
+            }).setDepth(depth + 2).setOrigin(0.5, 1));
         };
 
         // Section tabs
         const sections = [['weapon', 'WEAPONS'], ['boost', 'BOOSTS'], ['evolution', 'EVOLUTIONS'], ['enemy', 'ENEMIES']];
+        const switchSection = (key) => {
+            if (section === key) return;
+            section = key;
+            selectedIdx = 0;
+            tabBtns.forEach((b, j) => b.setColor(sections[j][0] === section ? '#ffff00' : '#888888'));
+            if (mode === 'zoom') { zoomIdx = 0; buildZoom(); } else buildGrid();
+        };
+        // LB/RB (or the shoulder-button indices, matching the same convention used
+        // for the in-game Evolutions menu's zoom-entry cycling) step to the previous/
+        // next tab, wrapping at the ends — only meaningful in grid mode, since zoom's
+        // LB/RB is already used to cycle entries within the current tab.
+        const cycleSection = (delta) => {
+            const keys = sections.map(s => s[0]);
+            const curIdx = keys.indexOf(section);
+            switchSection(keys[(curIdx + delta + keys.length) % keys.length]);
+        };
+        // Returning to the grid re-selects whichever card was just zoomed in on, so the
+        // white gamepad-selection box doesn't jump back to wherever it was left before.
+        const backToGrid = () => { selectedIdx = zoomIdx; buildGrid(); };
         const tabBtns = sections.map(([key, label], i) => {
             const tx = W / 2 - 255 + i * 170;
             const btn = this.add.text(tx, 48, label, {
@@ -468,30 +548,59 @@ export default class LevelSelectScene extends Phaser.Scene {
                 color: section === key ? '#ffff00' : '#888888',
                 backgroundColor: '#222222', padding: { x: 12, y: 5 },
             }).setDepth(depth + 1).setOrigin(0.5).setInteractive({ useHandCursor: true });
-            btn.on('pointerdown', () => {
-                if (section === key) return;
-                section = key;
-                tabBtns.forEach((b, j) => b.setColor(sections[j][0] === section ? '#ffff00' : '#888888'));
-                buildGrid();
-            });
+            btn.on('pointerdown', () => switchSection(key));
             return btn;
         });
 
         const keyHandler = (e) => {
             if (e.key !== 'Escape') return;
-            if (mode === 'zoom') buildGrid(); else closeMenu();
+            if (mode === 'zoom') backToGrid(); else closeMenu();
         };
         this.input.keyboard.on('keydown', keyHandler);
 
         const padHandler = (pad, button) => {
             const idx = button.index;
-            if (idx === 1) { if (mode === 'zoom') buildGrid(); else closeMenu(); return; } // B
-            if (mode === 'zoom') {
+            if (idx === 1) { if (mode === 'zoom') backToGrid(); else closeMenu(); return; } // B
+            if (mode === 'grid') {
+                if (idx === 12) { moveGridSelection(-cols); return; }        // D-pad up
+                if (idx === 13) { moveGridSelection(cols); return; }         // D-pad down
+                if (idx === 14) { moveGridSelection(-1, true); return; }     // D-pad left
+                if (idx === 15) { moveGridSelection(1, true); return; }      // D-pad right
+                if (idx === 0) { zoomIdx = selectedIdx; zoomTier = entriesFor(section)[selectedIdx]?.gotten > 0 ? 1 : 0; buildZoom(); return; } // A = zoom in
+                if (idx === 4) { cycleSection(-1); return; }                 // LB = previous category
+                if (idx === 5) { cycleSection(1); return; }                  // RB = next category
+            } else {
                 if (idx === 4 || idx === 14) { const list = entriesFor(section); zoomIdx = (zoomIdx - 1 + list.length) % list.length; zoomTier = list[zoomIdx].gotten > 0 ? 1 : 0; buildZoom(); }
                 else if (idx === 5 || idx === 15) { const list = entriesFor(section); zoomIdx = (zoomIdx + 1) % list.length; zoomTier = list[zoomIdx].gotten > 0 ? 1 : 0; buildZoom(); }
             }
         };
         this.input.gamepad.on('down', padHandler);
+
+        // Continuous left-stick grid navigation (D-pad handled as discrete 'down' events above)
+        let navCooldown = 0;
+        const navPollHandler = (_, delta) => {
+            if (mode !== 'grid') return;
+            navCooldown -= delta;
+            if (navCooldown > 0) return;
+            const pad = this.input.gamepad.pad1;
+            if (!pad) return;
+            const sx = pad.leftStick.x, sy = pad.leftStick.y;
+            if (sy < -0.5) { moveGridSelection(-cols); navCooldown = 200; }
+            else if (sy > 0.5) { moveGridSelection(cols); navCooldown = 200; }
+            else if (sx < -0.5) { moveGridSelection(-1, true); navCooldown = 200; }
+            else if (sx > 0.5) { moveGridSelection(1, true); navCooldown = 200; }
+        };
+        this.events.on('update', navPollHandler);
+
+        // Right-stick scroll (continuous, scaled by frame delta) — grid only
+        const scrollUpdateHandler = (_, delta) => {
+            if (mode !== 'grid' || maxScroll <= 0) return;
+            const pad = this.input.gamepad.pad1;
+            if (!pad) return;
+            const ry = pad.rightStick.y;
+            if (Math.abs(ry) > 0.2) applyScroll(scrollY + ry * 400 * (delta / 1000));
+        };
+        this.events.on('update', scrollUpdateHandler);
 
         const wheelHandler = (pointer, gameObjects, dx, dy) => {
             if (mode !== 'grid' || maxScroll <= 0) return;

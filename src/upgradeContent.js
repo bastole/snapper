@@ -10,7 +10,7 @@ export const WEAPON_CONTENT = {
     bite: {
         label: 'Bite',
         tiers: [
-            { desc: 'Always-active circle AOE centred on Snapper.' },
+            { desc: 'Circle AOE centred on Snapper, fires every 3s.' },
             { desc: 'Faster bite — fires every 2s, +15 range, +10 damage.' },
             { desc: 'Stronger bite — +20 range, +15 damage.' },
             { desc: 'Venomous bite — +20 range, +15 damage, slows enemies for 2s.' },
@@ -128,7 +128,7 @@ export const WEAPON_CONTENT = {
     coldglare: {
         label: 'Cold Glare',
         tiers: [
-            { desc: 'Freeze nearby enemies for 1s every 30s.' },
+            { desc: 'Freezes enemies in the radius for 1s, happens every 30s.' },
             { desc: 'Cooldown reduced: 30s → 20s.' },
             { desc: 'Cooldown reduced further: 20s → 15s. Slow duration extended: 1s → 4s.' },
             { desc: 'Slow duration extended further: 4s → 10s.' },

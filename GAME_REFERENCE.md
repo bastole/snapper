@@ -21,7 +21,7 @@ All weapons fire automatically. The player starts with **Bite**. All others are 
 ---
 
 ### Bite
-Always active. AOE circle centred on Snapper.
+AOE circle centred on Snapper, fires every 3s (2s once upgraded).
 
 | Level | Damage | Range | Cooldown | Notes |
 |---|---|---|---|---|
@@ -214,7 +214,7 @@ Max level: **3**
 ---
 
 ### Cold Glare
-Freezes all enemies within range to 15% speed. Level 2 reduces cooldown; level 3 finishes the cooldown reduction and starts extending slow duration; level 4 extends slow duration further.
+Freezes enemies in the radius for 1s, happens every 30s (down to every 15s at higher levels, with the freeze duration extending up to 10s). Level 2 reduces cooldown; level 3 finishes the cooldown reduction and starts extending slow duration; level 4 extends slow duration further.
 
 | Level | Range | Slow Duration | Cooldown |
 |---|---|---|---|
