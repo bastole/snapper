@@ -3,7 +3,7 @@
 // handler below. Re-run scripts/generate-precache-list.ps1 and paste its
 // output below whenever files are added/removed/renamed under src/,
 // assets/, or lib/.
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `snapper-pwa-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -93,6 +93,7 @@ const PRECACHE_URLS = [
   '/assets/sprites/enemies/enemy_spinach_small.png',
   '/assets/sprites/enemies/enemy_spinach_tempest.png',
   '/assets/sprites/enemy_projectiles/projectile_lettuce_shooter.png',
+  '/assets/sprites/enemy_projectiles/projectile_mulberry_snake.png',
   '/assets/sprites/enemy_projectiles/projectile_oregano_ghost.png',
   '/assets/sprites/enemy_projectiles/projectile_yun_hand_calcium.png',
   '/assets/sprites/enemy_projectiles/projectile_yun_hand_vitamin.png',
@@ -101,6 +102,7 @@ const PRECACHE_URLS = [
   '/assets/sprites/weapons/evol_log_lob.png',
   '/assets/sprites/weapons/evol_shining_shell.png',
   '/assets/sprites/weapons/evol_spike_shedder.png',
+  '/assets/sprites/weapons/evol_sunbaked_amber.png',
   '/assets/sprites/weapons/evol_toxic_ocean.png',
   '/assets/sprites/weapons/weapon_branch_throw.png',
   '/assets/sprites/weapons/weapon_pebble_flick.png',

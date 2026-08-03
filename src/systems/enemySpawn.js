@@ -104,7 +104,7 @@ export const EnemySpawnMethods = {
                 { key: 'spinach_medium',  health: 35,  damage: 11, speed: 68,  scale: 0.25, minTime: 0   },
                 { key: 'spinach_small',   health: 18,  damage: 5,  speed: 110, scale: 0.22, minTime: 0   },
                 { key: 'mulberry_bat',    health: 50,  damage: 13, speed: 140, scale: 0.27, minTime: 150 },
-                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 48,  scale: 0.28, minTime: 300, shoots: true, projKey: 'mulberry_bat', projTint: 0x881144, projScale: 0.13, snakeWhip: true },
+                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 48,  scale: 0.28, minTime: 300, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 0.13, snakeWhip: true },
                 { key: 'spinach_cyclone', health: 200, damage: 20, speed: 35,  scale: 0.30, minTime: 420, rare: true, spawnsEnemy: 'spinach_small', spawnsEnemyStats: { health: 18, damage: 9, speed: 110, scale: 0.22 } },
             ],
             5: [
@@ -128,7 +128,7 @@ export const EnemySpawnMethods = {
                 { key: 'oregano_fan',     health: 80,  damage: 10, speed: 50,  scale: 0.25, minTime: 210, shoots: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 0.14, poisonous: true },
                 { key: 'coriander_hydra', health: 220, damage: 13, speed: 38,  scale: 0.30, minTime: 210, hydra: true },
                 { key: 'carrot_wheel',    health: 22,  damage: 9,  speed: 130, scale: 0.18, minTime: 210 },
-                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 48,  scale: 0.28, minTime: 210, shoots: true, projKey: 'mulberry_bat', projTint: 0x881144, projScale: 0.13, snakeWhip: true },
+                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 48,  scale: 0.28, minTime: 210, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 0.13, snakeWhip: true },
                 // 5:00 — dragonfly droppers
                 { key: 'basil_propeller', health: 120, damage: 10, speed: 180, scale: 0.25, minTime: 300 },
                 { key: 'rocket_sword',    health: 200, damage: 18, speed: 90,  scale: 0.35, minTime: 300 },
@@ -514,7 +514,7 @@ export const EnemySpawnMethods = {
                     if (!enemy.active) return;
                     const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
                     const proj  = this.physics.add.image(enemy.x, enemy.y, 'projectile_oregano_ghost');
-                    proj.setScale(0.14).setDepth(7).setTint(0x44ff44);
+                    proj.setScale(0.14).setDepth(7);
                     proj.setVelocity(Math.cos(angle) * 160, Math.sin(angle) * 160);
                     proj.damage = enemy.damage;
                     this.physics.add.overlap(proj, this.player, () => {

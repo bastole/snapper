@@ -286,8 +286,8 @@ export const EvolutionMethods = {
         const count = 30, burnDur = 3500, dmg = this.pebbleDamage + 5;
         for (let i = 0; i < count; i++) {
             const a      = (i / count) * Math.PI * 2;
-            const amber  = this.physics.add.image(this.player.x, this.player.y, 'weapon_pebble_flick');
-            amber.setTint(0xff8800).setScale(0.11).setDepth(8);
+            const amber  = this.physics.add.image(this.player.x, this.player.y, 'evol_sunbaked_amber');
+            amber.setScale(0.11).setDepth(8);
             amber.setVelocity(Math.cos(a) * 280, Math.sin(a) * 280);
             amber.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             this.physics.add.overlap(amber, this.enemies, (am, enemy) => {

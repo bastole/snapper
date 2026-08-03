@@ -33,6 +33,7 @@ export default class BootScene extends Phaser.Scene {
 
         // Enemy projectiles (static images, 96x96)
         ['projectile_lettuce_shooter', 'projectile_oregano_ghost',
+         'projectile_mulberry_snake',
          'projectile_yun_hand_calcium', 'projectile_yun_hand_vitamin']
             .forEach(key => this.load.image(key, `assets/sprites/enemy_projectiles/${key}.png`));
 
@@ -40,7 +41,7 @@ export default class BootScene extends Phaser.Scene {
         ['weapon_poop', 'weapon_pebble_flick', 'weapon_pupae_mines', 'weapon_skin_shed',
          'weapon_woodie_bounce', 'weapon_branch_throw', 'dubia_shields',
          'evol_bug_buster', 'evol_log_lob', 'evol_shining_shell', 'evol_spike_shedder',
-         'evol_toxic_ocean']
+         'evol_sunbaked_amber', 'evol_toxic_ocean']
             .forEach(key => this.load.image(key, `assets/sprites/weapons/${key}.png`));
 
         // Items (64x64 static)
