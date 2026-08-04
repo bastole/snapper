@@ -42,9 +42,9 @@ export const CricketMethods = {
                     enemy.wanderTarget = this.pickCycloneWanderTarget();
                 } else {
                     this.physics.moveTo(enemy, enemy.wanderTarget.x, enemy.wanderTarget.y, enemy.speed);
-                    // Sprite art faces left by default, so mirror it while actually moving right.
-                    if (enemy.wanderTarget.x > enemy.x) enemy.setFlipX(true);
-                    else if (enemy.wanderTarget.x < enemy.x) enemy.setFlipX(false);
+                    // Sprites face right by default; flip when moving left.
+                    if (enemy.wanderTarget.x > enemy.x) enemy.setFlipX(false);
+                    else if (enemy.wanderTarget.x < enemy.x) enemy.setFlipX(true);
                 }
                 return;
             }
@@ -71,9 +71,9 @@ export const CricketMethods = {
             const angle   = bearing + (enemy.approachOffset + wobble) * spread;
             const vx = Math.cos(angle) * enemy.speed;
             enemy.setVelocity(vx, Math.sin(angle) * enemy.speed);
-            // Sprite art faces left by default, so mirror it while actually moving right.
-            if (vx > 0) enemy.setFlipX(true);
-            else if (vx < 0) enemy.setFlipX(false);
+            // Sprites face right by default; flip when moving left.
+            if (vx > 0) enemy.setFlipX(false);
+            else if (vx < 0) enemy.setFlipX(true);
         });
 
         this.crickets.getChildren().forEach(cricket => {

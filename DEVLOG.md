@@ -1461,3 +1461,19 @@ Added `netlify.toml` to the project root so Netlify sets `Cache-Control: no-cach
 `GameScene.js`: `body.setSize` multiplier corrected from `* 0.8` to `* 0.7`. The body is centred on the sprite via the `true` third argument, so the smaller hitbox sits centred within the visible sprite. Sprite scale (`0.75`) is unchanged.
 
 **`sw.js`** — `CACHE_VERSION` bumped `v14` → `v17` (v15: Y debug key, v16: hitbox 20%, v17: hitbox corrected to 30%).
+
+---
+
+## Session 48 — 2026-08-05
+
+### Enemies and bosses now face the direction they're moving
+
+All real sprite art ships facing right, but the Session 43 flip logic was written for the old placeholder art which faced left — so every enemy was mirrored backwards (moving right → flipped, moving left → unflipped). Fixed throughout.
+
+**`crickets.js`** — inverted both `setFlipX` calls in `attractCrickets()`: the wander branch (Spinach Cyclone/Tempest) now passes `setFlipX(false)` when moving right and `setFlipX(true)` when moving left, and the main chase branch does the same from the signed `vx` component. Updated comments from "faces left by default" → "faces right by default."
+
+**`GameScene.js`** — added a per-frame flip pass at the end of the boss update block (after all AI functions have settled on final velocities for the frame), reading each boss/mini-boss's `body.velocity.x` directly: `> 0` → `setFlipX(false)`, `< 0` → `setFlipX(true)`, `=== 0` → unchanged. Covers all 5 main bosses (Lettuce Beetle, Rocket Spider, Carrot Scorpion, Mulberry Mantis, The Hand) and The Hand's 4 mini-boss types via `this.handMiniBossArray`.
+
+Enemies mid-knockback, stationary (`speed === 0`), immobilised (`bugCaught`), or mid-trap-wait (`trapArmed`) all return early from `attractCrickets()` and hold whatever direction they were last facing — correct, since they're not visibly translating.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v17` → `v18`.

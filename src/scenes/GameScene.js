@@ -383,6 +383,18 @@ export default class GameScene extends Phaser.Scene {
                 else this.physics.moveToObject(this.boss, this.player, 160 * this.getLettuceBeetleSpeedFactor() * (this.boss.slowFactor ?? 1));
             }
         }
+        // Flip boss and Hand mini-bosses to face their movement direction (sprites face right by default).
+        if (this.boss?.active && this.boss.body) {
+            const bvx = this.boss.body.velocity.x;
+            if (bvx > 0) this.boss.setFlipX(false);
+            else if (bvx < 0) this.boss.setFlipX(true);
+        }
+        this.handMiniBossArray?.forEach(mb => {
+            if (!mb.active || !mb.body) return;
+            const mvx = mb.body.velocity.x;
+            if (mvx > 0) mb.setFlipX(false);
+            else if (mvx < 0) mb.setFlipX(true);
+        });
         this.updateBossHealthBar();
         this.updateDubiaShields();
         if (this.ownedWeapons.has('ragingroar'))     this.updateRagingRoar();
