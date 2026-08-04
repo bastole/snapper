@@ -73,17 +73,19 @@ Right-click `index.html` → Open with Live Server.
 
 ## Controls
 
-| Input | Keyboard | Gamepad |
-|---|---|---|
-| Move | WASD / Arrow keys | Left stick / D-pad |
-| Pause | ESC | Start |
-| Navigate menus | Mouse / keyboard | D-pad / Left stick |
-| Confirm | Click / Enter | A |
-| Back | — | B |
-| Quit to menu (paused) | — | Y |
-| Evolutions menu (paused) | — | X |
-| Browse level-up cards | — | LB / RB |
-| Scroll evolutions grid | — | Right stick |
+| Input | Keyboard | Gamepad | Touch |
+|---|---|---|---|
+| Move | WASD / Arrow keys | Left stick / D-pad | Drag anywhere (virtual joystick) |
+| Pause | ESC | Start | Tap ⏸ PAUSE button |
+| Navigate menus | Mouse / keyboard | D-pad / Left stick | Tap |
+| Confirm | Click / Enter | A | Tap |
+| Back | — | B | Tap [ BACK ] / [ CLOSE ] |
+| Quit to menu (paused) | — | Y | Tap [ QUIT TO MAIN MENU ] |
+| Evolutions menu (paused) | — | X | Tap ✦ EVOLUTIONS ✦ |
+| Browse level-up cards | — | LB / RB | Tap a card directly |
+| Scroll evolutions/INDEX grid | — | Right stick | Drag the grid, or the scrollbar tab |
+
+Gamepad control hints (the small `🎮 ...` corner text on every menu) hide automatically once keyboard or touch input is detected, and reappear the instant a gamepad button or stick is used again.
 
 ## Gameplay summary
 

@@ -14,10 +14,11 @@ function loadIndex() {
                 boosts:     raw.boosts     ?? {},
                 evolutions: raw.evolutions ?? {},
                 enemies:    raw.enemies    ?? {},
+                highScores: raw.highScores ?? {},
             };
         }
     } catch { /* corrupt/missing data — start fresh */ }
-    return { weapons: {}, boosts: {}, evolutions: {}, enemies: {} };
+    return { weapons: {}, boosts: {}, evolutions: {}, enemies: {}, highScores: {} };
 }
 
 let index = loadIndex();
@@ -69,4 +70,16 @@ export function recordEnemyKill(enemyKey) {
 export function recordEnemyLoss(enemyKey) {
     enemyEntry(enemyKey).losses++;
     save();
+}
+
+// Per-world-level (1-5) best score ever reached, shown next to each level's button
+// on Level Select. Only ever raises the recorded value, same as recordWeaponLevel.
+export function recordHighScore(level, score) {
+    if (!score || score <= (index.highScores[level] ?? 0)) return;
+    index.highScores[level] = score;
+    save();
+}
+
+export function getHighScore(level) {
+    return index.highScores[level] ?? 0;
 }

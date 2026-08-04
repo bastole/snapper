@@ -81,7 +81,7 @@ export const BaseWeaponMethods = {
         const duration   = this.poopDuration;
 
         const poop = this.physics.add.image(this.player.x, this.player.y, 'weapon_poop');
-        poop.setScale(0.30).setDepth(8);
+        poop.setScale(0.60).setDepth(8);
         poop.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
         poop.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
         poop.landed = false;
@@ -157,7 +157,7 @@ export const BaseWeaponMethods = {
             const offset = (i - Math.floor(count / 2)) * spread;
             const a      = targetAngle + offset;
             const pebble = this.physics.add.image(this.player.x, this.player.y, 'weapon_pebble_flick');
-            pebble.setScale(0.20);
+            pebble.setScale(0.40);
             pebble.setDepth(8);
             pebble.setVelocity(Math.cos(a) * 600, Math.sin(a) * 600);
             pebble.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
@@ -324,7 +324,7 @@ export const BaseWeaponMethods = {
     spawnPupaMine(x, y) {
         if (!this.pupaGroup) return;
         const mine = this.physics.add.image(x, y, 'weapon_pupae_mines');
-        mine.setScale(0.30).setDepth(8);
+        mine.setScale(0.60).setDepth(8);
         mine.exploded = false;
         const explodeMine = () => {
             if (mine.exploded || !mine.active || this.isCountdown) return;
@@ -367,7 +367,7 @@ export const BaseWeaponMethods = {
             const oy = this.player.y + Math.sin(spreadAngle) * spreadDist;
 
             const mine = this.physics.add.image(this.player.x, this.player.y, 'weapon_pupae_mines');
-            mine.setScale(0.30);
+            mine.setScale(0.60);
             mine.setDepth(8);
             mine.exploded = false;
 
@@ -421,7 +421,7 @@ export const BaseWeaponMethods = {
 
         for (let i = 0; i < count; i++) {
             const skin = this.physics.add.image(this.player.x, this.player.y, 'weapon_skin_shed');
-            skin.setScale(0.56);
+            skin.setScale(1.12);
             skin.setDepth(8);
             // Fling outward then arc downward via gravity
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -471,7 +471,7 @@ export const BaseWeaponMethods = {
             const angle  = targetAngle;
             const speed  = 460;
             const woodie = this.physics.add.image(this.player.x, this.player.y, 'weapon_woodie_bounce');
-            woodie.setScale(0.28);
+            woodie.setScale(0.56);
             woodie.setDepth(8);
             woodie.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
             woodie.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);

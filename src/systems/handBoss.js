@@ -187,7 +187,7 @@ export const HandBossMethods = {
         for (let i = 0; i < COUNT; i++) {
             const a    = (i / COUNT) * Math.PI * 2;
             const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_calcium');
-            proj.setScale(0.36).setDepth(7);
+            proj.setScale(0.72).setDepth(7);
             proj.setVelocity(Math.cos(a) * 440, Math.sin(a) * 440);
             proj.damage = 15;
             this.physics.add.overlap(proj, this.player, () => {
@@ -523,13 +523,13 @@ export const HandBossMethods = {
             // Enemy ring: 30 L5-exclusive enemies around boss
             const keys = ['lettuce_trap', 'basil_bomb', 'rocket_bustersword', 'oregano_phantom', 'coriander_carrot', 'spinach_tempest', 'mulberry_monstrosity'];
             const statMap = {
-                lettuce_trap:        { health: 180, damage: 10, speed: 140, scale: 0.56 },
-                basil_bomb:          { health: 80,  damage: 0,  speed: 380, scale: 0.50 },
-                rocket_bustersword:  { health: 90,  damage: 22, speed: 400, scale: 0.70 },
-                oregano_phantom:      { health: 250, damage: 25, speed: 100, scale: 0.70 },
-                coriander_carrot:     { health: 500, damage: 30, speed: 40,  scale: 0.60 },
-                spinach_tempest:      { health: 500, damage: 25, speed: 320, scale: 0.80 },
-                mulberry_monstrosity: { health: 350, damage: 15, speed: 280, scale: 0.80 },
+                lettuce_trap:        { health: 180, damage: 10, speed: 140, scale: 1.12 },
+                basil_bomb:          { health: 80,  damage: 0,  speed: 380, scale: 1.00 },
+                rocket_bustersword:  { health: 90,  damage: 22, speed: 400, scale: 1.40 },
+                oregano_phantom:      { health: 250, damage: 25, speed: 100, scale: 1.40 },
+                coriander_carrot:     { health: 500, damage: 30, speed: 40,  scale: 1.20 },
+                spinach_tempest:      { health: 500, damage: 25, speed: 320, scale: 1.60 },
+                mulberry_monstrosity: { health: 350, damage: 15, speed: 280, scale: 1.60 },
             };
             for (let i = 0; i < 30; i++) {
                 const a    = (i / 30) * Math.PI * 2;
@@ -566,7 +566,7 @@ export const HandBossMethods = {
                 for (let i = 0; i < 30; i++) {
                     const a    = (i / 30) * Math.PI * 2;
                     const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
-                    proj.setScale(0.36).setDepth(7);
+                    proj.setScale(0.72).setDepth(7);
                     proj.setVelocity(Math.cos(a) * 500, Math.sin(a) * 500);
                     proj.damage = 15;
                     this.physics.add.overlap(proj, this.player, () => {
@@ -609,7 +609,7 @@ export const HandBossMethods = {
             for (let i = 0; i < 30; i++) {
                 const a    = (i / 30) * Math.PI * 2;
                 const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
-                proj.setScale(0.40).setDepth(7);
+                proj.setScale(0.80).setDepth(7);
                 proj.setVelocity(Math.cos(a) * 400, Math.sin(a) * 400);
                 this.physics.add.overlap(proj, this.player, () => {
                     if (!proj.active || this.player.reviveInvincible) return;

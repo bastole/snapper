@@ -435,7 +435,7 @@ export const BossMethods = {
             const ox = this.player.x + Phaser.Math.Between(-260, 260);
             const oy = this.player.y + Phaser.Math.Between(-260, 260);
             const sword = this.physics.add.sprite(ox, oy, 'rocket_sword');
-            sword.setScale(0.50).setDepth(5);
+            sword.setScale(1.00).setDepth(5);
             sword.health = 30; sword.maxHealth = 30;
             sword.damage = 15; sword.speed = 200;
             sword.lastHitTime = 0;
@@ -500,13 +500,13 @@ export const BossMethods = {
 
                 if (type === 'mole') {
                     const mole = this.physics.add.sprite(ox, oy, 'carrot_mole');
-                    mole.setScale(0.52).setDepth(5);
+                    mole.setScale(1.04).setDepth(5);
                     mole.health = 75; mole.maxHealth = 75;
                     mole.damage = 12; mole.speed = 0;
                     mole.lastHitTime = 0; mole.isUnderground = false;
                     mole.splits = false; mole.shoots = false; mole.splitsInto = null;
                     mole.hydra = false; mole.burrowed = true; mole.whips = false; mole.emitsGas = false;
-                    mole.body.setSize(90, 60);
+                    mole.body.setSize(67.5, 45);
                     const mKey = 'carrot_mole_walk';
                     if (!this.anims.exists(mKey)) {
                         this.anims.create({ key: mKey, frames: this.anims.generateFrameNumbers('carrot_mole', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
@@ -521,11 +521,11 @@ export const BossMethods = {
                         mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
                             if (!mole.active) return;
                             mole.isUnderground = true;
-                            mole.body.setSize(60, 45); mole.speed = 160;
+                            mole.body.setSize(45, 33.75); mole.speed = 160;
                             mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
                                 if (!mole.active) return;
                                 mole.isUnderground = false;
-                                mole.body.setSize(90, 60); mole.speed = 0;
+                                mole.body.setSize(67.5, 45); mole.speed = 0;
                                 if (mole.body) mole.body.setVelocity(0, 0);
                                 if (mole.active) mole.play('carrot_mole_attack');
                                 this.time.delayedCall(500, () => { if (mole.active) mole.play(mKey); });
@@ -537,7 +537,7 @@ export const BossMethods = {
                     this.enemies.add(mole);
                 } else {
                     const thug = this.physics.add.sprite(ox, oy, 'carrot_thug');
-                    thug.setScale(0.60).setDepth(5);
+                    thug.setScale(1.20).setDepth(5);
                     thug.health = 300; thug.maxHealth = 300;
                     thug.damage = 15; thug.speed = 360;
                     thug.lastHitTime = 0;
@@ -751,7 +751,7 @@ export const BossMethods = {
             const ox = boss.x + Math.cos(a) * 180;
             const oy = boss.y + Math.sin(a) * 180;
             const sword = this.physics.add.sprite(ox, oy, 'rocket_sword');
-            sword.setScale(0.50).setDepth(5);
+            sword.setScale(1.00).setDepth(5);
             sword.health = 30; sword.maxHealth = 30;
             sword.damage = 15; sword.speed = 310;
             sword.lastHitTime = 0;
@@ -773,7 +773,7 @@ export const BossMethods = {
             const cy = Phaser.Math.Clamp(this.boss.y + Math.sin(angle) * RADIUS, 128, 6272);
 
             const cyclone = this.physics.add.sprite(cx, cy, 'spinach_cyclone');
-            cyclone.setScale(0.60).setDepth(5);
+            cyclone.setScale(1.20).setDepth(5);
             cyclone.health      = 200;
             cyclone.maxHealth   = 200;
             cyclone.damage      = 20;
@@ -798,7 +798,7 @@ export const BossMethods = {
                     const sx = cyclone.x + Phaser.Math.Between(-160, 160);
                     const sy = cyclone.y + Phaser.Math.Between(-160, 160);
                     const mini = this.physics.add.sprite(sx, sy, 'spinach_small');
-                    mini.setScale(0.44).setDepth(5);
+                    mini.setScale(0.88).setDepth(5);
                     mini.health = 18; mini.maxHealth = 18;
                     mini.damage = 9;  mini.speed = 220;
                     mini.lastHitTime = 0;

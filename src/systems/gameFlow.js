@@ -1,5 +1,6 @@
 import { playSfx, pauseBgm, stopBgm } from '../audio.js';
 import { recordEnemyLoss } from '../progressIndex.js';
+import { registerGamepadHint } from '../inputMode.js';
 export const GameFlowMethods = {
 
     showDeathOverlay() {
@@ -63,9 +64,9 @@ export const GameFlowMethods = {
             if (idx === 1) menuBtn.emit('pointerdown');
         };
         this.input.gamepad.on('down', this._deathPadHandler);
-        addUI(this.add.text(W / 2, H / 2 + 240, '🎮  A  Retry    B  Menu', {
+        addUI(registerGamepadHint(this.add.text(W / 2, H / 2 + 240, '🎮  A  Retry    B  Menu', {
             fontSize: '22px', fontFamily: 'Arial', color: '#666666',
-        }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
+        }).setScrollFactor(0).setDepth(501).setOrigin(0.5)));
     },
 
     showLevelClear() {
@@ -132,9 +133,9 @@ export const GameFlowMethods = {
         // Gamepad: A always moves on (next level, or Continue on the final level),
         // B always goes to the main menu — fixed bindings, not a toggle-then-confirm
         // scheme, so the hint below stays true regardless of anything else on screen.
-        this.add.text(W / 2, H / 2 + 370, hasNextLevel ? '🎮  A  Next Level    B  Main Menu' : '🎮  A  Continue    B  Main Menu', {
+        registerGamepadHint(this.add.text(W / 2, H / 2 + 370, hasNextLevel ? '🎮  A  Next Level    B  Main Menu' : '🎮  A  Continue    B  Main Menu', {
             fontSize: '22px', fontFamily: 'Arial', color: '#666666',
-        }).setScrollFactor(0).setDepth(301).setOrigin(0.5);
+        }).setScrollFactor(0).setDepth(301).setOrigin(0.5));
 
         const lcPadHandler = (pad, button) => {
             const idx = button.index;

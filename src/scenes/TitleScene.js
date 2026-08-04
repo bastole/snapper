@@ -1,4 +1,5 @@
 import { playBgm } from '../audio.js';
+import { trackInputMode } from '../inputMode.js';
 
 export default class TitleScene extends Phaser.Scene {
     constructor() {
@@ -7,6 +8,7 @@ export default class TitleScene extends Phaser.Scene {
 
     create() {
         playBgm(this, 'bgm_title');
+        trackInputMode(this);
 
         const cx = this.cameras.main.width / 2;
         const cy = this.cameras.main.height / 2;

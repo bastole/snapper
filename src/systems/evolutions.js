@@ -182,7 +182,7 @@ export const EvolutionMethods = {
         for (let t = 0; t < 3; t++) {
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
             const poop  = this.physics.add.image(this.player.x, this.player.y, 'evol_toxic_ocean');
-            poop.setScale(0.36).setDepth(8);
+            poop.setScale(0.72).setDepth(8);
             poop.setVelocity(Math.cos(angle) * 360, Math.sin(angle) * 360);
             poop.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             poop.landed = false;
@@ -287,7 +287,7 @@ export const EvolutionMethods = {
         for (let i = 0; i < count; i++) {
             const a      = (i / count) * Math.PI * 2;
             const amber  = this.physics.add.image(this.player.x, this.player.y, 'evol_sunbaked_amber');
-            amber.setScale(0.22).setDepth(8);
+            amber.setScale(0.44).setDepth(8);
             amber.setVelocity(Math.cos(a) * 560, Math.sin(a) * 560);
             amber.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             this.physics.add.overlap(amber, this.enemies, (am, enemy) => {
@@ -462,7 +462,7 @@ export const EvolutionMethods = {
             const ox = Phaser.Math.Clamp(this.player.x + Math.cos(a) * dr, 64, 6336);
             const oy = Phaser.Math.Clamp(this.player.y + Math.sin(a) * dr, 64, 6336);
             const mine = this.physics.add.image(this.player.x, this.player.y, 'evol_bug_buster');
-            mine.setScale(0.32).setDepth(8);
+            mine.setScale(0.64).setDepth(8);
             mine.exploded = false;
             this.tweens.add({ targets: mine, x: ox, y: oy, duration: 250, ease: 'Quad.easeOut' });
             const explodeMine = () => {
@@ -498,7 +498,7 @@ export const EvolutionMethods = {
         if (this.isPaused || this.isCountdown) return;
         for (let i = 0; i < 3; i++) {
             const skin = this.physics.add.image(this.player.x, this.player.y, 'evol_spike_shedder');
-            skin.setScale(0.60).setDepth(8);
+            skin.setScale(1.20).setDepth(8);
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
             skin.setVelocity(Math.cos(angle) * 240, Math.sin(angle) * 240);
             skin.body.setGravityY(700); skin.hitEnemies = new Set();
@@ -539,7 +539,7 @@ export const EvolutionMethods = {
         for (let i = 0; i < 3; i++) {
             const angle  = this.pickShellAimAngle(this.player.x, this.player.y);
             const shell  = this.physics.add.image(this.player.x, this.player.y, 'evol_shining_shell');
-            shell.setScale(0.30).setDepth(8);
+            shell.setScale(0.60).setDepth(8);
             shell.setVelocity(Math.cos(angle) * 600, Math.sin(angle) * 600);
             shell.hitEnemies = new Set();
             shell.hitBoss = false;
@@ -591,7 +591,7 @@ export const EvolutionMethods = {
             // Fire in the direction the shield is currently facing (outward from player)
             const a = Math.atan2(shield.y - this.player.y, shield.x - this.player.x);
             const proj = this.physics.add.image(shield.x, shield.y, 'dubia_shields');
-            proj.setScale(0.24).setDepth(9);
+            proj.setScale(0.48).setDepth(9);
             proj.setVelocity(Math.cos(a) * 700, Math.sin(a) * 700);
             this.physics.add.overlap(proj, this.enemies, (p, enemy) => {
                 if (!p.active || !this.canDamageEnemy(enemy)) return;
@@ -667,8 +667,8 @@ export const EvolutionMethods = {
         const dmg = 50;
         [aimAngle + Math.PI / 2, aimAngle - Math.PI / 2].forEach(travelAngle => {
             const log = this.physics.add.image(this.player.x, this.player.y, 'evol_log_lob');
-            log.setDisplaySize(280, 56).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
-            log.body.setSize(280, 56);
+            log.setDisplaySize(560, 112).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
+            log.body.setSize(560, 112);
             log.setVelocity(Math.cos(travelAngle) * 400, Math.sin(travelAngle) * 400);
             log.hitCooldowns = new Map(); // per-enemy hit cooldown — 300ms, short enough that the
             // knockback below carries an enemy back into the log for 2-3 repeat hits instead of one
@@ -680,9 +680,14 @@ export const EvolutionMethods = {
                 this.damageDealt += dmg; enemy.health -= dmg;
                 this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
-                // Slight knockback
+                // Slight knockback — kept small (rather than the general "hard" knockback
+                // strength used elsewhere) specifically so it doesn't carry the enemy so
+                // far that they keep drifting back into the log for more than the
+                // intended 2-3 repeat hits, especially now that the log itself is bigger
+                // (see the projectile-size pass below) and so already easier to stay
+                // inside of without much knockback assist at all.
                 const a = Math.atan2(enemy.y - l.y, enemy.x - l.x);
-                this.applyKnockback(enemy, a, 120);
+                this.applyKnockback(enemy, a, 60);
                 if (enemy.health <= 0) this.killEnemy(enemy);
             });
             if (this.boss?.active) this.physics.add.overlap(log, this.boss, (l) => { if (!l.active) return; this.damageBoss(dmg); });

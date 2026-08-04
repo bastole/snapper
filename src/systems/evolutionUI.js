@@ -1,5 +1,6 @@
 import { playSfx } from '../audio.js';
 import { getProgressIndex, recordEvolution } from '../progressIndex.js';
+import { registerGamepadHint } from '../inputMode.js';
 export const EvolutionUIMethods = {
 
     // Current level/count for a weapon or boost, and the "current/max" fraction text used
@@ -141,6 +142,9 @@ export const EvolutionUIMethods = {
             persistentItems.forEach(o => o.destroy());
             this.input.keyboard.off('keydown', keyHandler);
             this.input.gamepad.off('down', padHandler);
+            this.input.off('pointerdown', gridDragStart);
+            this.input.off('pointermove', gridDragMove);
+            this.input.off('pointerup', gridDragEnd);
             this.events.off('update', scrollUpdateHandler);
             this.events.off('update', navPollHandler);
             requestAnimationFrame(() => { this._evoMenuOpen = false; });
@@ -176,6 +180,7 @@ export const EvolutionUIMethods = {
         let cardRefs = [];    // { ev, i, cx, baseY } — for gamepad grid navigation
         let selectedIdx = 0;
         let selectionOutline = null;
+        let thumbInteracting = false; // set by the thumb's own pointerdown, mirrors hud.js's _sliderInteracting
 
         const applyScroll = (y) => {
             scrollY = Phaser.Math.Clamp(y, 0, maxScroll);
@@ -278,7 +283,13 @@ export const EvolutionUIMethods = {
                 bg.setInteractive({ useHandCursor: true });
                 bg.on('pointerover', () => bg.setFillStyle(hoverColor));
                 bg.on('pointerout',  () => bg.setFillStyle(bgColor));
-                bg.on('pointerdown', () => openZoom(i));
+                // Fires on release, and only counts as a tap (not the start of a scroll
+                // drag) if the pointer didn't move far — lets a touch/mouse-drag that
+                // starts on a card scroll the grid (see gridDragStart/Move below) instead
+                // of always opening whatever card the drag happened to start on.
+                bg.on('pointerup', (pointer) => {
+                    if (Phaser.Math.Distance.Between(pointer.downX, pointer.downY, pointer.x, pointer.y) < 12) openZoom(i);
+                });
                 if (isAvail) {
                     this.tweens.add({ targets: [bg, border], alpha: 0.6, duration: 500, yoyo: true, repeat: -1 });
                 }
@@ -301,11 +312,11 @@ export const EvolutionUIMethods = {
             closeBtn.on('pointerdown',  () => closeMenu());
             modeItems.push(closeBtn);
 
-            modeItems.push(this.add.text(W / 2, H - 12, maxScroll > 0
+            modeItems.push(registerGamepadHint(this.add.text(W / 2, H - 12, maxScroll > 0
                 ? '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   RS Scroll'
                 : '🎮  D-Pad/LS Navigate   A Zoom In   B Close', {
                 fontSize: '20px', fontFamily: 'Arial', color: '#888888',
-            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5)));
 
             // Scrollbar — a draggable tab on the far right edge, only shown if content overflows
             if (maxScroll > 0) {
@@ -320,6 +331,10 @@ export const EvolutionUIMethods = {
                 this.input.setDraggable(thumb);
                 modeItems.push(thumb);
 
+                // Fires before gridDragStart below (object-specific listeners run before
+                // the scene-global ones for the same event), so gridDragStart can tell
+                // this drag started on the thumb itself and not also try to scroll.
+                thumb.on('pointerdown', () => { thumbInteracting = true; });
                 thumb.on('drag', (pointer, dragX, dragY) => {
                     const clampedTop = Phaser.Math.Clamp(dragY, viewportTop, viewportBottom - thumb.height);
                     const ratio = (clampedTop - viewportTop) / (trackHeight - thumb.height);
@@ -478,9 +493,9 @@ export const EvolutionUIMethods = {
             backBtn.on('pointerdown', () => backToGrid());
             modeItems.push(backBtn);
 
-            modeItems.push(this.add.text(W / 2, H - 12, '🎮  ◀ / ▶ or LB / RB  Switch    A  Unlock    B  Back', {
+            modeItems.push(registerGamepadHint(this.add.text(W / 2, H - 12, '🎮  ◀ / ▶ or LB / RB  Switch    A  Unlock    B  Back', {
                 fontSize: '20px', fontFamily: 'Arial', color: '#888888',
-            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5)));
         };
 
         // Continuous left-stick grid navigation (D-pad handled as discrete 'down' events below)
@@ -533,6 +548,26 @@ export const EvolutionUIMethods = {
             }
         };
         this.input.gamepad.on('down', padHandler);
+
+        // Touch/mouse drag-to-scroll — dragging vertically anywhere over the grid
+        // viewport scrolls it (the natural mobile swipe gesture), rather than only
+        // being scrollable by precisely dragging the thin scrollbar thumb.
+        let gridDragActive = false, gridDragStartY = 0, gridDragBaseScroll = 0;
+        const gridDragStart = (pointer) => {
+            if (mode !== 'grid' || maxScroll <= 0 || thumbInteracting) return;
+            if (pointer.y < viewportTop || pointer.y > viewportBottom) return;
+            gridDragActive = true;
+            gridDragStartY = pointer.y;
+            gridDragBaseScroll = scrollY;
+        };
+        const gridDragMove = (pointer) => {
+            if (!gridDragActive || !pointer.isDown) return;
+            applyScroll(gridDragBaseScroll - (pointer.y - gridDragStartY));
+        };
+        const gridDragEnd = () => { gridDragActive = false; thumbInteracting = false; };
+        this.input.on('pointerdown', gridDragStart);
+        this.input.on('pointermove', gridDragMove);
+        this.input.on('pointerup', gridDragEnd);
 
         buildGrid();
     },

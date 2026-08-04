@@ -104,7 +104,7 @@ export const MovementMethods = {
     // ─── Dubia Shields ───────────────────────────────────────────────────────────
     createDubiaShield(layer = 'single') {
         const shield = this.add.image(this.player.x, this.player.y, 'dubia_shields');
-        shield.setScale(0.28).setDepth(6);
+        shield.setScale(0.56).setDepth(6);
         shield.layer = layer;
         shield.hitCooldowns = new Map();
         this.dubiaShields.push(shield);
@@ -146,7 +146,7 @@ export const MovementMethods = {
             this.enemies.getChildren().forEach(enemy => {
                 if (!this.canDamageEnemy(enemy)) return;
                 const dist = Phaser.Math.Distance.Between(shield.x, shield.y, enemy.x, enemy.y);
-                if (dist >= 28) return;
+                if (dist >= 56) return;
                 const lastHit = shield.hitCooldowns.get(enemy) ?? 0;
                 if (now - lastHit < 800) return;
                 shield.hitCooldowns.set(enemy, now);
@@ -168,7 +168,7 @@ export const MovementMethods = {
             });
             if (this.boss?.active) {
                 const dist = Phaser.Math.Distance.Between(shield.x, shield.y, this.boss.x, this.boss.y);
-                if (dist < 96) {
+                if (dist < 192) {
                     const lastHit = shield.hitCooldowns.get(this.boss) ?? 0;
                     if (now - lastHit >= 800) {
                         shield.hitCooldowns.set(this.boss, now);
@@ -223,16 +223,28 @@ export const MovementMethods = {
         this.joystickInner = this.add.circle(0, 0, INNER_R, 0xffffff, 0.35)
             .setScrollFactor(0).setDepth(91).setVisible(false);
 
-        // Movement input is inert while any of these are true (physics itself is
-        // paused too), but the joystick shouldn't even appear over a menu/overlay.
-        const isBlocked = () =>
-            this.isPaused || this.isCountdown || this.isLevelingUp ||
-            this.isLevelClear || this.isGameOver;
+        // Card-picking (isLevelingUp but not yet counting down), the level-clear screen,
+        // and the game-over overlay all have full-screen interactive UI the joystick
+        // shouldn't fight with, so those still block it outright. Pause and the post-pick
+        // countdown are handled specially in startJoystick below instead of being blocked:
+        // - During the countdown, handleMovement() already isn't called at all (GameScene's
+        //   update() early-returns on isLevelingUp, which stays true for the whole
+        //   countdown too), so there's no motion to suppress — letting the joystick start
+        //   and track a direction here just "primes" it, so movement begins the instant the
+        //   countdown ends instead of needing the player to re-touch the screen.
+        // - While paused, touching the joystick should itself immediately unpause and start
+        //   moving in one motion rather than needing a separate tap to dismiss pause first.
+        const isHardBlocked = () =>
+            (this.isLevelingUp && !this.isCountdown) || this.isLevelClear || this.isGameOver;
 
         const startJoystick = (pointer) => {
             if (this.joystickPointerId !== null) return; // already tracking a finger/click
-            if (isBlocked()) return;
+            if (isHardBlocked()) return;
             if (this.input.hitTestPointer(pointer).length > 0) return; // tapped a button/menu
+            if (this.isPaused) {
+                this.togglePause(this.pauseBtn);
+                if (this.isPaused) return; // still paused (e.g. blocked by the post-open guard)
+            }
             this.joystickPointerId = pointer.id;
             this.joystickOrigin.x = pointer.x;
             this.joystickOrigin.y = pointer.y;

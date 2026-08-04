@@ -1,5 +1,6 @@
 import { playSfx } from '../audio.js';
 import { recordWeaponLevel, recordBoostPick } from '../progressIndex.js';
+import { registerGamepadHint } from '../inputMode.js';
 
 // Cold Glare's 4 levels (originally 7: unlock + 3 cooldown steps + 3 slow steps,
 // trimmed down to keep only the 1st/3rd/5th/7th of that progression).
@@ -24,6 +25,14 @@ export const LevelUpMethods = {
 
         this.physics.pause();
         this.time.paused = true;
+
+        // A card can't actually be picked (click or gamepad A) until 1000ms after this
+        // screen opens, so a reflexive click/press right as it appears can't blow past
+        // it unread. Uses setTimeout rather than this.time.delayedCall since this.time
+        // is paused for the entire screen (same reason pickCard()'s own countdown below
+        // already has to use setTimeout instead of Phaser's Clock).
+        let selectionReady = false;
+        setTimeout(() => { selectionReady = true; }, 1000);
 
         const W = this.cameras.main.width;
         const H = this.cameras.main.height;
@@ -587,7 +596,7 @@ export const LevelUpMethods = {
 
                 card.on('pointerover', () => { selectedCard = i; applyCardHighlight(); });
                 card.on('pointerout',  () => card.setFillStyle(cardColor));
-                card.on('pointerdown', () => pickCard(upgrade));
+                card.on('pointerdown', () => { if (selectionReady) pickCard(upgrade); });
             });
 
             applyCardHighlight();
@@ -617,7 +626,7 @@ export const LevelUpMethods = {
                 selectedCard = (selectedCard + 1) % 3;
                 applyCardHighlight();
             } else if (idx === 0) { // A = pick
-                if (currentChoices[selectedCard]) pickCard(currentChoices[selectedCard]);
+                if (selectionReady && currentChoices[selectedCard]) pickCard(currentChoices[selectedCard]);
             } else if (idx === 3) { // Y = reroll
                 doReroll();
             }
@@ -625,9 +634,9 @@ export const LevelUpMethods = {
         this.input.gamepad.on('down', padHandler);
 
         // Gamepad hint below reroll button
-        ui.push(this.add.text(W / 2, H / 2 - 110, '🎮  LB / RB  Navigate    A  Pick    Y  Reroll', {
+        ui.push(registerGamepadHint(this.add.text(W / 2, H / 2 - 110, '🎮  LB / RB  Navigate    A  Pick    Y  Reroll', {
             fontSize: '22px', fontFamily: 'Arial', color: '#888888',
-        }).setScrollFactor(0).setDepth(202).setOrigin(0.5));
+        }).setScrollFactor(0).setDepth(202).setOrigin(0.5)));
 
         drawCards();
     }

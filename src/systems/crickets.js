@@ -42,6 +42,9 @@ export const CricketMethods = {
                     enemy.wanderTarget = this.pickCycloneWanderTarget();
                 } else {
                     this.physics.moveTo(enemy, enemy.wanderTarget.x, enemy.wanderTarget.y, enemy.speed);
+                    // Sprite art faces left by default, so mirror it while actually moving right.
+                    if (enemy.wanderTarget.x > enemy.x) enemy.setFlipX(true);
+                    else if (enemy.wanderTarget.x < enemy.x) enemy.setFlipX(false);
                 }
                 return;
             }
@@ -66,7 +69,11 @@ export const CricketMethods = {
             const wobble  = Math.sin(this.time.now * enemy.detourFreq + enemy.detourPhase) * enemy.detourAmplitude;
             const bearing = Phaser.Math.Angle.Between(enemy.x, enemy.y, px, py);
             const angle   = bearing + (enemy.approachOffset + wobble) * spread;
-            enemy.setVelocity(Math.cos(angle) * enemy.speed, Math.sin(angle) * enemy.speed);
+            const vx = Math.cos(angle) * enemy.speed;
+            enemy.setVelocity(vx, Math.sin(angle) * enemy.speed);
+            // Sprite art faces left by default, so mirror it while actually moving right.
+            if (vx > 0) enemy.setFlipX(true);
+            else if (vx < 0) enemy.setFlipX(false);
         });
 
         this.crickets.getChildren().forEach(cricket => {
@@ -94,12 +101,16 @@ export const CricketMethods = {
             cricket.destroy();
             this.playerHealth = Math.min(this.playerMaxHealth, this.playerHealth + this.playerMaxHealth * 0.5);
             this.updateHPBar();
+            this.foodboxesCollected++;
+            this.updateScore();
             playSfx(this, 'sfx_item_heal');
             return;
         }
         if (cricket.specialType === 'treasure') {
             cricket.destroy();
             this.playerLevel++;
+            this.treasuresCollected++;
+            this.updateScore();
             playSfx(this, 'sfx_levelup');
             this.updateXPBar();
             this.showLevelUp();
@@ -115,6 +126,7 @@ export const CricketMethods = {
             this.xp      -= this.xpToNext;
             this.xpToNext = Math.floor(this.xpToNext * 1.2);
             this.playerLevel++;
+            this.updateScore();
             playSfx(this, 'sfx_levelup');
             this.updateXPBar();
             this.showLevelUp();
@@ -123,6 +135,17 @@ export const CricketMethods = {
 
     canDamageEnemy(enemy) {
         return enemy.active && !enemy.isUnderground && !enemy.mantisVanishing;
+    },
+
+    // True for an enemy that can't currently move under its own power — either an
+    // inherently stationary type (Lettuce Shooter/Oregano Fan always; Carrot Mole
+    // while surfaced), a dormant Lettuce Trap waiting to be triggered, or any enemy
+    // currently frozen by an immobilize effect (Bug Catcher, Steel Slam, etc). Used
+    // to let the enemy-vs-enemy collider skip physical separation for these — a
+    // stationary shooter shouldn't be able to block/push around the crowd chasing
+    // the player, or be shoved off its spot by that same crowd.
+    isEnemyImmobile(enemy) {
+        return enemy.speed === 0 || enemy.trapArmed || enemy.bugCaught;
     },
 
     playEnemyHurtSfx() {
@@ -137,7 +160,7 @@ export const CricketMethods = {
             enemy.hydraHeads = heads;
             // Speed increases and shrinks slightly as heads are lost
             enemy.speed += 36;
-            const newScale = 0.64 - (3 - heads) * 0.08;
+            const newScale = 1.28 - (3 - heads) * 0.16;
             enemy.setScale(newScale);
             this.tweens.add({ targets: enemy, alpha: 0.1, duration: 120, yoyo: true, repeat: 2 });
         }

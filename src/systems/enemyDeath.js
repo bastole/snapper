@@ -26,6 +26,7 @@ export const EnemyDeathMethods = {
             return;
         }
         this.kills++;
+        this.updateScore();
 
         // Spike Shedder — heals 1 HP per 10 kills
         if (this.ownedWeapons.has('spikeshedder')) {
@@ -141,6 +142,7 @@ export const EnemyDeathMethods = {
                     this.xp -= this.xpToNext;
                     this.xpToNext = Math.floor(this.xpToNext * 1.2);
                     this.playerLevel++;
+                    this.updateScore();
                     playSfx(this, 'sfx_levelup');
                     this.updateXPBar();
                     this.showLevelUp();
@@ -168,7 +170,7 @@ export const EnemyDeathMethods = {
                 const ox = enemy.x + Phaser.Math.Between(-40, 40);
                 const oy = enemy.y + Phaser.Math.Between(-40, 40);
                 const split = this.physics.add.sprite(ox, oy, 'lettuce_small');
-                split.setScale(0.50);
+                split.setScale(1.00);
                 split.setDepth(5);
                 split.health = 40; split.maxHealth = 40;
                 split.damage = 5;  split.speed = 120;
@@ -187,7 +189,7 @@ export const EnemyDeathMethods = {
             for (let i = 0; i < 2; i++) {
                 const ox = enemy.x + Phaser.Math.Between(-50, 50);
                 const oy = enemy.y + Phaser.Math.Between(-50, 50);
-                const wheelScale = (enemy.spawnScale ?? 0.50) * 0.6;
+                const wheelScale = (enemy.spawnScale ?? 1.00) * 0.6;
                 const wheel = this.physics.add.sprite(ox, oy, 'carrot_wheel');
                 wheel.setScale(wheelScale).setDepth(5);
                 wheel.health = 22; wheel.maxHealth = 22;
@@ -232,7 +234,7 @@ export const EnemyDeathMethods = {
             for (let i = 0; i < 3; i++) {
                 const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
                 const proj  = this.physics.add.image(enemy.x, enemy.y, 'projectile_oregano_ghost');
-                proj.setScale(0.28).setDepth(7).setTint(0x44ff44);
+                proj.setScale(0.56).setDepth(7).setTint(0x44ff44);
                 proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
                 proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
                 proj.damage = enemy.damage;

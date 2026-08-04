@@ -261,49 +261,54 @@ export const EVOLUTION_LIST = [
 // list exactly), tagged with its display name, the level it's originally from (enemies
 // reused as "droppers" in Level 5 still list their home level, not every level they
 // appear in), and whether it's a boss. Order matches each level's intro sequence.
+//
+// `scale` (non-boss entries only) is each enemy's original, pre-2x in-game visual scale
+// (its value from wherever it first appears, by level order) — kept intentionally frozen
+// here so the INDEX preview's relative sizing (see LevelSelectScene.js's zoom view) stays
+// exactly as it always has, independent of any future in-game enemy-size rebalance.
 export const ENEMY_LIST = [
     // Level 1 — Lettuce & Basil
-    { key: 'lettuce_small', label: 'Small Lettuce', level: 1, isBoss: false },
-    { key: 'basil_small',   label: 'Small Basil',   level: 1, isBoss: false },
-    { key: 'lettuce_hopper',  label: 'Lettuce Hopper',  level: 1, isBoss: false },
-    { key: 'lettuce_shooter', label: 'Lettuce Shooter', level: 1, isBoss: false },
-    { key: 'basil_propeller', label: 'Basil Propeller', level: 1, isBoss: false },
+    { key: 'lettuce_small', label: 'Lettuce', level: 1, isBoss: false, scale: 0.50 },
+    { key: 'basil_small',   label: 'Basil',   level: 1, isBoss: false, scale: 0.50 },
+    { key: 'lettuce_hopper',  label: 'Lettuce Hopper',  level: 1, isBoss: false, scale: 0.70 },
+    { key: 'lettuce_shooter', label: 'Lettuce Shooter', level: 1, isBoss: false, scale: 0.50 },
+    { key: 'basil_propeller', label: 'Basil Propeller', level: 1, isBoss: false, scale: 0.50 },
     { key: 'lettuce_beetle',  label: 'Lettuce Beetle',  level: 1, isBoss: true  },
 
     // Level 2 — Rocket & Oregano
-    { key: 'rocket_small',  label: 'Small Rocket',  level: 2, isBoss: false },
-    { key: 'oregano_skunk', label: 'Oregano Skunk', level: 2, isBoss: false },
-    { key: 'rocket_knife',  label: 'Rocket Knife',  level: 2, isBoss: false },
-    { key: 'oregano_ghost', label: 'Oregano Ghost', level: 2, isBoss: false },
-    { key: 'oregano_fan',   label: 'Oregano Fan',   level: 2, isBoss: false },
-    { key: 'rocket_sword',  label: 'Rocket Sword',  level: 2, isBoss: false },
+    { key: 'rocket_small',  label: 'Rocket',  level: 2, isBoss: false, scale: 0.50 },
+    { key: 'oregano_skunk', label: 'Oregano Skunk', level: 2, isBoss: false, scale: 0.56 },
+    { key: 'rocket_knife',  label: 'Rocket Knife',  level: 2, isBoss: false, scale: 0.50 },
+    { key: 'oregano_ghost', label: 'Oregano Ghost', level: 2, isBoss: false, scale: 0.60 },
+    { key: 'oregano_fan',   label: 'Oregano Fan',   level: 2, isBoss: false, scale: 0.50 },
+    { key: 'rocket_sword',  label: 'Rocket Sword',  level: 2, isBoss: false, scale: 0.50 },
     { key: 'rocket_spider', label: 'Rocket Spider', level: 2, isBoss: true  },
 
     // Level 3 — Coriander & Carrot
-    { key: 'coriander_small', label: 'Small Coriander', level: 3, isBoss: false },
-    { key: 'coriander_whip',  label: 'Coriander Whip',  level: 3, isBoss: false },
-    { key: 'carrot_mole',     label: 'Carrot Mole',     level: 3, isBoss: false },
-    { key: 'coriander_hydra', label: 'Coriander Hydra', level: 3, isBoss: false },
-    { key: 'carrot_dart',     label: 'Carrot Dart',     level: 3, isBoss: false },
-    { key: 'carrot_wheel',    label: 'Carrot Wheel',    level: 3, isBoss: false },
-    { key: 'carrot_thug',     label: 'Carrot Thug',     level: 3, isBoss: false },
+    { key: 'coriander_small', label: 'Coriander', level: 3, isBoss: false, scale: 0.50 },
+    { key: 'coriander_whip',  label: 'Coriander Whip',  level: 3, isBoss: false, scale: 0.56 },
+    { key: 'carrot_mole',     label: 'Carrot Mole',     level: 3, isBoss: false, scale: 0.52 },
+    { key: 'coriander_hydra', label: 'Coriander Hydra', level: 3, isBoss: false, scale: 0.64 },
+    { key: 'carrot_dart',     label: 'Carrot Dart',     level: 3, isBoss: false, scale: 0.53 },
+    { key: 'carrot_wheel',    label: 'Carrot Wheel',    level: 3, isBoss: false, scale: 0.36 },
+    { key: 'carrot_thug',     label: 'Carrot Thug',     level: 3, isBoss: false, scale: 0.60 },
     { key: 'carrot_scorpion', label: 'Carrot Scorpion', level: 3, isBoss: true  },
 
     // Level 4 — Spinach & Mulberry
-    { key: 'spinach_medium',  label: 'Medium Spinach',  level: 4, isBoss: false },
-    { key: 'spinach_small',   label: 'Small Spinach',   level: 4, isBoss: false },
-    { key: 'mulberry_bat',    label: 'Mulberry Bat',    level: 4, isBoss: false },
-    { key: 'mulberry_snake',  label: 'Mulberry Snake',  level: 4, isBoss: false },
-    { key: 'spinach_cyclone', label: 'Spinach Cyclone', level: 4, isBoss: false },
+    { key: 'spinach_medium',  label: 'Spinach',  level: 4, isBoss: false, scale: 0.50 },
+    { key: 'spinach_small',   label: 'Small Spinach',   level: 4, isBoss: false, scale: 0.44 },
+    { key: 'mulberry_bat',    label: 'Mulberry Bat',    level: 4, isBoss: false, scale: 0.54 },
+    { key: 'mulberry_snake',  label: 'Mulberry Snake',  level: 4, isBoss: false, scale: 0.56 },
+    { key: 'spinach_cyclone', label: 'Spinach Cyclone', level: 4, isBoss: false, scale: 0.60 },
     { key: 'mulberry_mantis', label: 'Mulberry Mantis', level: 4, isBoss: true  },
 
     // Level 5 — The Garden
-    { key: 'lettuce_trap',          label: 'Lettuce Trap',          level: 5, isBoss: false },
-    { key: 'basil_bomb',            label: 'Basil Bomb',            level: 5, isBoss: false },
-    { key: 'rocket_bustersword',    label: 'Rocket Buster Sword',   level: 5, isBoss: false },
-    { key: 'oregano_phantom',       label: 'Oregano Phantom',       level: 5, isBoss: false },
-    { key: 'coriander_carrot',      label: 'Coriander Carrot',      level: 5, isBoss: false },
-    { key: 'spinach_tempest',       label: 'Spinach Tempest',       level: 5, isBoss: false },
-    { key: 'mulberry_monstrosity',  label: 'Mulberry Monstrosity',  level: 5, isBoss: false },
+    { key: 'lettuce_trap',          label: 'Lettuce Trap',          level: 5, isBoss: false, scale: 0.56 },
+    { key: 'basil_bomb',            label: 'Basil Bomb',            level: 5, isBoss: false, scale: 0.50 },
+    { key: 'rocket_bustersword',    label: 'Rocket Buster Sword',   level: 5, isBoss: false, scale: 0.70 },
+    { key: 'oregano_phantom',       label: 'Oregano Phantom',       level: 5, isBoss: false, scale: 0.70 },
+    { key: 'coriander_carrot',      label: 'Coriander Carrot',      level: 5, isBoss: false, scale: 0.60 },
+    { key: 'spinach_tempest',       label: 'Spinach Tempest',       level: 5, isBoss: false, scale: 0.80 },
+    { key: 'mulberry_monstrosity',  label: 'Mulberry Monstrosity',  level: 5, isBoss: false, scale: 0.80 },
     { key: 'yun_hand',              label: 'The Hand',              level: 5, isBoss: true  },
 ];

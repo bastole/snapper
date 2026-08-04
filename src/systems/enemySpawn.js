@@ -76,72 +76,75 @@ export const EnemySpawnMethods = {
         // elapsed = seconds since level started
         const elapsed = 600 - this.gameTime;
 
+        // All `scale`/`scaleMin`/`scaleMax` values below are 2× their original tuning
+        // (enemies now render at twice their old visual size) — see spawnEnemy()'s
+        // shared body.setSize(...) line below for the matching +50%-only hitbox growth.
         const pools = {
             1: [
-                { key: 'lettuce_small', health: 15,  damage: 5,  speed: 120, scale: 0.50, minTime: 0   },
-                { key: 'basil_small',   health: 25,  damage: 5,  speed: 120, scale: 0.50, minTime: 0   },
-                { key: 'lettuce_hopper',  health: 60,  damage: 8,  speed: 90,  scale: 0.70, minTime: 120, splits: true },
-                { key: 'lettuce_shooter', health: 90,  damage: 6,  speed: 0,   scale: 0.50, minTime: 300, shoots: true },
-                { key: 'basil_propeller', health: 120, damage: 10, speed: 360, scale: 0.50, minTime: 480 },
+                { key: 'lettuce_small', health: 15,  damage: 5,  speed: 120, scale: 1.00, minTime: 0   },
+                { key: 'basil_small',   health: 25,  damage: 5,  speed: 120, scale: 1.00, minTime: 0   },
+                { key: 'lettuce_hopper',  health: 60,  damage: 8,  speed: 90,  scale: 1.40, minTime: 120, splits: true },
+                { key: 'lettuce_shooter', health: 90,  damage: 6,  speed: 0,   scale: 1.00, minTime: 300, shoots: true },
+                { key: 'basil_propeller', health: 120, damage: 10, speed: 360, scale: 1.00, minTime: 480 },
             ],
             2: [
-                { key: 'rocket_small',  health: 20,  damage: 8,  speed: 140, scale: 0.50, minTime: 0   },
-                { key: 'oregano_skunk', health: 40,  damage: 10, speed: 100, scale: 0.56, minTime: 0,   emitsGas: true },
-                { key: 'rocket_knife',  health: 10,  damage: 15, speed: 300, scale: 0.50, minTime: 120 },
-                { key: 'oregano_ghost', health: 80,  damage: 12, speed: 70,  scale: 0.60, minTime: 300 },
-                { key: 'oregano_fan',   health: 60,  damage: 8,  speed: 0,   scale: 0.50, minTime: 300, shoots: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 0.28, poisonous: true },
-                { key: 'rocket_sword',  health: 50,  damage: 18, speed: 310, scale: 0.50, minTime: 480 },
+                { key: 'rocket_small',  health: 20,  damage: 8,  speed: 140, scale: 1.00, minTime: 0   },
+                { key: 'oregano_skunk', health: 40,  damage: 10, speed: 100, scale: 1.12, minTime: 0,   emitsGas: true },
+                { key: 'rocket_knife',  health: 10,  damage: 15, speed: 300, scale: 1.00, minTime: 120 },
+                { key: 'oregano_ghost', health: 80,  damage: 12, speed: 70,  scale: 1.20, minTime: 300 },
+                { key: 'oregano_fan',   health: 60,  damage: 8,  speed: 0,   scale: 1.00, minTime: 300, shoots: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 0.56, poisonous: true },
+                { key: 'rocket_sword',  health: 50,  damage: 18, speed: 310, scale: 1.00, minTime: 480 },
             ],
             3: [
-                { key: 'coriander_small',  health: 30,  damage: 10, speed: 144, scale: 0.50, minTime: 0   },
-                { key: 'coriander_whip',   health: 60,  damage: 14, speed: 110, scale: 0.56, minTime: 150, whips: true },
-                { key: 'carrot_mole',      health: 75,  damage: 12, speed: 120, scale: 0.52, minTime: 240, burrowed: true },
-                { key: 'coriander_hydra',  health: 220, damage: 13, speed: 76,  scale: 0.64, minTime: 420, hydra: true },
-                { key: 'carrot_dart',      health: 40,  damage: 17, speed: 290, scale: 0.50, minTime: 480, splitsInto: 'carrot_wheel', scaleMin: 0.36, scaleMax: 0.70 },
-                { key: 'carrot_wheel',     health: 22,  damage: 9,  speed: 260, scale: 0.36, minTime: 480 },
+                { key: 'coriander_small',  health: 30,  damage: 10, speed: 144, scale: 1.00, minTime: 0   },
+                { key: 'coriander_whip',   health: 60,  damage: 14, speed: 110, scale: 1.12, minTime: 150, whips: true },
+                { key: 'carrot_mole',      health: 75,  damage: 12, speed: 120, scale: 1.04, minTime: 240, burrowed: true },
+                { key: 'coriander_hydra',  health: 220, damage: 13, speed: 76,  scale: 1.28, minTime: 420, hydra: true },
+                { key: 'carrot_dart',      health: 40,  damage: 17, speed: 290, scale: 1.00, minTime: 480, splitsInto: 'carrot_wheel', scaleMin: 0.72, scaleMax: 1.40 },
+                { key: 'carrot_wheel',     health: 22,  damage: 9,  speed: 260, scale: 0.72, minTime: 480 },
             ],
             4: [
-                { key: 'spinach_medium',  health: 35,  damage: 11, speed: 136, scale: 0.50, minTime: 0   },
-                { key: 'spinach_small',   health: 18,  damage: 5,  speed: 220, scale: 0.44, minTime: 0   },
-                { key: 'mulberry_bat',    health: 50,  damage: 13, speed: 280, scale: 0.54, minTime: 150 },
-                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 96,  scale: 0.56, minTime: 300, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 0.26, snakeWhip: true },
-                { key: 'spinach_cyclone', health: 200, damage: 20, speed: 70,  scale: 0.60, minTime: 420, rare: true, spawnsEnemy: 'spinach_small', spawnsEnemyStats: { health: 18, damage: 9, speed: 220, scale: 0.44 } },
+                { key: 'spinach_medium',  health: 35,  damage: 11, speed: 136, scale: 1.00, minTime: 0   },
+                { key: 'spinach_small',   health: 18,  damage: 5,  speed: 220, scale: 0.88, minTime: 0   },
+                { key: 'mulberry_bat',    health: 50,  damage: 13, speed: 280, scale: 1.08, minTime: 150 },
+                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 96,  scale: 1.12, minTime: 300, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 0.52, snakeWhip: true },
+                { key: 'spinach_cyclone', health: 200, damage: 20, speed: 70,  scale: 1.20, minTime: 420, rare: true, spawnsEnemy: 'spinach_small', spawnsEnemyStats: { health: 18, damage: 9, speed: 220, scale: 0.88 } },
             ],
             5: [
                 // 0:00 — cricket droppers (one from every prior level)
-                { key: 'lettuce_small',   health: 15,  damage: 5,  speed: 120, scale: 0.50, minTime: 0   },
-                { key: 'basil_small',     health: 25,  damage: 5,  speed: 120, scale: 0.50, minTime: 0   },
-                { key: 'rocket_small',    health: 20,  damage: 6,  speed: 130, scale: 0.50, minTime: 0   },
-                { key: 'oregano_skunk',   health: 45,  damage: 8,  speed: 110, scale: 0.50, minTime: 0,   emitsGas: true },
-                { key: 'coriander_small', health: 30,  damage: 10, speed: 144, scale: 0.50, minTime: 0   },
-                { key: 'spinach_medium',  health: 35,  damage: 11, speed: 136, scale: 0.50, minTime: 0   },
-                { key: 'spinach_small',   health: 18,  damage: 5,  speed: 220, scale: 0.40, minTime: 0   },
+                { key: 'lettuce_small',   health: 15,  damage: 5,  speed: 120, scale: 1.00, minTime: 0   },
+                { key: 'basil_small',     health: 25,  damage: 5,  speed: 120, scale: 1.00, minTime: 0   },
+                { key: 'rocket_small',    health: 20,  damage: 6,  speed: 130, scale: 1.00, minTime: 0   },
+                { key: 'oregano_skunk',   health: 45,  damage: 8,  speed: 110, scale: 1.00, minTime: 0,   emitsGas: true },
+                { key: 'coriander_small', health: 30,  damage: 10, speed: 144, scale: 1.00, minTime: 0   },
+                { key: 'spinach_medium',  health: 35,  damage: 11, speed: 136, scale: 1.00, minTime: 0   },
+                { key: 'spinach_small',   health: 18,  damage: 5,  speed: 220, scale: 0.80, minTime: 0   },
                 // 2:30 — vitaworm droppers
-                { key: 'lettuce_hopper',  health: 60,  damage: 8,  speed: 90,  scale: 0.70, minTime: 150, splits: true },
-                { key: 'rocket_knife',    health: 30,  damage: 15, speed: 220, scale: 0.50, minTime: 150 },
-                { key: 'coriander_whip',  health: 60,  damage: 14, speed: 110, scale: 0.50, minTime: 150, whips: true },
-                { key: 'carrot_mole',     health: 75,  damage: 12, speed: 120, scale: 0.50, minTime: 150, burrowed: true },
-                { key: 'mulberry_bat',    health: 50,  damage: 13, speed: 280, scale: 0.50, minTime: 150 },
+                { key: 'lettuce_hopper',  health: 60,  damage: 8,  speed: 90,  scale: 1.40, minTime: 150, splits: true },
+                { key: 'rocket_knife',    health: 30,  damage: 15, speed: 220, scale: 1.00, minTime: 150 },
+                { key: 'coriander_whip',  health: 60,  damage: 14, speed: 110, scale: 1.00, minTime: 150, whips: true },
+                { key: 'carrot_mole',     health: 75,  damage: 12, speed: 120, scale: 1.00, minTime: 150, burrowed: true },
+                { key: 'mulberry_bat',    health: 50,  damage: 13, speed: 280, scale: 1.00, minTime: 150 },
                 // 3:30 — mealworm droppers
-                { key: 'lettuce_shooter', health: 90,  damage: 6,  speed: 0,   scale: 0.50, minTime: 210, shoots: true },
-                { key: 'oregano_ghost',   health: 150, damage: 12, speed: 70,  scale: 0.60, minTime: 210, emitsGas: true },
-                { key: 'oregano_fan',     health: 80,  damage: 10, speed: 100, scale: 0.50, minTime: 210, shoots: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 0.28, poisonous: true },
-                { key: 'coriander_hydra', health: 220, damage: 13, speed: 76,  scale: 0.60, minTime: 210, hydra: true },
-                { key: 'carrot_wheel',    health: 22,  damage: 9,  speed: 260, scale: 0.36, minTime: 210 },
-                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 96,  scale: 0.56, minTime: 210, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 0.26, snakeWhip: true },
+                { key: 'lettuce_shooter', health: 90,  damage: 6,  speed: 0,   scale: 1.00, minTime: 210, shoots: true },
+                { key: 'oregano_ghost',   health: 150, damage: 12, speed: 70,  scale: 1.20, minTime: 210, emitsGas: true },
+                { key: 'oregano_fan',     health: 80,  damage: 10, speed: 100, scale: 1.00, minTime: 210, shoots: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 0.56, poisonous: true },
+                { key: 'coriander_hydra', health: 220, damage: 13, speed: 76,  scale: 1.20, minTime: 210, hydra: true },
+                { key: 'carrot_wheel',    health: 22,  damage: 9,  speed: 260, scale: 0.72, minTime: 210 },
+                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 96,  scale: 1.12, minTime: 210, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 0.52, snakeWhip: true },
                 // 5:00 — dragonfly droppers
-                { key: 'basil_propeller', health: 120, damage: 10, speed: 360, scale: 0.50, minTime: 300 },
-                { key: 'rocket_sword',    health: 200, damage: 18, speed: 180, scale: 0.70, minTime: 300 },
-                { key: 'carrot_dart',     health: 40,  damage: 17, speed: 290, scale: 0.50, minTime: 300, splitsInto: 'carrot_wheel', scaleMin: 0.36, scaleMax: 0.70 },
-                { key: 'spinach_cyclone', health: 200, damage: 20, speed: 70,  scale: 0.60, minTime: 300, rare: true, spawnsEnemy: 'spinach_small', spawnsEnemyStats: { health: 18, damage: 9, speed: 220, scale: 0.44 } },
+                { key: 'basil_propeller', health: 120, damage: 10, speed: 360, scale: 1.00, minTime: 300 },
+                { key: 'rocket_sword',    health: 200, damage: 18, speed: 180, scale: 1.40, minTime: 300 },
+                { key: 'carrot_dart',     health: 40,  damage: 17, speed: 290, scale: 1.00, minTime: 300, splitsInto: 'carrot_wheel', scaleMin: 0.72, scaleMax: 1.40 },
+                { key: 'spinach_cyclone', health: 200, damage: 20, speed: 70,  scale: 1.20, minTime: 300, rare: true, spawnsEnemy: 'spinach_small', spawnsEnemyStats: { health: 18, damage: 9, speed: 220, scale: 0.88 } },
                 // 7:00 — Level 5 exclusives
-                { key: 'lettuce_trap',         health: 180, damage: 10, snapDamage: 18, speed: 140, scale: 0.56, minTime: 420, trap: true },
-                { key: 'basil_bomb',           health: 80,  damage: 0,  explodeDamage: 30, speed: 380, scale: 0.50, minTime: 420, bomb: true },
-                { key: 'rocket_bustersword',   health: 90,  damage: 22, speed: 400, scale: 0.70, minTime: 420, sweeps: true },
-                { key: 'oregano_phantom',      health: 250, damage: 25, speed: 100, scale: 0.70, minTime: 420, phantom: true },
-                { key: 'coriander_carrot',     health: 500, damage: 30, speed: 40,  scale: 0.60, minTime: 420, spawnsCarrotCori: true },
-                { key: 'spinach_tempest',      health: 500, damage: 25, speed: 320, scale: 0.80, minTime: 420, rare: true, spawnsAnySpinach: true },
-                { key: 'mulberry_monstrosity', health: 350, damage: 15, speed: 280, scale: 0.80, minTime: 420, vineWhip: true, spawnsMinion: 'mulberry_bat' },
+                { key: 'lettuce_trap',         health: 180, damage: 10, snapDamage: 18, speed: 140, scale: 1.12, minTime: 420, trap: true },
+                { key: 'basil_bomb',           health: 80,  damage: 0,  explodeDamage: 30, speed: 380, scale: 1.00, minTime: 420, bomb: true },
+                { key: 'rocket_bustersword',   health: 90,  damage: 22, speed: 400, scale: 1.40, minTime: 420, sweeps: true },
+                { key: 'oregano_phantom',      health: 250, damage: 25, speed: 100, scale: 1.40, minTime: 420, phantom: true },
+                { key: 'coriander_carrot',     health: 500, damage: 30, speed: 40,  scale: 1.20, minTime: 420, spawnsCarrotCori: true },
+                { key: 'spinach_tempest',      health: 500, damage: 25, speed: 320, scale: 1.60, minTime: 420, rare: true, spawnsAnySpinach: true },
+                { key: 'mulberry_monstrosity', health: 350, damage: 15, speed: 280, scale: 1.60, minTime: 420, vineWhip: true, spawnsMinion: 'mulberry_bat' },
             ],
         };
         let typePool = (pools[this.level] ?? pools[1]).filter(t => elapsed >= t.minTime && (!t.rare || Math.random() < 0.2));
@@ -157,9 +160,12 @@ export const EnemySpawnMethods = {
         enemy.setScale(spawnScale);
         enemy.spawnScale = spawnScale;
         enemy.setDepth(5);
-        // Collision/hitbox shrunk to 75% of the visual sprite size (types below with their own
-        // explicit body.setSize(...) already carry the same 75% reduction baked into their numbers).
-        enemy.body.setSize(enemy.body.width * 0.75, enemy.body.height * 0.75);
+        // Collision/hitbox is 56.25% of the (now-doubled) visual sprite size — since the
+        // visual size just doubled but the hitbox should only grow 50% (not 100%), the
+        // hitbox-to-visual ratio drops from the old 75% to 75% × (1.5/2) = 56.25%. Types
+        // below with their own explicit body.setSize(...) apply the same ×0.75 to their
+        // own old literal pixel values for the same reason.
+        enemy.body.setSize(enemy.body.width * 0.5625, enemy.body.height * 0.5625);
         enemy.health        = def.health;
         enemy.maxHealth     = def.health;
         enemy.damage        = def.damage;
@@ -186,7 +192,7 @@ export const EnemySpawnMethods = {
         enemy.spawnsMinion     = def.spawnsMinion     ?? null;
         enemy.isWanderer    = false;
         enemy.wanderTarget  = null;
-        if (enemy.hydra) { enemy.hydraHeads = 3; enemy.body.setSize(165, 165); }
+        if (enemy.hydra) { enemy.hydraHeads = 3; enemy.body.setSize(123.75, 123.75); }
         if (enemy.burrowed) {
             // Carrot Mole: alternates surfaced (stationary, vulnerable) and burrowed (moving, invulnerable)
             // Starts surfaced
@@ -199,7 +205,7 @@ export const EnemySpawnMethods = {
                     if (!enemy.active) return;
                     // Go underground
                     enemy.isUnderground = true;
-                    enemy.body.setSize(60, 45);
+                    enemy.body.setSize(45, 33.75);
                     enemy.speed = 160;
                     // Move toward player while underground for 3–5s
                     const burrowDur = Phaser.Math.Between(3000, 5000);
@@ -207,7 +213,7 @@ export const EnemySpawnMethods = {
                         if (!enemy.active) return;
                         // Resurface
                         enemy.isUnderground = false;
-                        enemy.body.setSize(90, 60);
+                        enemy.body.setSize(67.5, 45);
                         enemy.speed = 0;
                         if (enemy.body) enemy.body.setVelocity(0, 0);
                         scheduleBurrow();
@@ -232,7 +238,7 @@ export const EnemySpawnMethods = {
                     if (inView) {
                         const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
                         const proj  = this.physics.add.image(enemy.x, enemy.y, def.projKey ?? 'projectile_lettuce_shooter');
-                        proj.setScale(def.projScale ?? 0.12).setDepth(7);
+                        proj.setScale(def.projScale ?? 0.24).setDepth(7);
                         if (def.projTint) proj.setTint(def.projTint);
                         proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
                         if (def.key !== 'mulberry_snake') proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
@@ -275,12 +281,12 @@ export const EnemySpawnMethods = {
 
         // Oregano Skunk: larger gas-cloud physics body for proximity damage
         if (def.emitsGas) {
-            enemy.body.setSize(132, 132);
+            enemy.body.setSize(99, 99);
         }
 
         // Coriander Whip: wider contact hitbox for regular melee, plus a ranged lash attack
         if (def.whips) {
-            enemy.body.setSize(105, 105); // wider hitbox so regular contact hits more reliably
+            enemy.body.setSize(78.75, 78.75); // wider hitbox so regular contact hits more reliably
             const scheduleWhip = () => {
                 if (!enemy.active) return;
                 enemy.whipTimer = this.time.delayedCall(Phaser.Math.Between(1000, 2000), () => {
@@ -354,7 +360,7 @@ export const EnemySpawnMethods = {
         if (def.spawnsEnemy) {
             enemy.isWanderer = true;
             const spawnKey   = def.spawnsEnemy;
-            const mStats     = def.spawnsEnemyStats ?? { health: 18, damage: 9, speed: 220, scale: 0.44 };
+            const mStats     = def.spawnsEnemyStats ?? { health: 18, damage: 9, speed: 220, scale: 0.88 };
             const scheduleCycloneSpawn = () => {
                 if (!enemy.active) return;
                 enemy.cycloneTimer = this.time.delayedCall(Phaser.Math.Between(6000, 12000), () => {
@@ -437,7 +443,7 @@ export const EnemySpawnMethods = {
                     const sx = enemy.x + Phaser.Math.Between(-120, 120);
                     const sy = enemy.y + Phaser.Math.Between(-120, 120);
                     const mini = this.physics.add.sprite(sx, sy, minionKey);
-                    mini.setScale(0.50).setDepth(5);
+                    mini.setScale(1.00).setDepth(5);
                     mini.health = 50; mini.maxHealth = 50;
                     mini.damage = 13; mini.speed = 280;
                     mini.lastHitTime = 0;
@@ -514,7 +520,7 @@ export const EnemySpawnMethods = {
                     if (!enemy.active) return;
                     const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
                     const proj  = this.physics.add.image(enemy.x, enemy.y, 'projectile_oregano_ghost');
-                    proj.setScale(0.28).setDepth(7);
+                    proj.setScale(0.56).setDepth(7);
                     proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
                     proj.damage = enemy.damage;
                     this.physics.add.overlap(proj, this.player, () => {
@@ -555,12 +561,12 @@ export const EnemySpawnMethods = {
         if (def.spawnsCarrotCori) {
             const spawnPool = ['coriander_small', 'coriander_whip', 'coriander_hydra', 'carrot_mole', 'carrot_dart', 'carrot_wheel'];
             const spawnStats = {
-                coriander_small: { health: 30,  damage: 10, speed: 144, scale: 0.50 },
-                coriander_whip:  { health: 60,  damage: 14, speed: 110, scale: 0.50 },
-                coriander_hydra: { health: 220, damage: 13, speed: 76,  scale: 0.60 },
-                carrot_mole:     { health: 75,  damage: 12, speed: 120, scale: 0.50 },
-                carrot_dart:     { health: 40,  damage: 17, speed: 290, scale: 0.50 },
-                carrot_wheel:    { health: 22,  damage: 9,  speed: 260, scale: 0.36 },
+                coriander_small: { health: 30,  damage: 10, speed: 144, scale: 1.00 },
+                coriander_whip:  { health: 60,  damage: 14, speed: 110, scale: 1.00 },
+                coriander_hydra: { health: 220, damage: 13, speed: 76,  scale: 1.20 },
+                carrot_mole:     { health: 75,  damage: 12, speed: 120, scale: 1.00 },
+                carrot_dart:     { health: 40,  damage: 17, speed: 290, scale: 1.00 },
+                carrot_wheel:    { health: 22,  damage: 9,  speed: 260, scale: 0.72 },
             };
             const scheduleSpawn = () => {
                 if (!enemy.active) return;
@@ -583,17 +589,17 @@ export const EnemySpawnMethods = {
                         mini.bomb = false; mini.sweeps = false; mini.phantom = false;
                         mini.spawnsCarrotCori = false; mini.spawnsAnySpinach = false; mini.vineWhip = false; mini.spawnsMinion = null;
                         mini.isWanderer = false;
-                        if (mini.hydra) { mini.hydraHeads = 3; mini.body.setSize(165, 165); }
+                        if (mini.hydra) { mini.hydraHeads = 3; mini.body.setSize(123.75, 123.75); }
                         if (mini.burrowed) {
                             mini.isUnderground = false; mini.speed = 0;
                             const sb = () => {
                                 if (!mini.active) return;
                                 mini.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 10000), () => {
                                     if (!mini.active) return;
-                                    mini.isUnderground = true; mini.setAlpha(0.25); mini.body.setSize(60, 45); mini.speed = 160;
+                                    mini.isUnderground = true; mini.setAlpha(0.25); mini.body.setSize(45, 33.75); mini.speed = 160;
                                     mini.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
                                         if (!mini.active) return;
-                                        mini.isUnderground = false; mini.setAlpha(1); mini.body.setSize(90, 60); mini.speed = 0;
+                                        mini.isUnderground = false; mini.setAlpha(1); mini.body.setSize(67.5, 45); mini.speed = 0;
                                         if (mini.body) mini.body.setVelocity(0, 0); sb();
                                     });
                                 });
@@ -601,7 +607,7 @@ export const EnemySpawnMethods = {
                             sb();
                         }
                         if (mini.whips) {
-                            mini.body.setSize(105, 105);
+                            mini.body.setSize(78.75, 78.75);
                             const sw = () => {
                                 if (!mini.active) return;
                                 mini.whipTimer = this.time.delayedCall(Phaser.Math.Between(1000, 2000), () => {
@@ -641,9 +647,9 @@ export const EnemySpawnMethods = {
         if (def.spawnsAnySpinach) {
             enemy.isWanderer = true;
             const spinachPool = [
-                { key: 'spinach_medium', health: 35,  damage: 11, speed: 136, scale: 0.50 },
-                { key: 'spinach_small',  health: 18,  damage: 5,  speed: 220, scale: 0.44 },
-                { key: 'spinach_cyclone', health: 200, damage: 20, speed: 70, scale: 0.60, wanders: true },
+                { key: 'spinach_medium', health: 35,  damage: 11, speed: 136, scale: 1.00 },
+                { key: 'spinach_small',  health: 18,  damage: 5,  speed: 220, scale: 0.88 },
+                { key: 'spinach_cyclone', health: 200, damage: 20, speed: 70, scale: 1.20, wanders: true },
             ];
             const scheduleTempestSpawn = () => {
                 if (!enemy.active) return;

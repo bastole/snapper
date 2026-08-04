@@ -1,6 +1,7 @@
 import { playBgm, playSfx } from '../audio.js';
-import { getProgressIndex } from '../progressIndex.js';
+import { getProgressIndex, getHighScore } from '../progressIndex.js';
 import { WEAPON_CONTENT, BOOST_CONTENT, EVOLUTION_LIST, ENEMY_LIST } from '../upgradeContent.js';
+import { trackInputMode, registerGamepadHint } from '../inputMode.js';
 
 export default class LevelSelectScene extends Phaser.Scene {
     constructor() {
@@ -9,6 +10,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     create() {
         playBgm(this, 'bgm_title');
+        trackInputMode(this);
 
         const cx = this.cameras.main.width / 2;
         const cy = this.cameras.main.height;
@@ -39,6 +41,8 @@ export default class LevelSelectScene extends Phaser.Scene {
             // Destroy existing level buttons
             levelBtns.forEach(b => b.destroy());
             levelBtns.length = 0;
+            highScoreTexts.forEach(t => t.destroy());
+            highScoreTexts.length = 0;
 
             levelDefs.forEach((def, i) => {
                 const unlocked = allUnlocked || def.number <= maxUnlocked;
@@ -61,6 +65,13 @@ export default class LevelSelectScene extends Phaser.Scene {
                     btn.on('pointerover', () => btn.setColor('#ffff00'));
                     btn.on('pointerout',  () => btn.setColor(colour));
                     btn.on('pointerdown', () => { if (selectionReady) { playSfx(this, 'sfx_level_selected'); this.scene.start('GameScene', { level: def.number }); } });
+
+                    // High score, positioned just right of the button's actual rendered
+                    // edge (widths vary per level's name) rather than a fixed offset.
+                    const hiScore = this.add.text(btn.x + btn.width / 2 + 24, y, `High Score: ${getHighScore(def.number)}`, {
+                        fontSize: '22px', fontFamily: 'Arial', color: '#ffdd55',
+                    }).setOrigin(0, 0.5);
+                    highScoreTexts.push(hiScore);
                 }
 
                 levelBtns.push(btn);
@@ -68,6 +79,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         };
 
         const levelBtns = [];
+        const highScoreTexts = [];
         buildButtons();
 
         // White box outline drawn around whichever level is currently gamepad-selected
@@ -164,6 +176,18 @@ export default class LevelSelectScene extends Phaser.Scene {
             updateHighlight();
         });
 
+        // BACK — returns to the title screen, mirroring gamepad B's existing binding below
+        const backBtn = this.add.text(28, 28, '[ BACK ]', {
+            fontSize: '24px',
+            fontFamily: 'Arial',
+            color: '#888888',
+            backgroundColor: '#1a1a1a',
+            padding: { x: 28, y: 16 },
+        }).setOrigin(0, 0).setDepth(5).setInteractive({ useHandCursor: true });
+        backBtn.on('pointerover', () => backBtn.setColor('#ffff00'));
+        backBtn.on('pointerout',  () => backBtn.setColor('#888888'));
+        backBtn.on('pointerdown', () => this.scene.start('TitleScene'));
+
         // INDEX — browse every weapon/boost/evolution ever unlocked across all playthroughs
         const indexBtn = this.add.text(this.cameras.main.width - 28, 28, '📖 INDEX', {
             fontSize: '24px',
@@ -178,9 +202,10 @@ export default class LevelSelectScene extends Phaser.Scene {
 
         // Gamepad hint for the Y-opens-INDEX shortcut above, matching the corner-hint
         // style used elsewhere (e.g. the in-game pause menu's gamepad hints in hud.js).
-        this.add.text(20, this.cameras.main.height - 20, '🎮  Y  Index', {
+        // Only actually visible while a gamepad is the last-used input method.
+        registerGamepadHint(this.add.text(20, this.cameras.main.height - 20, '🎮  Y  Index', {
             fontSize: '22px', fontFamily: 'Arial', color: '#666666',
-        }).setOrigin(0, 1).setDepth(5);
+        }).setOrigin(0, 1).setDepth(5));
     }
 
     // ─── INDEX menu — browse every weapon/boost/evolution/enemy ever seen, across every
@@ -208,6 +233,7 @@ export default class LevelSelectScene extends Phaser.Scene {
             const rec = progress.enemies[en.key];
             return {
                 section: 'enemy', key: en.key, label: en.label, level: en.level, isBoss: en.isBoss,
+                scale: en.scale ?? 0.5,
                 kills: rec?.kills ?? 0, losses: rec?.losses ?? 0,
                 gotten: rec?.seen ? 1 : 0,
             };
@@ -243,6 +269,9 @@ export default class LevelSelectScene extends Phaser.Scene {
             this.input.keyboard.off('keydown', keyHandler);
             this.input.gamepad.off('down', padHandler);
             this.input.off('wheel', wheelHandler);
+            this.input.off('pointerdown', gridDragStart);
+            this.input.off('pointermove', gridDragMove);
+            this.input.off('pointerup', gridDragEnd);
             this.events.off('update', navPollHandler);
             this.events.off('update', scrollUpdateHandler);
             requestAnimationFrame(() => { this._indexMenuOpen = false; });
@@ -254,6 +283,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         const viewportTop = 164, viewportBottom = H - 80;
         const trackHeight = viewportBottom - viewportTop;
         let scrollY = 0, maxScroll = 0, thumb = null, scrollables = [];
+        let thumbInteracting = false; // set by the thumb's own pointerdown, mirrors hud.js's _sliderInteracting
 
         const applyScroll = (y) => {
             scrollY = Phaser.Math.Clamp(y, 0, maxScroll);
@@ -338,7 +368,15 @@ export default class LevelSelectScene extends Phaser.Scene {
 
                 bg.on('pointerover', () => bg.setFillStyle(known ? 0x1e3a1e : 0x2a2a2a));
                 bg.on('pointerout',  () => bg.setFillStyle(known ? 0x152a15 : 0x1a1a1a));
-                bg.on('pointerdown', () => { zoomIdx = i; zoomTier = known ? 1 : 0; buildZoom(); });
+                // Fires on release, and only counts as a tap (not the start of a scroll
+                // drag) if the pointer didn't move far — lets a touch/mouse-drag that
+                // starts on a card scroll the grid (see gridDragStart/Move below) instead
+                // of always opening whatever card the drag happened to start on.
+                bg.on('pointerup', (pointer) => {
+                    if (Phaser.Math.Distance.Between(pointer.downX, pointer.downY, pointer.x, pointer.y) < 12) {
+                        zoomIdx = i; zoomTier = known ? 1 : 0; buildZoom();
+                    }
+                });
             });
 
             const rows = Math.max(1, Math.ceil(entries.length / cols));
@@ -360,6 +398,10 @@ export default class LevelSelectScene extends Phaser.Scene {
                     .setOrigin(0.5, 0).setDepth(depth + 3).setInteractive({ useHandCursor: true });
                 this.input.setDraggable(thumb);
                 modeItems.push(thumb);
+                // Fires before gridDragStart below (object-specific listeners run before
+                // the scene-global ones for the same event), so gridDragStart can tell
+                // this drag started on the thumb itself and not also try to scroll.
+                thumb.on('pointerdown', () => { thumbInteracting = true; });
                 thumb.on('drag', (pointer, dragX, dragY) => {
                     const clampedTop = Phaser.Math.Clamp(dragY, viewportTop, viewportBottom - thumb.height);
                     const ratio = (clampedTop - viewportTop) / (trackHeight - thumb.height);
@@ -376,11 +418,11 @@ export default class LevelSelectScene extends Phaser.Scene {
             closeBtn.on('pointerdown', () => closeMenu());
             modeItems.push(closeBtn);
 
-            modeItems.push(this.add.text(W / 2, H - 8, maxScroll > 0
+            modeItems.push(registerGamepadHint(this.add.text(W / 2, H - 8, maxScroll > 0
                 ? '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   LB/RB Category   •   RS Scroll'
                 : '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   LB/RB Category', {
                 fontSize: '18px', fontFamily: 'Arial', color: '#888888',
-            }).setDepth(depth + 2).setOrigin(0.5, 1));
+            }).setDepth(depth + 2).setOrigin(0.5, 1)));
 
             applyScroll(0);
         };
@@ -414,7 +456,14 @@ export default class LevelSelectScene extends Phaser.Scene {
                     this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(entry.key, { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
                 }
                 const preview = this.add.sprite(zoomCx, zoomCy - 156, entry.key).setDepth(depth + 2);
-                if (entry.isBoss) preview.setScale(0.8); else preview.setScale(1.6);
+                // Non-boss enemies preview at a size relative to their own actual in-game
+                // scale (× 3.2, chosen so the game's most common 0.5 scale lands on the old
+                // flat 1.6 baseline) instead of one flat size for all of them — so e.g. the
+                // Coriander Hydra (0.64) visibly dwarfs Small Spinach (0.44) here just like
+                // it does in a real level. entry.scale is intentionally frozen at each
+                // enemy's original pre-2x value (see upgradeContent.js), so this stays
+                // exactly as it's always looked regardless of any later in-game size change.
+                if (entry.isBoss) preview.setScale(0.8); else preview.setScale(entry.scale * 3.2);
                 if (!known) preview.setTint(0x000000);
                 preview.play(animKey);
                 modeItems.push(preview);
@@ -516,9 +565,9 @@ export default class LevelSelectScene extends Phaser.Scene {
             backBtn.on('pointerdown', () => backToGrid());
             modeItems.push(backBtn);
 
-            modeItems.push(this.add.text(W / 2, H - 8, '🎮  ◀/▶ or LB/RB  Switch Entry   B  Back', {
+            modeItems.push(registerGamepadHint(this.add.text(W / 2, H - 8, '🎮  ◀/▶ or LB/RB  Switch Entry   B  Back', {
                 fontSize: '18px', fontFamily: 'Arial', color: '#888888',
-            }).setDepth(depth + 2).setOrigin(0.5, 1));
+            }).setDepth(depth + 2).setOrigin(0.5, 1)));
         };
 
         // Section tabs
@@ -608,6 +657,26 @@ export default class LevelSelectScene extends Phaser.Scene {
             applyScroll(scrollY + dy * 0.5);
         };
         this.input.on('wheel', wheelHandler);
+
+        // Touch/mouse drag-to-scroll — dragging vertically anywhere over the grid
+        // viewport scrolls it (the natural mobile swipe gesture), rather than only
+        // being scrollable by precisely dragging the thin scrollbar thumb.
+        let gridDragActive = false, gridDragStartY = 0, gridDragBaseScroll = 0;
+        const gridDragStart = (pointer) => {
+            if (mode !== 'grid' || maxScroll <= 0 || thumbInteracting) return;
+            if (pointer.y < viewportTop || pointer.y > viewportBottom) return;
+            gridDragActive = true;
+            gridDragStartY = pointer.y;
+            gridDragBaseScroll = scrollY;
+        };
+        const gridDragMove = (pointer) => {
+            if (!gridDragActive || !pointer.isDown) return;
+            applyScroll(gridDragBaseScroll - (pointer.y - gridDragStartY));
+        };
+        const gridDragEnd = () => { gridDragActive = false; thumbInteracting = false; };
+        this.input.on('pointerdown', gridDragStart);
+        this.input.on('pointermove', gridDragMove);
+        this.input.on('pointerup', gridDragEnd);
 
         buildGrid();
     }

@@ -1,4 +1,6 @@
 import { playSfx, stopBgm, getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume } from '../audio.js';
+import { registerGamepadHint } from '../inputMode.js';
+import { recordHighScore } from '../progressIndex.js';
 
 export const HudMethods = {
 
@@ -68,7 +70,7 @@ export const HudMethods = {
                 fontSize: '28px', fontFamily: 'Arial', color: '#cccccc',
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5);
 
-            this.pauseStatsLine = this.add.text(W / 2, H / 2 + 120, `Level ${this.playerLevel}   •   Kills: ${this.kills}   •   Damage: ${this.damageDealt}   •   Rerolls: ${this.rerolls}`, {
+            this.pauseStatsLine = this.add.text(W / 2, H / 2 + 120, `Level ${this.playerLevel}   •   Score: ${this.score}   •   Kills: ${this.kills}   •   Damage: ${this.damageDealt}   •   Rerolls: ${this.rerolls}`, {
                 fontSize: '26px', fontFamily: 'Arial', color: '#ffff88',
             }).setScrollFactor(0).setDepth(151).setOrigin(0.5);
 
@@ -87,7 +89,7 @@ export const HudMethods = {
             // row's y is derived from the Boosts line's actual rendered height so a long,
             // wrapped loadout never overlaps it.
             const hasEvo = this.getAvailableEvolutions().length > 0;
-            const evoQuitY = Math.min(H - 50, this.pauseBoostLine.y + this.pauseBoostLine.height + 20);
+            const evoQuitY = Math.min(H - 50, this.pauseBoostLine.y + this.pauseBoostLine.height + 50);
             this._evoBtnText = this.add.text(0, evoQuitY, '✦ EVOLUTIONS ✦', {
                 fontSize: '28px', fontFamily: 'Arial Black, Arial',
                 color: hasEvo ? '#ffff00' : '#444444',
@@ -126,15 +128,15 @@ export const HudMethods = {
             this._evoBtnText.setX(evoQuitStartX + this._evoBtnText.width / 2);
             this.pauseQuitBtn.setX(evoQuitStartX + this._evoBtnText.width + evoQuitGap + this.pauseQuitBtn.width / 2);
 
-            this.pausePadHint = this.add.text(20, H - 20, '🎮  Y  Quit to Menu    X  Evolutions', {
+            this.pausePadHint = registerGamepadHint(this.add.text(20, H - 20, '🎮  Y  Quit to Menu    X  Evolutions', {
                 fontSize: '22px', fontFamily: 'Arial', color: '#666666',
-            }).setScrollFactor(0).setDepth(151).setOrigin(0, 1);
+            }).setScrollFactor(0).setDepth(151).setOrigin(0, 1));
 
             // Corner hint for the volume sliders: "A" to jump in, swaps to "B" to
             // back out once a slider is actually selected (see updatePauseSliderOutline).
-            this.pauseSliderHint = this.add.text(W - 20, H - 20, '🎮  A  Sliders', {
+            this.pauseSliderHint = registerGamepadHint(this.add.text(W - 20, H - 20, '🎮  A  Sliders', {
                 fontSize: '22px', fontFamily: 'Arial', color: '#666666',
-            }).setScrollFactor(0).setDepth(151).setOrigin(1, 1);
+            }).setScrollFactor(0).setDepth(151).setOrigin(1, 1));
 
             this._pauseSliderSelected = null;
             this._pauseSliderRows     = null;
@@ -337,6 +339,18 @@ export const HudMethods = {
     updateHPBar() {
         const W = this.cameras.main.width;
         this.hpBar.width = Math.max(0, (this.playerHealth / this.playerMaxHealth) * (W - 80));
+    },
+
+    // Score = current player level ×10 + kills + Foodboxes collected ×10 + Treasures
+    // collected ×1000. Recomputed (and checked against the per-level high score)
+    // every time one of those four numbers changes — kills, a level-up, or either
+    // item pickup — so it's always current whenever the pause menu is opened, and
+    // the high score is banked continuously rather than only at round's end (so it's
+    // still recorded even if the player quits mid-run).
+    updateScore() {
+        this.score = this.playerLevel * 10 + this.kills
+            + this.foodboxesCollected * 10 + this.treasuresCollected * 1000;
+        recordHighScore(this.level, this.score);
     },
 
     // Sets the player on fire — the HP bar turns orange and 3 dmg/500ms ticks until the

@@ -13,6 +13,7 @@ import { EvolutionUIMethods } from '../systems/evolutionUI.js';
 import { HandBossMethods }    from '../systems/handBoss.js';
 import { HandMiniBossMethods} from '../systems/handMiniBoss.js';
 import { recordEnemySeen } from '../progressIndex.js';
+import { trackInputMode } from '../inputMode.js';
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -21,11 +22,19 @@ export default class GameScene extends Phaser.Scene {
 
     create(data) {
         this.level = data?.level ?? 1;
+        trackInputMode(this);
 
         // Reset any stale state left over from a previous run on this same scene instance
         this._deathOverlayShown = false;
         this.time.paused        = false;
         this.physics.resume();
+        // this.anims is the one AnimationManager shared game-wide (every scene's
+        // sys.anims points at the same instance), so pauseAll()/resumeAll() (driven by
+        // the blocked-state check in update() below) reach across scene boundaries too.
+        // If this scene is torn down while still paused/countdown/etc (e.g. QUIT TO MAIN
+        // MENU from the pause menu), resume on shutdown so the next scene doesn't inherit
+        // a globally-paused animation manager.
+        this.events.once('shutdown', () => this.anims.resumeAll());
         // Remove any leftover gamepad/pointer listeners from the previous run to avoid stacking
         this.input.gamepad.removeAllListeners('down');
         this.input.removeAllListeners('pointerdown');
@@ -56,7 +65,7 @@ export default class GameScene extends Phaser.Scene {
 
         // --- Player ---
         this.player = this.physics.add.sprite(WORLD_W / 2, WORLD_H / 2, 'snapper');
-        this.player.setScale(0.5);
+        this.player.setScale(0.75); // 50% larger than the previous 0.5
         this.player.setCollideWorldBounds(true);
         this.player.setDepth(10);
         this.anims.create({
@@ -127,6 +136,9 @@ export default class GameScene extends Phaser.Scene {
         this.rerolls        = 0;
         this.nextRerollAt   = 300;
         this.wormboxSpawned  = 0;
+        this.score               = 0;
+        this.foodboxesCollected  = 0;
+        this.treasuresCollected  = 0;
         this.gameTime        = 600;
         this.bossSpawned     = false;
         this.boss            = null;
@@ -264,10 +276,19 @@ export default class GameScene extends Phaser.Scene {
         // --- Collisions ---
         this.physics.add.overlap(this.player, this.crickets, this.collectCricket, null, this);
         this.physics.add.overlap(this.player, this.enemies,  this.enemyHitPlayer, null, this);
-        this.physics.add.collider(this.enemies, this.enemies, (a, b) => {
+        // Fire-spread runs on plain overlap (unconditional — same as before), kept
+        // separate from physical separation below so an immobile enemy still catches
+        // fire from a passing one even though they no longer push each other apart.
+        this.physics.add.overlap(this.enemies, this.enemies, (a, b) => {
             this.trySpreadFire(a, b);
             this.trySpreadFire(b, a);
         }, null, this);
+        // Physical push-apart only — skipped entirely (via the process callback) if
+        // either enemy currently can't move, so e.g. a stationary Lettuce Shooter
+        // doesn't block or get shoved around by the crowd passing through it.
+        this.physics.add.collider(this.enemies, this.enemies, null, (a, b) => {
+            return !this.isEnemyImmobile(a) && !this.isEnemyImmobile(b);
+        }, this);
 
         // --- Timers ---
         this.spawnDelay    = 2500; // initial delay between each enemy spawn (ms)
@@ -302,6 +323,7 @@ export default class GameScene extends Phaser.Scene {
 
         // --- UI ---
         this.createUI();
+        this.updateScore();
 
         playBgm(this, `bgm_lv${this.level}`);
     }
@@ -318,16 +340,17 @@ export default class GameScene extends Phaser.Scene {
 
     // ─── Update loop ─────────────────────────────────────────────────────────────
     update() {
-        // Phaser's Tween Manager runs in real time regardless of time.paused, so a
-        // duration-based shrink tween (Poop / Toxic Ocean fields) would otherwise keep
-        // visibly shrinking during pause/countdown/level-up/level-clear/game-over. Any
-        // tween pushed into this.pausableShrinkTweens gets paused/resumed here every
-        // frame in lockstep with the game's actual blocked state — checked before the
-        // isLevelingUp early-return below so it still applies during level-up too.
+        // Phaser's sprite animation frame-advance and its Tween Manager both run in real
+        // time regardless of time.paused, so enemy/boss/player walk-and-attack animations
+        // and any duration-based shrink tween (Poop / Toxic Ocean fields) would otherwise
+        // keep animating/shrinking during pause/countdown/level-up/level-clear/game-over.
+        // Computed once per frame and applied to both — checked before the isLevelingUp
+        // early-return below so it still applies during level-up too.
+        const blocked = this.isPaused || this.isCountdown || this.isLevelingUp || this.isLevelClear || this.isGameOver;
+        blocked ? this.anims.pauseAll() : this.anims.resumeAll();
         if (this.pausableShrinkTweens?.length) {
-            const shrinkBlocked = this.isPaused || this.isCountdown || this.isLevelingUp || this.isLevelClear || this.isGameOver;
             this.pausableShrinkTweens = this.pausableShrinkTweens.filter(({ field }) => field?.active);
-            this.pausableShrinkTweens.forEach(({ tween }) => { shrinkBlocked ? tween.pause() : tween.resume(); });
+            this.pausableShrinkTweens.forEach(({ tween }) => { blocked ? tween.pause() : tween.resume(); });
         }
         if (this.isLevelingUp) return;
         this.handleMovement();
