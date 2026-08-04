@@ -66,6 +66,7 @@ export default class GameScene extends Phaser.Scene {
         // --- Player ---
         this.player = this.physics.add.sprite(WORLD_W / 2, WORLD_H / 2, 'snapper');
         this.player.setScale(0.75); // 50% larger than the previous 0.5
+        this.player.body.setSize(this.player.body.width * 0.8, this.player.body.height * 0.8, true);
         this.player.setCollideWorldBounds(true);
         this.player.setDepth(10);
         this.anims.create({
