@@ -84,6 +84,18 @@ export default class GameScene extends Phaser.Scene {
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
 
+        // Y — toggle Arcade Physics debug overlay (hitboxes)
+        this.input.keyboard.on('keydown-Y', () => {
+            const world = this.physics.world;
+            world.drawDebug = !world.drawDebug;
+            if (!world.debugGraphic) {
+                world.createDebugGraphic();
+            } else {
+                world.debugGraphic.clear();
+                world.debugGraphic.setVisible(world.drawDebug);
+            }
+        });
+
         // Gamepad: Start (9) = pause (pauseBtn stored as this.pauseBtn after UI is built)
         this.input.gamepad.on('down', (pad, button) => {
             if (button.index === 9 && !this.isLevelingUp && !this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(this.pauseBtn);
