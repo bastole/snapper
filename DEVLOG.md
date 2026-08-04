@@ -1414,3 +1414,32 @@ Every one of these uses a real Arcade Physics body auto-sized from the sprite's 
 The Browser pane's frozen step-loop was present again, but this session the audio-stub-and-call-`.create()`-directly workaround worked on `GameScene` itself for the first time (previous sessions only managed it for the lighter `LevelSelectScene`) — all the key textures (`snapper`, `weapon_poop`, `dubia_shields`, `evol_log_lob`) turned out to already be loaded despite the stuck loader, so a real, fully-initialized `GameScene` (physics groups, colliders, timers, the works) came up cleanly. This gave much stronger verification than the process-callback-only approach used last session: confirmed `player.scaleX === 0.75` directly; called `doPoop()`/`doPebbleFlick()` for real and read the spawned sprites' actual `scaleX` (0.60, 0.40); called `doLogLob()` and read the spawned log's real `displayWidth`/`displayHeight`/`body.width`/`body.height` (560×112, all four); called `createDubiaShield()` and read its scale (0.56); for the shield's hit-detection range specifically, positioned a real enemy sprite at exactly 55px and separately 57px from the shield and called the actual `updateDubiaShields()` — the 55px enemy took real damage, the 57px one didn't, precisely confirming the 56px boundary (had to work around `this.time.now` being frozen at `0` — since the loop never runs — which was making the shield's 800ms hit-cooldown check `0 - 0 < 800` incorrectly block every "first" hit regardless of distance; fixed by manually advancing `gs.time.now` before each check, a test-harness-only adjustment). Confirmed the pause-menu button positioning fix by calling the real `togglePause()` and reading back `_evoBtnText.y` relative to the actual rendered `pauseBoostLine` bounds. `node --check` on all 8 touched files. The Log Lob knockback value itself (a plain constant, no interesting logic to exercise) was confirmed by fetching the actually-served file content rather than executed. Recommend a real playthrough to confirm the bigger projectiles/player/log all read well visually together and that Log Lob no longer visibly over-hits.
 
 **`sw.js`** — `CACHE_VERSION` bumped `v12` → `v13`.
+
+---
+
+## Session 46 — 2026-08-05
+
+### Bite attack (and Starved Chomp evolution) range increased 25%
+
+Per request. The bite attack's "size" is entirely controlled by `this.biteRange` — a single pixel-radius value used for both the `Phaser.Math.Distance.Between` damage hitbox check and the visual circle flash drawn in `doBite()` / `doStarvedChomp()`. Making it 25% bigger means scaling every value that contributes to `biteRange` by ×1.25 across three files:
+
+- **`GameScene.js`**: base `biteRange` 160 → **200**.
+- **`levelUp.js`**: the three bite upgrade deltas — L2 +15 → **+19**, L3 +20 → **+25**, L4 +20 → **+25** — and the Hunter Instinct passive's per-stack bite bonus +25 → **+31**. Card descriptions updated to match.
+- **`evolutions.js`**: `evolveToStarvedChomp()`'s one-time evolution range bonus +30 → **+38**.
+
+`doStarvedChomp()` reads `this.biteRange` directly for both the hitbox distance check (line 110) and the green circle visual (line 128), so no changes were needed there — the scaling propagates automatically.
+
+Range progression after this change (all values ≈ ×1.25 of previous):
+
+| State | Old | New |
+|---|---|---|
+| Base | 160 | 200 |
+| After L2 upgrade | 175 | 219 |
+| After L3 upgrade | 195 | 244 |
+| After L4 upgrade | 215 | 269 |
+| After Starved Chomp evolution | 245 | 307 |
+| Max (+ 5× Hunter Instinct) | 370 | 462 |
+
+`GAME_REFERENCE.md` updated: Bite table ranges corrected (they were stale pre-2x-upscale values — the base was showing 80 instead of the actual 160), Hunter Instinct passive entry split to show Bite's now-distinct +31 vs the other weapons' unchanged +25, and Starved Chomp evolution row updated from +30 → +38.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v13` → `v14`.

@@ -53,29 +53,29 @@ export const LevelUpMethods = {
         // Weapons — only offered if not yet owned; upgrades offered if already owned
         const weaponUpgrades = [
             {
-                name: this.weaponCardLabel('bite', 'Bite'), desc: 'Faster bite — fires every 2s, +15 range, +10 damage', type: 'weapon',
+                name: this.weaponCardLabel('bite', 'Bite'), desc: 'Faster bite — fires every 2s, +19 range, +10 damage', type: 'weapon',
                 weaponKey: 'bite', available: () => this.biteLevel === 1,
                 effect: () => {
                     this.biteLevel = 2;
-                    this.biteDamage += 10; this.biteRange += 15;
+                    this.biteDamage += 10; this.biteRange += 19;
                     this.biteRate = Math.max(300, this.biteRate - 1000);
                     this.biteTimer.reset({ delay: this.biteRate, callback: this.doBite, callbackScope: this, loop: true });
                 },
             },
             {
-                name: this.weaponCardLabel('bite', 'Bite'), desc: 'Stronger bite — +20 range, +15 damage', type: 'weapon',
+                name: this.weaponCardLabel('bite', 'Bite'), desc: 'Stronger bite — +25 range, +15 damage', type: 'weapon',
                 weaponKey: 'bite', available: () => this.biteLevel === 2,
                 effect: () => {
                     this.biteLevel = 3;
-                    this.biteDamage += 15; this.biteRange += 20;
+                    this.biteDamage += 15; this.biteRange += 25;
                 },
             },
             {
-                name: this.weaponCardLabel('bite', 'Bite'), desc: 'Venomous bite — +20 range, +15 damage, slows enemies for 2s', type: 'weapon',
+                name: this.weaponCardLabel('bite', 'Bite'), desc: 'Venomous bite — +25 range, +15 damage, slows enemies for 2s', type: 'weapon',
                 weaponKey: 'bite', available: () => this.biteLevel === 3,
                 effect: () => {
                     this.biteLevel = 4;
-                    this.biteDamage += 15; this.biteRange += 20;
+                    this.biteDamage += 15; this.biteRange += 25;
                 },
             },
             {
@@ -328,7 +328,7 @@ export const LevelUpMethods = {
             { name: this.boostCardLabel('Shiny Scales'), desc: this.deflectChance === 0 ? '30% chance to deflect enemy projectiles back at them' : '60% chance to deflect enemy projectiles back at them', available: () => this.deflectChance < 0.60, effect: () => { this.ownedPassives.push('Shiny Scales'); this.deflectChance = this.deflectChance === 0 ? 0.30 : 0.60; } },
             { name: this.boostCardLabel('Angry'),           desc: 'Snapper moves faster',                available: () => this.ownedPassives.filter(p => p === 'Angry').length           < 5, effect: () => { this.ownedPassives.push('Angry');           this.playerSpeed += 30; } },
             { name: this.boostCardLabel('Aura Farming'),    desc: 'Snapper\'s attacks do more damage',   available: () => this.ownedPassives.filter(p => p === 'Aura Farming').length    < 5, effect: () => { this.ownedPassives.push('Aura Farming');    this.biteDamage += 10; this.tailSlapDamage += 10; this.poopDamage += 10; this.pebbleDamage += 10; this.lickDamage += 10; this.wormWhipDamage += 10; this.pupaDamage += 10; this.skinDamage += 10; this.woodieDamage += 10; this.dubiaShieldDamage += 10; } },
-            { name: this.boostCardLabel('Hunter Instinct'), desc: 'Snapper\'s attacks reach further',    available: () => this.ownedPassives.filter(p => p === 'Hunter Instinct').length < 5, effect: () => { this.ownedPassives.push('Hunter Instinct'); this.biteRange += 25; this.tailSlapRange += 25; this.hissRange += 25; this.lickRangeBonus += 25; this.wormWhipRange += 25; this.pupaRadius += 15; this.dustKickLength += 40; } },
+            { name: this.boostCardLabel('Hunter Instinct'), desc: 'Snapper\'s attacks reach further',    available: () => this.ownedPassives.filter(p => p === 'Hunter Instinct').length < 5, effect: () => { this.ownedPassives.push('Hunter Instinct'); this.biteRange += 31; this.tailSlapRange += 25; this.hissRange += 25; this.lickRangeBonus += 25; this.wormWhipRange += 25; this.pupaRadius += 15; this.dustKickLength += 40; } },
             { name: this.boostCardLabel('Basking'),         desc: 'Snapper\'s attacks fire faster',      available: () => this.ownedPassives.filter(p => p === 'Basking').length < 5, effect: () => {
                 this.ownedPassives.push('Basking');
                 this.biteRate = Math.max(300, this.biteRate - 150);

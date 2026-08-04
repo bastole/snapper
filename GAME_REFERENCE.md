@@ -25,10 +25,10 @@ AOE circle centred on Snapper, fires every 3s (2s once upgraded).
 
 | Level | Damage | Range | Cooldown | Notes |
 |---|---|---|---|---|
-| 1 (default) | 20 | 80 | 3000ms | — |
-| 2 | 30 | 95 | 2000ms | — |
-| 3 | 45 | 115 | 2000ms | — |
-| 4 | 60 | 135 | 2000ms | Slows hit enemies to 50% speed for 2s |
+| 1 (default) | 20 | 200 | 3000ms | — |
+| 2 | 30 | 219 | 2000ms | — |
+| 3 | 45 | 244 | 2000ms | — |
+| 4 | 60 | 269 | 2000ms | Slows hit enemies to 50% speed for 2s |
 
 Max level: **4**
 
@@ -237,7 +237,7 @@ Passives stack with each pick up to their cap.
 | **Shiny Scales** | 2 | Pick 1: 30% chance to deflect projectiles back (20 dmg to enemy). Pick 2: 60% chance |
 | **Angry** | 5 | +30 movement speed |
 | **Aura Farming** | 5 | +10 damage to all active weapons |
-| **Hunter Instinct** | 5 | +25 to Bite/Tail Slap/Hiss/Worm Whip range; +25 to Lick range; +15 to Pupa Mine blast radius; +40 to Dust Kick length |
+| **Hunter Instinct** | 5 | +31 to Bite range; +25 to Tail Slap/Hiss/Worm Whip range; +25 to Lick range; +15 to Pupa Mine blast radius; +40 to Dust Kick length |
 | **Basking** | 5 | −150ms cooldown on all weapon timers (minimum 300ms); −1500ms Cold Glare cooldown |
 | **Bug Bucket** | 5 | +25 max HP and current HP |
 | **Well Fed** | 3 | Speeds up passive HP regen (base: 1 HP / 20s) |
@@ -258,7 +258,7 @@ An evolution permanently replaces a weapon with a more powerful form. **Requirem
 
 | Evolution | Replaces | Paired Boost | What It Does |
 |---|---|---|---|
-| **Starved Chomp** | Bite ×4 | Hungry Forager | Kills grant 2× XP instantly with no insect drop. +20 dmg, +30 range on top of maxed Bite |
+| **Starved Chomp** | Bite ×4 | Hungry Forager | Kills grant 2× XP instantly with no insect drop. +20 dmg, +38 range on top of maxed Bite |
 | **Steel Slam** | Tail Slap ×2 | Hard Scales | 180° arc; 60 dmg; 400px/s knockback (150ms window); immobilises hit enemies for 500ms (8s cooldown per enemy) |
 | **Toxic Ocean** | Poop ×2 | Well Fed | 3 toxic fields per cast; radius ×1.4; dmg ×0.75; slows enemies 50% for 2s; fields chase the nearest enemy cluster at 90px/s; stay full-size for 4000ms then shrink to nothing over the field's duration (same shrink as Poop) |
 | **Sunbaked Ambers** | Pebble Flick ×2 | Basking | 30 ambers in a full 360° ring every 8s; burns hit enemies for 3.5s (6 dmg/300ms); burning enemies spread fire on contact for 1s (3s contagion cooldown) |

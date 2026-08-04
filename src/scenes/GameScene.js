@@ -162,7 +162,7 @@ export default class GameScene extends Phaser.Scene {
 
         // --- Bite weapon stats ---
         this.biteDamage = 20;
-        this.biteRange  = 160;
+        this.biteRange  = 200;
         this.biteRate   = 3000;
         this.biteLevel  = 1;
         this.starvedChompActive = false;

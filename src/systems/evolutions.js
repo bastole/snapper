@@ -10,7 +10,7 @@ export const EvolutionMethods = {
     evolveToStarvedChomp() {
         this.starvedChompActive = true;
         this.ownedWeapons.delete('bite'); this.ownedWeapons.add('starvechomp');
-        this.biteDamage += 20; this.biteRange += 30;
+        this.biteDamage += 20; this.biteRange += 38;
         this.biteTimer.reset({ delay: this.biteRate, callback: this.doStarvedChomp, callbackScope: this, loop: true });
     },
 
