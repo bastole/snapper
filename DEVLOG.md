@@ -1443,3 +1443,21 @@ Range progression after this change (all values ≈ ×1.25 of previous):
 `GAME_REFERENCE.md` updated: Bite table ranges corrected (they were stale pre-2x-upscale values — the base was showing 80 instead of the actual 160), Hunter Instinct passive entry split to show Bite's now-distinct +31 vs the other weapons' unchanged +25, and Starved Chomp evolution row updated from +30 → +38.
 
 **`sw.js`** — `CACHE_VERSION` bumped `v13` → `v14`.
+
+---
+
+## Session 47 — 2026-08-05
+
+### netlify.toml added — no-cache headers for HTML and sw.js
+
+Added `netlify.toml` to the project root so Netlify sets `Cache-Control: no-cache` on `/*.html` and `/sw.js` on every deploy. This ensures returning visitors always fetch fresh HTML and the latest service worker without a manual cache-clear step. JS/asset files are unaffected (still get Netlify's default long-lived CDN cache) since the service worker's `CACHE_VERSION` bump already handles busting those. The PWA offline cache (Phaser's `caches` API, `snapper-pwa-vX` bucket) is entirely separate from HTTP cache headers and is unaffected.
+
+### Y key toggles Arcade Physics debug overlay
+
+`GameScene.js`: added a `keydown-Y` listener that toggles `this.physics.world.drawDebug`. On first press, calls `world.createDebugGraphic()` (since debug starts off); subsequent presses toggle the graphic's visibility and clear it when hiding. Shows hitboxes for all active physics bodies — player, enemies, projectiles, everything — which is useful for verifying collision box sizes. Key chosen to avoid conflict with WASD movement (`D` = right) and other existing bindings.
+
+### Snapper hitbox corrected to 30% smaller (was 20%)
+
+`GameScene.js`: `body.setSize` multiplier corrected from `* 0.8` to `* 0.7`. The body is centred on the sprite via the `true` third argument, so the smaller hitbox sits centred within the visible sprite. Sprite scale (`0.75`) is unchanged.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v14` → `v17` (v15: Y debug key, v16: hitbox 20%, v17: hitbox corrected to 30%).
