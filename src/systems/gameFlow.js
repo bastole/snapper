@@ -1,4 +1,4 @@
-import { playSfx, pauseBgm, stopBgm } from '../audio.js';
+import { playSfx, pauseBgm, resumeBgm, stopBgm } from '../audio.js';
 import { recordEnemyLoss } from '../progressIndex.js';
 import { registerGamepadHint } from '../inputMode.js';
 export const GameFlowMethods = {
@@ -40,7 +40,7 @@ export const GameFlowMethods = {
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
 
         // RETRY
-        const retryBtn = addUI(this.add.text(W / 2, H / 2 + 20, '[ RETRY ]', {
+        const retryBtn = addUI(this.add.text(W / 2, H / 2 - 60, '[ RETRY ]', {
             fontSize: '40px', fontFamily: 'Arial',
             color: '#ffffff', backgroundColor: '#333333', padding: { x: 40, y: 20 },
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
@@ -48,8 +48,51 @@ export const GameFlowMethods = {
         retryBtn.on('pointerout',  () => retryBtn.setColor('#ffffff'));
         retryBtn.on('pointerdown', () => { stopBgm(); this.scene.start('GameScene', { level: this.level }); });
 
+        // REVIVE
+        const reviveBtn = addUI(this.add.text(W / 2, H / 2 + 60, '[ REVIVE ]', {
+            fontSize: '40px', fontFamily: 'Arial',
+            color: '#ffaa00', backgroundColor: '#332200', padding: { x: 40, y: 20 },
+        }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
+        reviveBtn.on('pointerover', () => reviveBtn.setColor('#ffff00'));
+        reviveBtn.on('pointerout',  () => reviveBtn.setColor('#ffaa00'));
+        reviveBtn.on('pointerdown', () => {
+            this.input.gamepad.off('down', this._deathPadHandler);
+            destroyUI();
+            this._deathOverlayShown = false;
+            this.isGameOver = false;
+
+            // Find a spot ≥4000px from every live enemy (up to 50 attempts)
+            let rx = this.player.x, ry = this.player.y;
+            for (let i = 0; i < 50; i++) {
+                const tx = Phaser.Math.Between(128, 6272);
+                const ty = Phaser.Math.Between(128, 6272);
+                const tooClose = this.enemies.getChildren().some(
+                    e => e.active && Phaser.Math.Distance.Between(tx, ty, e.x, e.y) < 4000
+                );
+                if (!tooClose) { rx = tx; ry = ty; break; }
+            }
+            this.player.setPosition(rx, ry);
+            this.playerHealth = this.playerMaxHealth;
+            this.updateHPBar();
+            this.player.reviveInvincible = true;
+
+            this.physics.resume();
+            this.time.paused = false;
+            resumeBgm();
+
+            // Blink for 3 seconds then clear invincibility
+            this.tweens.add({
+                targets: this.player, alpha: 0,
+                duration: 150, yoyo: true, repeat: 9,
+                onComplete: () => {
+                    this.player.setAlpha(1);
+                    this.player.reviveInvincible = false;
+                },
+            });
+        });
+
         // MAIN MENU
-        const menuBtn = addUI(this.add.text(W / 2, H / 2 + 140, '[ MAIN MENU ]', {
+        const menuBtn = addUI(this.add.text(W / 2, H / 2 + 180, '[ MAIN MENU ]', {
             fontSize: '40px', fontFamily: 'Arial',
             color: '#ffffff', backgroundColor: '#333333', padding: { x: 40, y: 20 },
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
@@ -57,14 +100,15 @@ export const GameFlowMethods = {
         menuBtn.on('pointerout',  () => menuBtn.setColor('#ffffff'));
         menuBtn.on('pointerdown', () => { stopBgm(); this.scene.start('LevelSelectScene'); });
 
-        // Gamepad: A = retry, B = menu
+        // Gamepad: A = retry, Y = revive, B = menu
         this._deathPadHandler = (pad, button) => {
             const idx = button.index;
             if (idx === 0) retryBtn.emit('pointerdown');
+            if (idx === 3) reviveBtn.emit('pointerdown');
             if (idx === 1) menuBtn.emit('pointerdown');
         };
         this.input.gamepad.on('down', this._deathPadHandler);
-        addUI(registerGamepadHint(this.add.text(W / 2, H / 2 + 240, '🎮  A  Retry    B  Menu', {
+        addUI(registerGamepadHint(this.add.text(W / 2, H / 2 + 280, '🎮  A  Retry    Y  Revive    B  Menu', {
             fontSize: '22px', fontFamily: 'Arial', color: '#666666',
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5)));
     },

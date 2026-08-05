@@ -5,25 +5,42 @@
 ### Y key — hitbox overlay (in-game)
 Toggles the Arcade Physics debug overlay while playing a level.
 Shows the collision bodies for the player, all enemies, bosses, and every
-projectile. Useful for checking whether hitbox sizes look right relative to the
-sprite. Press again to hide and clear the overlay.
+projectile. Press again to hide and clear the overlay.
 
-### 🧪 ALL LEVELS (Level Select screen)
-A button on the Level Select screen that unlocks all 5 levels regardless of
-play-through progress. Click it once to turn it on (gold), click again to
-restore normal unlock state. Resets when you leave the scene.
+### U key — instant upgrade screen (in-game)
+Opens an upgrade card screen immediately, same as leveling up normally.
+Can be pressed repeatedly to stack upgrade picks. Blocked while paused,
+mid-countdown, in a level-up screen, at the level-clear screen, or on the
+game-over overlay.
+
+### F key — full loadout cheat (in-game)
+- Spawns the boss immediately (if not already spawned)
+- Scatters 20 Foodboxes (full heal pickups) randomly across the map
+- Queues 29 consecutive upgrade screens (with no delay between them)
+
+Use this to build a maxed loadout fast and test evolutions and end-game
+weapon interactions. Blocked in the same states as U.
+
+### REVIVE button — death overlay
+Appears on the game-over screen alongside RETRY and MAIN MENU. Revives
+the player at a random position ≥4000px from all live enemies, restores
+full HP, and grants 3 seconds of blinking invincibility. All upgrades,
+weapon levels, and player level are kept. Gamepad: **Y**.
+
+### 🧪 ALL LEVELS — Level Select screen
+A button on the Level Select screen that unlocks all 5 levels for the
+current session regardless of save progress. Click once to enable (turns
+gold), click again to restore normal unlock state. Resets when you leave
+the scene.
 
 ---
 
-## Removed features (for reference)
+## Previously removed (for reference)
 
-These existed at some point and were deliberately cut. Listed here in case
-they need to be brought back.
+These were cut at some point but are now restored above (U, F, REVIVE).
+Listed here in case history is useful.
 
-| Key / Button | What it did | Added | Removed |
-|---|---|---|---|
-| **U** | Open an upgrade card screen immediately | Session 2 | Session 27 |
-| **N** | Skip 60 s of game time (spawn rate ramps accordingly) | Session 2 | Session 27 |
-| **F** | Spawn the boss, scatter 20 Foodboxes across the map, and open 29 consecutive upgrade screens | Session 2 | Session 27 |
-| **REVIVE** button | Death overlay button that revived the player with invincibility (kept all upgrades) | Session 2 | Session 27 |
-| **E** | Instantly max Bite to level 4 and Hungry Forager to 4 picks | Session 31 | Session 31 (same session) |
+| Feature | Removed in | Notes |
+|---|---|---|
+| U / F / REVIVE | Session 27 | Re-added Session 49 |
+| E key (max Bite + Hungry Forager) | Session 31 | Added and removed same session — not restored |

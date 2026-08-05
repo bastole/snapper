@@ -97,6 +97,33 @@ export default class GameScene extends Phaser.Scene {
             }
         });
 
+        const isBlocked = () => this.isPaused || this.isCountdown || this.isLevelingUp || this.isLevelClear || this.isGameOver;
+
+        // U — open an upgrade screen immediately
+        this.input.keyboard.on('keydown-U', () => {
+            if (isBlocked()) return;
+            this.showLevelUp();
+        });
+
+        // F — spawn boss, scatter 20 Foodboxes, queue 29 upgrade screens
+        this.input.keyboard.on('keydown-F', () => {
+            if (isBlocked()) return;
+            if (!this.bossSpawned) this.spawnBoss();
+            for (let i = 0; i < 20; i++) {
+                const x = Phaser.Math.Between(128, 6272);
+                const y = Phaser.Math.Between(128, 6272);
+                const item = this.physics.add.image(x, y, 'foodbox');
+                item.setScale(2.20).setDepth(4);
+                item.xpValue = 0;
+                item.specialType = 'wormbox';
+                this.tweens.add({ targets: item, scaleX: 2.60, scaleY: 2.60, duration: 350, yoyo: true, loop: -1 });
+                this.crickets.add(item);
+            }
+            this.pendingLevelUps += 29;
+            this.fastUpgrade = true;
+            this.showLevelUp();
+        });
+
         // Gamepad: Start (9) = pause (pauseBtn stored as this.pauseBtn after UI is built)
         this.input.gamepad.on('down', (pad, button) => {
             if (button.index === 9 && !this.isLevelingUp && !this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(this.pauseBtn);
