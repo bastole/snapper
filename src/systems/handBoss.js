@@ -419,10 +419,10 @@ export const HandBossMethods = {
         this.time.delayedCall(600, () => {
             if (!boss.active) return;
             const configs = [
-                { key: 'lettuce_beetle',  health: 4000,  damage: 15, speed: 140, scale: 1.2 },
-                { key: 'rocket_spider',   health: 6000,  damage: 18, speed: 160, scale: 1.2 },
-                { key: 'carrot_scorpion', health: 9000,  damage: 20, speed: 170, scale: 1.3 },
-                { key: 'mulberry_mantis', health: 4000,  damage: 12, speed: 200, scale: 1.2 },
+                { key: 'lettuce_beetle',  health: 4000,  damage: 15, speed: 140, scale: 2.4 },
+                { key: 'rocket_spider',   health: 6000,  damage: 18, speed: 160, scale: 2.4 },
+                { key: 'carrot_scorpion', health: 9000,  damage: 20, speed: 170, scale: 2.4 },
+                { key: 'mulberry_mantis', health: 4000,  damage: 12, speed: 200, scale: 2.4 },
             ];
             configs.forEach(cfg => this.spawnHandMiniBoss(cfg));
             boss.handImmobile = false;
@@ -437,7 +437,7 @@ export const HandBossMethods = {
 
         const mb = this.physics.add.sprite(sx, sy, cfg.key);
         mb.setScale(cfg.scale).setDepth(8);
-        mb.body.setSize(mb.body.width * 0.75, mb.body.height * 0.75);
+        mb.body.setSize(mb.body.width * 0.5625, mb.body.height * 0.5625);
         mb.health      = cfg.health;
         mb.maxHealth   = cfg.health;
         mb.damage      = cfg.damage;
@@ -732,10 +732,10 @@ export const HandBossMethods = {
 
         if (allWeakOrGone) {
             const configs = [
-                { key: 'lettuce_beetle',  health: 8000,  damage: 15, speed: 70,  scale: 0.6 },
-                { key: 'rocket_spider',   health: 12000, damage: 18, speed: 80,  scale: 0.6 },
-                { key: 'carrot_scorpion', health: 18000, damage: 20, speed: 85,  scale: 0.65 },
-                { key: 'mulberry_mantis', health: 4000,  damage: 12, speed: 100, scale: 0.6 },
+                { key: 'lettuce_beetle',  health: 8000,  damage: 15, speed: 70,  scale: 1.2 },
+                { key: 'rocket_spider',   health: 12000, damage: 18, speed: 80,  scale: 1.2 },
+                { key: 'carrot_scorpion', health: 18000, damage: 20, speed: 85,  scale: 1.2 },
+                { key: 'mulberry_mantis', health: 4000,  damage: 12, speed: 100, scale: 1.2 },
             ];
             configs.forEach(cfg => this.spawnHandMiniBoss(cfg));
         }

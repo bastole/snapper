@@ -1477,3 +1477,29 @@ All real sprite art ships facing right, but the Session 43 flip logic was writte
 Enemies mid-knockback, stationary (`speed === 0`), immobilised (`bugCaught`), or mid-trap-wait (`trapArmed`) all return early from `attractCrickets()` and hold whatever direction they were last facing — correct, since they're not visibly translating.
 
 **`sw.js`** — `CACHE_VERSION` bumped `v17` → `v18`.
+
+---
+
+## Session 50 — 2026-08-05
+
+### Boss sprites doubled in visual size, hitbox grown only 50% (same pattern as Session 40 enemies)
+
+Session 40 doubled all regular enemy visual sizes but deliberately skipped boss sprites ("the request was about enemies"). This session applies the identical treatment to bosses: 2× visual scale, only 1.5× hitbox growth, using the same `* 0.5625` body multiplier derived in Session 40.
+
+**`boss.js`** — doubled all five `bossCfg.scale` values and added a `body.setSize(* 0.5625)` call immediately after `this.boss.setScale(bossCfg.scale)`:
+
+| Boss | Old scale | New scale |
+|---|---|---|
+| Lettuce Beetle (L1) | `0.6` | `1.2` |
+| Rocket Spider (L2) | `0.6` | `1.2` |
+| Carrot Scorpion (L3) | `0.66` | `1.2` (also normalized to match the others) |
+| Mulberry Mantis (L4) | `0.6` | `1.2` |
+| The Hand (L5) | `0.8` | `1.6` |
+
+Previously there was no `body.setSize` call on the main boss sprite at all — the physics body sat at Phaser's auto-sized default (frame dimensions × `setScale`). The new line follows immediately after `setScale` and uses the same `0.5625` multiplier as enemies: the hitbox ends up at 56.25% of the post-scale body dimensions (= 75% × 1.5/2), keeping the hitbox-to-visual ratio consistent across the whole game. The Carrot Mole literal `body.setSize` values in `boss.js`'s `scorpionStingerBury()` were left untouched — those are enemy-type moles, already sized correctly by Session 40.
+
+**`handBoss.js`** — doubled scales in both mini-boss config tables and updated the shared `spawnHandMiniBoss()` body multiplier from `0.75` to `0.5625`:
+
+- `doSaladBowl()` (Salad Bowl Phase 3 reprises): `1.2/1.3 → 2.4` across all four bosses.
+- `checkHandPhase4BossSpawn()` (Phase 4 respawn): `0.6/0.65 → 1.2` across all four bosses.
+- `spawnHandMiniBoss()` body line: `mb.body.setSize(mb.body.width * 0.75, ...)` → `* 0.5625`. The mini-boss spawner had been using the old pre-Session-40 enemy ratio (75%); updating it now gives mini-bosses the same hitbox-to-visual proportion as the main boss and all regular enemies.

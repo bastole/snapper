@@ -28,14 +28,14 @@ export const BossMethods = {
         const H = this.cameras.main.height;
 
         const bossCfg = this.level === 5
-            ? { key: 'yun_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 0.8 }
+            ? { key: 'yun_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 1.6 }
             : this.level === 4
-            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 0.6 }
+            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 1.2 }
             : this.level === 3
-            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 0.66 }
+            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 1.2 }
             : this.level === 2
-            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 0.6 }
-            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 0.6, chargeDelay: 3500 };
+            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 1.2 }
+            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 1.2, chargeDelay: 3500 };
 
         // Warning banner
         const warn = this.add.text(W / 2, H / 2 - 120, `⚠  ${bossCfg.label} APPROACHES  ⚠`, {
@@ -64,6 +64,7 @@ export const BossMethods = {
             this.boss = this.physics.add.sprite(bossX, bossY, bossCfg.key);
             recordEnemySeen(bossCfg.key);
             this.boss.setScale(bossCfg.scale);
+            this.boss.body.setSize(this.boss.body.width * 0.5625, this.boss.body.height * 0.5625);
             this.boss.setDepth(8);
             this.boss.health      = bossCfg.health;
             this.boss.maxHealth   = bossCfg.health;
