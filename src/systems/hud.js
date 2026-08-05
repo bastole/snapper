@@ -15,6 +15,11 @@ export const HudMethods = {
         this.add.rectangle(W / 2, 64, W - 80, 20, 0x333333).setScrollFactor(0).setDepth(100);
         this.hpBar = this.add.rectangle(40, 64, W - 80, 16, 0xff3333).setScrollFactor(0).setDepth(101).setOrigin(0, 0.5);
 
+        // Score, right under the HP bar
+        this.scoreText = this.add.text(W / 2, 84, `Score: ${this.score ?? 0}`, {
+            fontSize: '22px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff',
+        }).setScrollFactor(0).setDepth(102).setOrigin(0.5, 0);
+
         // Labels
         this.levelText = this.add.text(W - 20, 8, 'Lv.1', {
             fontSize: '24px', fontFamily: 'Arial', color: '#ffffff',
@@ -341,16 +346,20 @@ export const HudMethods = {
         this.hpBar.width = Math.max(0, (this.playerHealth / this.playerMaxHealth) * (W - 80));
     },
 
-    // Score = current player level ×10 + kills + Foodboxes collected ×10 + Treasures
-    // collected ×1000. Recomputed (and checked against the per-level high score)
-    // every time one of those four numbers changes — kills, a level-up, or either
-    // item pickup — so it's always current whenever the pause menu is opened, and
-    // the high score is banked continuously rather than only at round's end (so it's
-    // still recorded even if the player quits mid-run).
+    // Score = current player level ×10 + kills + Foodboxes collected ×100 + Fullboxes
+    // collected ×300 + Treasures collected ×500 + Evolutions applied ×5000. Recomputed
+    // (and checked against the per-level high score) every time one of those numbers
+    // changes — kills, a level-up, an item pickup, or an evolution — so it's always
+    // current whenever the pause menu is opened, and the high score is banked
+    // continuously rather than only at round's end (so it's still recorded even if the
+    // player quits mid-run).
     updateScore() {
         this.score = this.playerLevel * 10 + this.kills
-            + this.foodboxesCollected * 10 + this.treasuresCollected * 1000;
+            + this.foodboxesCollected * 100 + this.fullboxesCollected * 300
+            + this.treasuresCollected * 500
+            + this.evolutionsAppliedCount * 5000;
         recordHighScore(this.level, this.score);
+        this.scoreText.setText(`Score: ${this.score}`);
     },
 
     // Sets the player on fire — the HP bar turns orange and 3 dmg/500ms ticks until the

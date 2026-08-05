@@ -104,7 +104,7 @@ export const MovementMethods = {
     // ─── Dubia Shields ───────────────────────────────────────────────────────────
     createDubiaShield(layer = 'single') {
         const shield = this.add.image(this.player.x, this.player.y, 'dubia_shields');
-        shield.setScale(0.56).setDepth(6);
+        shield.setScale(1.12).setDepth(6);
         shield.layer = layer;
         shield.hitCooldowns = new Map();
         this.dubiaShields.push(shield);
@@ -119,12 +119,15 @@ export const MovementMethods = {
         const now = this.time.now;
         const isFinal = this.dubiaLevel >= 4;
 
-        const defSpeedMult = this._dubiaDefendersActive ? 1.5 : 1.0;
+        const defSpeedMult   = this._dubiaDefendersActive ? 1.5 : 1.0;
+        const regularShields = this.dubiaShields.filter(s => s.layer !== 'bonus');
+        const bonusShields   = this.dubiaShields.filter(s => s.layer === 'bonus');
+
         if (isFinal) {
             this.dubiaAngle      += 1.5 * defSpeedMult * dt;
             this.dubiaOuterAngle -= 1.0 * defSpeedMult * dt;
-            const inner = this.dubiaShields.filter(s => s.layer === 'inner');
-            const outer = this.dubiaShields.filter(s => s.layer === 'outer');
+            const inner = regularShields.filter(s => s.layer === 'inner');
+            const outer = regularShields.filter(s => s.layer === 'outer');
             inner.forEach((shield, i) => {
                 const a = this.dubiaAngle + (i / inner.length) * Math.PI * 2;
                 shield.setPosition(this.player.x + Math.cos(a) * 140, this.player.y + Math.sin(a) * 140);
@@ -136,17 +139,38 @@ export const MovementMethods = {
         } else {
             const speeds = [1.2, 1.6, 2.0];
             this.dubiaAngle += (speeds[this.dubiaLevel - 1] ?? 1.2) * defSpeedMult * dt;
-            this.dubiaShields.forEach((shield, i) => {
-                const a = this.dubiaAngle + (i / this.dubiaShields.length) * Math.PI * 2;
+            regularShields.forEach((shield, i) => {
+                const a = this.dubiaAngle + (i / regularShields.length) * Math.PI * 2;
                 shield.setPosition(this.player.x + Math.cos(a) * 180, this.player.y + Math.sin(a) * 180);
             });
+        }
+
+        // Dubia Defenders: bonus shields (one per 15 kills, see registerDubiaDefenderKill)
+        // orbit further out than the regular ring(s), stacked in rings of up to 5, each
+        // ring a fixed step further out than the last.
+        if (bonusShields.length) {
+            const baseRadius = (isFinal ? 240 : 180) + 60;
+            this.dubiaBonusAngle += 1.2 * defSpeedMult * dt;
+            bonusShields.forEach(shield => {
+                const radius = baseRadius + shield.bonusLayer * 50;
+                const a = this.dubiaBonusAngle + (shield.bonusSlot / 5) * Math.PI * 2;
+                shield.setPosition(this.player.x + Math.cos(a) * radius, this.player.y + Math.sin(a) * radius);
+            });
+        }
+
+        // Dubia Defenders: every shield (regular and bonus) pulses white-to-red constantly.
+        if (this._dubiaDefendersActive) {
+            const pulse = (Math.sin(now * 0.005) + 1) / 2;
+            const g = Math.round(255 * (1 - pulse));
+            const tint = Phaser.Display.Color.GetColor(255, g, g);
+            this.dubiaShields.forEach(shield => shield.setTint(tint));
         }
 
         this.dubiaShields.forEach(shield => {
             this.enemies.getChildren().forEach(enemy => {
                 if (!this.canDamageEnemy(enemy)) return;
                 const dist = Phaser.Math.Distance.Between(shield.x, shield.y, enemy.x, enemy.y);
-                if (dist >= 56) return;
+                if (dist >= 112) return;
                 const lastHit = shield.hitCooldowns.get(enemy) ?? 0;
                 if (now - lastHit < 800) return;
                 shield.hitCooldowns.set(enemy, now);
@@ -164,11 +188,14 @@ export const MovementMethods = {
                         this.dubiaDefenderExplosion(enemy);
                     }
                 }
-                if (enemy.health <= 0) this.killEnemy(enemy);
+                if (enemy.health <= 0) {
+                    if (this._dubiaDefendersActive) this.registerDubiaDefenderKill();
+                    this.killEnemy(enemy);
+                }
             });
             if (this.boss?.active) {
                 const dist = Phaser.Math.Distance.Between(shield.x, shield.y, this.boss.x, this.boss.y);
-                if (dist < 192) {
+                if (dist < 384) {
                     const lastHit = shield.hitCooldowns.get(this.boss) ?? 0;
                     if (now - lastHit >= 800) {
                         shield.hitCooldowns.set(this.boss, now);
@@ -201,7 +228,59 @@ export const MovementMethods = {
                 this.damageDealt += dmg; e.health -= dmg;
                 this.playEnemyHurtSfx();
                 this.tweens.add({ targets: e, alpha: 0.2, duration: 60, yoyo: true });
-                if (e.health <= 0) this.killEnemy(e);
+                if (e.health <= 0) { this.registerDubiaDefenderKill(); this.killEnemy(e); }
+            }
+        });
+        if (this.boss?.active && Phaser.Math.Distance.Between(ex, ey, this.boss.x, this.boss.y) <= radius) {
+            this.damageBoss(dmg);
+        }
+    },
+
+    // Every 15 enemy kills credited to Dubia Defenders (direct shield contact or its
+    // 5-hit-combo/bonus-shield explosions), spawn one more orbiting "bonus" shield on
+    // the exterior. Rings hold up to 5 bonus shields each; once a ring is full, the
+    // next one starts a new ring further out (see updateDubiaShields' radius formula).
+    registerDubiaDefenderKill() {
+        this.dubiaDefenderKills++;
+        if (this.dubiaDefenderKills % 15 === 0) this.spawnDubiaBonusShield();
+    },
+
+    spawnDubiaBonusShield() {
+        const shield = this.add.image(this.player.x, this.player.y, 'dubia_shields');
+        shield.setScale(1.12).setDepth(6);
+        shield.layer = 'bonus';
+        shield.hitCooldowns = new Map();
+        const idx = this.dubiaBonusShields.length;
+        shield.bonusLayer = Math.floor(idx / 5);
+        shield.bonusSlot  = idx % 5;
+        this.dubiaShields.push(shield);
+        this.dubiaBonusShields.push(shield);
+        this.time.delayedCall(20000, () => this.explodeDubiaBonusShield(shield));
+        return shield;
+    },
+
+    // A bonus shield's 20s-fuse detonation: AOE burst at its current position, then it's
+    // removed and every remaining bonus shield is re-packed into the earliest ring/slot
+    // (so rings never have a gap while a later ring holds shields).
+    explodeDubiaBonusShield(shield) {
+        if (!shield.active) return;
+        const ex = shield.x, ey = shield.y;
+        this.dubiaShields = this.dubiaShields.filter(s => s !== shield);
+        this.dubiaBonusShields = this.dubiaBonusShields.filter(s => s !== shield);
+        shield.destroy();
+        this.dubiaBonusShields.forEach((s, i) => { s.bonusLayer = Math.floor(i / 5); s.bonusSlot = i % 5; });
+
+        const radius = 100;
+        const dmg = this.dubiaShieldDamage;
+        const expl = this.add.circle(ex, ey, radius, 0xff2222, 0.55).setDepth(15);
+        this.tweens.add({ targets: expl, alpha: 0, scaleX: 1.6, scaleY: 1.6, duration: 250, onComplete: () => expl.destroy() });
+        this.enemies.getChildren().forEach(e => {
+            if (!this.canDamageEnemy(e)) return;
+            if (Phaser.Math.Distance.Between(ex, ey, e.x, e.y) <= radius) {
+                this.damageDealt += dmg; e.health -= dmg;
+                this.playEnemyHurtSfx();
+                this.tweens.add({ targets: e, alpha: 0.2, duration: 60, yoyo: true });
+                if (e.health <= 0) { this.registerDubiaDefenderKill(); this.killEnemy(e); }
             }
         });
         if (this.boss?.active && Phaser.Math.Distance.Between(ex, ey, this.boss.x, this.boss.y) <= radius) {

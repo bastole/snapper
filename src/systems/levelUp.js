@@ -252,8 +252,8 @@ export const LevelUpMethods = {
                     if (this.branchLevel === 1) {
                         this.ownedWeapons.add('branchthrow');
                         this.branchTimer = this.time.addEvent({ delay: 6000, callback: this.doBranchThrow, callbackScope: this, loop: true });
-                    } else if (this.branchLevel === 2) { this.branchLength = 180; }
-                    else if (this.branchLevel === 3)   { this.branchLength = 240; }
+                    } else if (this.branchLevel === 2) { const d = 360 - this.branchLength; this.branchLength = 360; this.branchWidth += d; }
+                    else if (this.branchLevel === 3)   { const d = 480 - this.branchLength; this.branchLength = 480; this.branchWidth += d; }
                     else if (this.branchLevel === 4)   { this.branchMaxHits = 30; }
                 },
             },
@@ -350,7 +350,7 @@ export const LevelUpMethods = {
             } },
             { name: this.boostCardLabel('Bug Bucket'),      desc: 'Snapper\'s max health increases by 25',  available: () => this.ownedPassives.filter(p => p === 'Bug Bucket').length     < 5, effect: () => { this.ownedPassives.push('Bug Bucket');      this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
             { name: this.boostCardLabel('Well Fed'),        desc: 'Passively regenerate health faster', available: () => this.ownedPassives.filter(p => p === 'Well Fed').length < 3, effect: () => { this.ownedPassives.push('Well Fed'); this.startRegen(); } },
-            { name: this.boostCardLabel('Hungry Forager'),  desc: 'Insects attract to Snapper from further', available: () => this.ownedPassives.filter(p => p === 'Hungry Forager').length < 4, effect: () => { this.ownedPassives.push('Hungry Forager'); this.magnetRange += 80; } },
+            { name: this.boostCardLabel('Hungry Forager'),  desc: 'Insects attract to Snapper from further', available: () => this.ownedPassives.filter(p => p === 'Hungry Forager').length < 4, effect: () => { this.ownedPassives.push('Hungry Forager'); this.magnetRange += 160; } },
             { name: this.boostCardLabel('Hard Scales'),     desc: 'Enemies deal less damage to Snapper',    available: () => this.ownedPassives.filter(p => p === 'Hard Scales').length    < 4, effect: () => { this.ownedPassives.push('Hard Scales');    this.enemies.getChildren().forEach(e => { e.damage = Math.max(1, e.damage - 2); }); } },
             {
                 name: this.boostCardLabel('Polycephaly'),
@@ -376,7 +376,7 @@ export const LevelUpMethods = {
                     if (!first) this.venomDuration += 500;
                 },
             },
-            { name: this.boostCardLabel('Vitamin Supplements'), desc: 'Higher chance of Foodbox and Treasure drops', available: () => this.ownedPassives.filter(p => p === 'Vitamin Supplements').length < 4, effect: () => { this.ownedPassives.push('Vitamin Supplements'); this.vitaminBonus += 0.02; } },
+            { name: this.boostCardLabel('Vitamin Supplements'), desc: 'Higher chance of Foodbox and Treasure drops', available: () => this.ownedPassives.filter(p => p === 'Vitamin Supplements').length < 4, effect: () => { this.ownedPassives.push('Vitamin Supplements'); this.vitaminBonus += 0.01; } },
             {
                 name: this.boostCardLabel('Big Fangs'),
                 desc: (() => {
@@ -470,11 +470,17 @@ export const LevelUpMethods = {
         let padHandler = null;
         let currentChoices = [];
         let selectedCard = 0;
+        let cardClaimed = false; // guards against a second card's click firing during the claim animation below, since cardEls now survive briefly after pickCard() starts
 
-        const pickCard = (upgrade) => {
+        const pickCard = (upgrade, cardIndex) => {
+            if (cardClaimed) return;
+            cardClaimed = true;
             playSfx(this, 'sfx_upgrade_selected');
             const prevPassiveCount = this.ownedPassives.length;
             upgrade.effect();
+            // Raging Roar reverses its rotation direction on every upgrade claimed,
+            // regardless of what was picked.
+            this._roarDirection = -(this._roarDirection ?? 1);
             // Record into the persistent (cross-run) progress index that powers the
             // level-select INDEX menu. Weapon cards always carry weaponKey; boost cards
             // don't carry an explicit name, but every boost effect() pushes exactly its
@@ -486,46 +492,77 @@ export const LevelUpMethods = {
                 const boostName = this.ownedPassives[this.ownedPassives.length - 1];
                 recordBoostPick(boostName, this.getBoostLevel(boostName));
             }
-            this.updatePauseBtnGlow();
             rKeyHandler && this.input.keyboard.off('keydown-R', rKeyHandler);
             padHandler  && this.input.gamepad.off('down', padHandler);
-            cardEls.forEach(el => el.destroy());
-            ui.forEach(el => el.destroy());
-            // Keep time.paused / physics.pause() (set when the level-up screen opened) in
-            // effect for the whole countdown too, exactly like the regular pause menu — so
-            // weapon cooldowns, enemy spawns, poison ticks, boss timers, etc. stay frozen
-            // instead of silently ticking (and burning a cycle for nothing, since every
-            // do*() function early-returns on isCountdown). The countdown label ticks via
-            // real setTimeout, which runs independently of Phaser's paused clock.
-            const isActive = () => this.scene.isActive();
 
-            const countLabel = this.add.text(W / 2, H / 2, '3', {
-                fontSize: '144px', fontFamily: 'Arial Black, Arial',
-                color: '#ffffff', stroke: '#000000', strokeThickness: 16,
-            }).setScrollFactor(0).setDepth(210).setOrigin(0.5);
+            // Begin the 3-2-1 countdown only once the claimed card's shrink animation
+            // (see below) has fully played out. The pause button's evolution-available
+            // glow/pulse (updatePauseBtnGlow) is deferred to here too, so the "little
+            // explosion" pulse ring doesn't fire until after the card animation resolves.
+            const beginCountdown = () => {
+                this.updatePauseBtnGlow();
+                cardEls.forEach(el => el.destroy());
+                ui.forEach(el => el.destroy());
+                // Keep time.paused / physics.pause() (set when the level-up screen opened) in
+                // effect for the whole countdown too, exactly like the regular pause menu — so
+                // weapon cooldowns, enemy spawns, poison ticks, boss timers, etc. stay frozen
+                // instead of silently ticking (and burning a cycle for nothing, since every
+                // do*() function early-returns on isCountdown). The countdown label ticks via
+                // real setTimeout, which runs independently of Phaser's paused clock.
+                const isActive = () => this.scene.isActive();
 
-            this.isCountdown = true;
+                const countLabel = this.add.text(W / 2, H / 2, '3', {
+                    fontSize: '144px', fontFamily: 'Arial Black, Arial',
+                    color: '#ffffff', stroke: '#000000', strokeThickness: 16,
+                }).setScrollFactor(0).setDepth(210).setOrigin(0.5);
 
-            const resume = () => {
-                if (!isActive()) return;
-                countLabel.destroy();
-                this.physics.resume();
-                this.time.paused = false;
-                this.isLevelingUp = false;
-                this.isCountdown  = false;
-                if (this.pendingLevelUps > 0) {
-                    this.pendingLevelUps--;
-                    this.time.delayedCall(this.fastUpgrade ? 0 : 200, () => this.showLevelUp());
-                } else {
-                    this.fastUpgrade = false;
+                this.isCountdown = true;
+
+                const resume = () => {
+                    if (!isActive()) return;
+                    countLabel.destroy();
+                    this.physics.resume();
+                    this.time.paused = false;
+                    this.isLevelingUp = false;
+                    this.isCountdown  = false;
+                    if (this.pendingLevelUps > 0) {
+                        this.pendingLevelUps--;
+                        this.time.delayedCall(this.fastUpgrade ? 0 : 200, () => this.showLevelUp());
+                    } else {
+                        this.fastUpgrade = false;
+                    }
+                };
+
+                if (!this.fastUpgrade) {
+                    setTimeout(() => { if (isActive() && countLabel.active) countLabel.setText('2'); }, 500);
+                    setTimeout(() => { if (isActive() && countLabel.active) countLabel.setText('1'); }, 1000);
                 }
+                setTimeout(resume, this.fastUpgrade ? 0 : 1500);
             };
 
-            if (!this.fastUpgrade) {
-                setTimeout(() => { if (isActive() && countLabel.active) countLabel.setText('2'); }, 500);
-                setTimeout(() => { if (isActive() && countLabel.active) countLabel.setText('1'); }, 1000);
+            // Claim animation: the picked card (rect + title + desc) shrinks 15% over
+            // 50ms, holds smaller for 75ms, then grows back to full size over 50ms —
+            // only then does the countdown begin. (Halved from the original 100/150/100.)
+            // Uses this.tweens (unaffected by this.time.paused) plus setTimeout for the
+            // hold, same reasoning as above.
+            const pickedEls = cardIndex === undefined ? [] :
+                [cardEls[cardIndex * 3], cardEls[cardIndex * 3 + 1], cardEls[cardIndex * 3 + 2]].filter(Boolean);
+            if (pickedEls.length && this.scene.isActive()) {
+                this.tweens.add({
+                    targets: pickedEls, scaleX: 0.85, scaleY: 0.85, duration: 50,
+                    onComplete: () => {
+                        setTimeout(() => {
+                            if (!this.scene.isActive()) return;
+                            this.tweens.add({
+                                targets: pickedEls, scaleX: 1, scaleY: 1, duration: 50,
+                                onComplete: beginCountdown,
+                            });
+                        }, 75);
+                    },
+                });
+            } else {
+                beginCountdown();
             }
-            setTimeout(resume, this.fastUpgrade ? 0 : 1500);
         };
 
         const applyCardHighlight = () => {
@@ -596,7 +633,7 @@ export const LevelUpMethods = {
 
                 card.on('pointerover', () => { selectedCard = i; applyCardHighlight(); });
                 card.on('pointerout',  () => card.setFillStyle(cardColor));
-                card.on('pointerdown', () => { if (selectionReady) pickCard(upgrade); });
+                card.on('pointerdown', () => { if (selectionReady) pickCard(upgrade, i); });
             });
 
             applyCardHighlight();
@@ -626,7 +663,7 @@ export const LevelUpMethods = {
                 selectedCard = (selectedCard + 1) % 3;
                 applyCardHighlight();
             } else if (idx === 0) { // A = pick
-                if (selectionReady && currentChoices[selectedCard]) pickCard(currentChoices[selectedCard]);
+                if (selectionReady && currentChoices[selectedCard]) pickCard(currentChoices[selectedCard], selectedCard);
             } else if (idx === 3) { // Y = reroll
                 doReroll();
             }

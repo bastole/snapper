@@ -45,9 +45,10 @@ export default class LevelSelectScene extends Phaser.Scene {
             highScoreTexts.length = 0;
 
             levelDefs.forEach((def, i) => {
-                const unlocked = allUnlocked || def.number <= maxUnlocked;
+                const unlocked  = allUnlocked || def.number <= maxUnlocked;
+                const completed = def.number < maxUnlocked;
                 const y = 260 + i * 120;
-                const colour = unlocked ? '#ffffff' : '#666666';
+                const colour = completed ? '#ffd700' : unlocked ? '#ffffff' : '#666666';
                 const label  = unlocked
                     ? `Level ${def.number} – ${def.name}`
                     : `Level ${def.number} – ${def.name}  🔒`;
@@ -56,7 +57,7 @@ export default class LevelSelectScene extends Phaser.Scene {
                     fontSize: '32px',
                     fontFamily: 'Arial',
                     color: colour,
-                    backgroundColor: unlocked ? '#333333' : '#1a1a1a',
+                    backgroundColor: completed ? '#1a5c1a' : unlocked ? '#333333' : '#1a1a1a',
                     padding: { x: 40, y: 20 },
                 }).setOrigin(0.5);
 
@@ -96,7 +97,8 @@ export default class LevelSelectScene extends Phaser.Scene {
                 if (!btn?.active) return;
                 const unlocked = allUnlocked || levelDefs[i].number <= maxUnlocked;
                 if (!unlocked) return;
-                btn.setColor(i === selectedIdx ? '#ffff00' : '#ffffff');
+                const completed = levelDefs[i].number < maxUnlocked;
+                btn.setColor(i === selectedIdx ? '#ffff00' : completed ? '#ffd700' : '#ffffff');
             });
 
             const selectedBtn = levelBtns[selectedIdx];

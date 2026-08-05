@@ -157,7 +157,7 @@ export const BaseWeaponMethods = {
             const offset = (i - Math.floor(count / 2)) * spread;
             const a      = targetAngle + offset;
             const pebble = this.physics.add.image(this.player.x, this.player.y, 'weapon_pebble_flick');
-            pebble.setScale(0.40);
+            pebble.setScale(0.80);
             pebble.setDepth(8);
             pebble.setVelocity(Math.cos(a) * 600, Math.sin(a) * 600);
             pebble.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
@@ -324,7 +324,7 @@ export const BaseWeaponMethods = {
     spawnPupaMine(x, y) {
         if (!this.pupaGroup) return;
         const mine = this.physics.add.image(x, y, 'weapon_pupae_mines');
-        mine.setScale(0.60).setDepth(8);
+        mine.setScale(1.20).setDepth(8);
         mine.exploded = false;
         const explodeMine = () => {
             if (mine.exploded || !mine.active || this.isCountdown) return;
@@ -367,7 +367,7 @@ export const BaseWeaponMethods = {
             const oy = this.player.y + Math.sin(spreadAngle) * spreadDist;
 
             const mine = this.physics.add.image(this.player.x, this.player.y, 'weapon_pupae_mines');
-            mine.setScale(0.60);
+            mine.setScale(1.20);
             mine.setDepth(8);
             mine.exploded = false;
 

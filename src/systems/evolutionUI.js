@@ -87,6 +87,8 @@ export const EvolutionUIMethods = {
         this.appliedEvolutions.add(ev.id);
         recordEvolution(ev.id);
         ev.effect.call(this);
+        this.evolutionsAppliedCount++;
+        this.updateScore();
     },
 
     _getEvoReqLines(ev) {

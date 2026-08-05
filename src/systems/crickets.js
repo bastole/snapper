@@ -34,7 +34,19 @@ export const CricketMethods = {
                 }
                 return; // stays stationary until snapped
             }
-            if (enemy.isCharging || enemy.speed === 0) return;
+            if (enemy.isCharging) return;
+            if (enemy.speed === 0) {
+                // Stationary enemies (Lettuce Shooter, Oregano Fan, a surfaced Carrot Mole,
+                // etc.) never move, but should still visually track which side the player is
+                // on rather than freeze facing whichever way they happened to spawn. Skipped
+                // for enemies currently immobilised (bugCaught) — those keep holding their
+                // last facing, same as before. (trapArmed already returned above.)
+                if (!enemy.bugCaught) {
+                    const facingRight = this.player.x > enemy.x;
+                    enemy.setFlipX(enemy.flipInverted ? facingRight : !facingRight);
+                }
+                return;
+            }
             if (enemy.isWanderer) {
                 if (!enemy.wanderTarget) enemy.wanderTarget = this.pickCycloneWanderTarget();
                 const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, enemy.wanderTarget.x, enemy.wanderTarget.y);
@@ -42,9 +54,10 @@ export const CricketMethods = {
                     enemy.wanderTarget = this.pickCycloneWanderTarget();
                 } else {
                     this.physics.moveTo(enemy, enemy.wanderTarget.x, enemy.wanderTarget.y, enemy.speed);
-                    // Sprites face right by default; flip when moving left.
-                    if (enemy.wanderTarget.x > enemy.x) enemy.setFlipX(false);
-                    else if (enemy.wanderTarget.x < enemy.x) enemy.setFlipX(true);
+                    // Sprites face right by default; flip when moving left. (Inverted per-enemy
+                    // for types like Oregano Skunk whose art faces the opposite way.)
+                    const wanderRight = enemy.wanderTarget.x > enemy.x;
+                    if (enemy.wanderTarget.x !== enemy.x) enemy.setFlipX(enemy.flipInverted ? wanderRight : !wanderRight);
                 }
                 return;
             }
@@ -71,9 +84,10 @@ export const CricketMethods = {
             const angle   = bearing + (enemy.approachOffset + wobble) * spread;
             const vx = Math.cos(angle) * enemy.speed;
             enemy.setVelocity(vx, Math.sin(angle) * enemy.speed);
-            // Sprites face right by default; flip when moving left.
-            if (vx > 0) enemy.setFlipX(false);
-            else if (vx < 0) enemy.setFlipX(true);
+            // Sprites face right by default; flip when moving left. (Inverted per-enemy
+            // for types like Oregano Skunk whose art faces the opposite way.)
+            const movingRight = vx > 0;
+            if (vx !== 0) enemy.setFlipX(enemy.flipInverted ? movingRight : !movingRight);
         });
 
         this.crickets.getChildren().forEach(cricket => {
@@ -94,6 +108,8 @@ export const CricketMethods = {
             cricket.destroy();
             this.playerHealth = this.playerMaxHealth;
             this.updateHPBar();
+            this.fullboxesCollected++;
+            this.updateScore();
             playSfx(this, 'sfx_item_heal');
             return;
         }

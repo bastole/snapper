@@ -28,14 +28,14 @@ export const BossMethods = {
         const H = this.cameras.main.height;
 
         const bossCfg = this.level === 5
-            ? { key: 'yun_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 1.6 }
+            ? { key: 'yun_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 3.2 }
             : this.level === 4
-            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 1.2 }
+            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 2.4 }
             : this.level === 3
-            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 1.2 }
+            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 2.4 }
             : this.level === 2
-            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 1.2 }
-            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 1.2, chargeDelay: 3500 };
+            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 2.4 }
+            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 1.68, chargeDelay: 3500 };
 
         // Warning banner
         const warn = this.add.text(W / 2, H / 2 - 120, `⚠  ${bossCfg.label} APPROACHES  ⚠`, {
@@ -161,7 +161,7 @@ export const BossMethods = {
                 this.boss.phaseTriggered = false;
                 const scheduleNextSlam = () => {
                     this.bossLegSlamTimer = this.time.delayedCall(Phaser.Math.Between(5000, 10000), () => {
-                        this.bossLegSlam();
+                        this.bossLegSlamWindup();
                         scheduleNextSlam();
                     });
                 };
@@ -303,8 +303,13 @@ export const BossMethods = {
         warn.setPosition(this.boss.x, this.boss.y);
         warn.setRotation(angle);
 
-        // Flash boss red to signal incoming charge
-        this.tweens.add({ targets: this.boss, alpha: 0.3, duration: 75, yoyo: true, repeat: 1 });
+        // Flash boss red to signal incoming charge. Explicit from:1 so that even if this
+        // overlaps with damageBoss()'s own hit-flash tween (very likely mid-fight, since
+        // damage keeps landing while this plays), whichever tween finishes last always
+        // resolves alpha back to a true 1 instead of some transient in-flight value —
+        // otherwise overlapping implicit-from tweens can compound and leave the boss
+        // permanently semi-transparent (the reported "boss looks see-through" bug).
+        this.tweens.add({ targets: this.boss, alpha: { from: 1, to: 0.3 }, duration: 75, yoyo: true, repeat: 1 });
 
         // After 150ms freeze, launch the charge and clear the warning
         this.time.delayedCall(150, () => {
@@ -403,7 +408,7 @@ export const BossMethods = {
 
         // Immobilised: skip movement for the frame, but AI-mode bookkeeping above and any
         // scheduled attacks keep running exactly as before.
-        if (boss.bugCaught) { boss.setVelocity(0, 0); return; }
+        if (boss.bugCaught || boss.isCharging) { boss.setVelocity(0, 0); return; }
 
         if (boss.aiMode === 'circle') {
             const dx   = boss.x - this.player.x;
@@ -425,12 +430,32 @@ export const BossMethods = {
         }
     },
 
-    bossLegSlam() {
+    bossLegSlamWindup() {
         if (!this.boss?.active) return;
-        // Brief flash warning on boss
-        this.tweens.add({ targets: this.boss, alpha: 0.3, duration: 100, yoyo: true });
-        this.boss.play('rocket_spider_attack');
-        this.time.delayedCall(800, () => { if (this.boss?.active) this.boss.play('rocket_spider_idle'); });
+        // Freeze and hold the wind-up frame (3rd frame, index 2) for 300ms before slamming.
+        this.boss.isCharging = true;
+        this.boss.setVelocity(0, 0);
+        this.boss.anims.stop();
+        this.boss.setFrame(2);
+        this.time.delayedCall(300, () => this.bossLegSlam());
+    },
+
+    bossLegSlam() {
+        if (!this.boss?.active) { if (this.boss) this.boss.isCharging = false; return; }
+        // Hold the slam frame (4th frame, index 3) for 800ms, frozen in place.
+        this.boss.isCharging = true;
+        this.boss.setVelocity(0, 0);
+        this.boss.anims.stop();
+        this.boss.setFrame(3);
+        // Brief flash warning on boss. Explicit from:1, see the matching comment on
+        // Lettuce Beetle's charge-warning tween above for why this prevents the boss
+        // getting stuck semi-transparent when this overlaps with other alpha tweens.
+        this.tweens.add({ targets: this.boss, alpha: { from: 1, to: 0.3 }, duration: 100, yoyo: true });
+        // Screenshake on ground impact
+        this.cameras.main.shake(500, 0.02);
+        this.time.delayedCall(800, () => {
+            if (this.boss?.active) { this.boss.isCharging = false; this.boss.play('rocket_spider_idle'); }
+        });
         // Spawn 3 Rocket Swords near the player
         for (let i = 0; i < 3; i++) {
             const ox = this.player.x + Phaser.Math.Between(-260, 260);
@@ -469,7 +494,7 @@ export const BossMethods = {
             if (!this.boss?.active) return;
             const tx = this.player.x; const ty = this.player.y;
             this.physics.moveTo(this.boss, tx, ty, 960);
-            this.tweens.add({ targets: this.boss, alpha: 0.4, duration: 80, yoyo: true });
+            this.tweens.add({ targets: this.boss, alpha: { from: 1, to: 0.4 }, duration: 80, yoyo: true });
             this.time.delayedCall(300, () => {
                 if (this.boss?.active) this.boss.body?.setVelocity(0, 0);
                 this.boss.isCharging = false;
@@ -594,6 +619,10 @@ export const BossMethods = {
 
         boss.mantisVanishing = true;
         boss.setVelocity(0, 0);
+        // Hold the 4th frame, unmoving, all the way from here through reappearing
+        // and up until the strike itself fires (see mantisStrike below).
+        boss.anims.stop();
+        boss.setFrame(3);
 
         // Stay still and slowly fade out before going invisible
         this.tweens.add({ targets: boss, alpha: 0, duration: 1000, onComplete: () => {
@@ -663,8 +692,11 @@ export const BossMethods = {
         }
 
         // Red flash warning
-        this.tweens.add({ targets: boss, alpha: 0.2, duration: 80, yoyo: true, repeat: 1 });
-        boss.play('mulberry_mantis_attack');
+        this.tweens.add({ targets: boss, alpha: { from: 1, to: 0.2 }, duration: 80, yoyo: true, repeat: 1 });
+        // Vanish-attack: hold the 3rd frame for the strike, until he resumes moving
+        // (idle, 1st/2nd frames) or vanishes again (4th frame, see mantisVanish above).
+        boss.anims.stop();
+        boss.setFrame(2);
         this.time.delayedCall(400, () => { if (this.boss?.active) this.boss.play('mulberry_mantis_idle'); });
 
         // Deal 25 damage if player is still nearby
@@ -718,7 +750,16 @@ export const BossMethods = {
         const dealt = amount * 0.5; // Bosses take half damage
         this.playEnemyHurtSfx();
         this.damageDealt += dealt; this.boss.health -= dealt;
-        this.tweens.add({ targets: this.boss, alpha: 0.2, duration: 80, yoyo: true });
+        // Explicit from:1 (not just `alpha: 0.2`): this fires on every single hit, so
+        // during real combat many overlapping copies of this tween are alive on the
+        // boss at once (each hit within the same ~160ms window starts a new one before
+        // the last one finished). An implicit "from" captures whatever alpha happens to
+        // be mid-flight at that instant, so yoyo-ing back returns to that transient dip
+        // rather than a true 1 — with enough overlapping hits this compounds and the
+        // boss can settle permanently below full opacity, i.e. exactly the reported
+        // "boss looks see-through" bug. Anchoring every copy to the same from:1/to:0.2
+        // means whichever tween finishes last always resolves alpha back to a real 1.
+        this.tweens.add({ targets: this.boss, alpha: { from: 1, to: 0.2 }, duration: 80, yoyo: true });
         this.updateBossHealthBar();
         if (this.level === 4 && this.boss.mantisPhase === 1 && this.boss.health <= this.boss.phaseBoundaries[0]) {
             this.boss.mantisPhase = 2;
@@ -744,7 +785,7 @@ export const BossMethods = {
         boss.aiSpeed = 440; // player base 320 + 2× Angry (+60 each)
 
         // Red flash warning
-        this.tweens.add({ targets: boss, alpha: 0.1, duration: 120, yoyo: true, repeat: 3 });
+        this.tweens.add({ targets: boss, alpha: { from: 1, to: 0.1 }, duration: 120, yoyo: true, repeat: 3 });
 
         // Ring of 20 Rocket Swords around the boss
         for (let i = 0; i < 20; i++) {

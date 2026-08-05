@@ -21,12 +21,6 @@ game-over overlay.
 Use this to build a maxed loadout fast and test evolutions and end-game
 weapon interactions. Blocked in the same states as U.
 
-### REVIVE button — death overlay
-Appears on the game-over screen alongside RETRY and MAIN MENU. Revives
-the player at a random position ≥4000px from all live enemies, restores
-full HP, and grants 3 seconds of blinking invincibility. All upgrades,
-weapon levels, and player level are kept. Gamepad: **Y**.
-
 ### 🧪 ALL LEVELS — Level Select screen
 A button on the Level Select screen that unlocks all 5 levels for the
 current session regardless of save progress. Click once to enable (turns
@@ -37,10 +31,11 @@ the scene.
 
 ## Previously removed (for reference)
 
-These were cut at some point but are now restored above (U, F, REVIVE).
+These were cut at some point but are now restored above (U, F).
 Listed here in case history is useful.
 
 | Feature | Removed in | Notes |
 |---|---|---|
-| U / F / REVIVE | Session 27 | Re-added Session 49 |
+| U / F | Session 27 | Re-added Session 49 |
+| REVIVE button (death overlay) | Session 27, re-added Session 49 | Removed again per request — no longer restored |
 | E key (max Bite + Hungry Forager) | Session 31 | Added and removed same session — not restored |

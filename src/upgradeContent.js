@@ -181,7 +181,7 @@ export const BOOST_CONTENT = {
     },
     'Hungry Forager': {
         label: 'Hungry Forager',
-        tiers: [1, 2, 3, 4].map(() => ({ desc: 'Insects attract to Snapper from further away (+80 magnet range).' })),
+        tiers: [1, 2, 3, 4].map(() => ({ desc: 'Insects attract to Snapper from further away (+160 magnet range).' })),
     },
     'Hard Scales': {
         label: 'Hard Scales',
@@ -206,7 +206,7 @@ export const BOOST_CONTENT = {
     },
     'Vitamin Supplements': {
         label: 'Vitamin Supplements',
-        tiers: [1, 2, 3, 4].map(() => ({ desc: 'Higher chance of Foodbox and Treasure drops (+2%).' })),
+        tiers: [1, 2, 3, 4].map(() => ({ desc: 'Higher chance of Foodbox and Treasure drops (+1%).' })),
     },
     'Big Fangs': {
         label: 'Big Fangs',
@@ -243,7 +243,7 @@ export const EVOLUTION_LIST = [
     { id: 'steel_slam',      weaponKey: 'tailslap',     weaponLabel: 'Tail Slap',       boostName: 'Hard Scales',        evolvedName: 'Steel Slam',      desc: 'Heavy arc — more damage, high knockback, immobilises for 500ms.' },
     { id: 'toxic_ocean',     weaponKey: 'poop',         weaponLabel: 'Poop',            boostName: 'Well Fed',           evolvedName: 'Toxic Ocean',     desc: 'Fires 3 toxic fields, bigger radius, slows enemies, drifts to crowds.' },
     { id: 'sunbaked_ambers', weaponKey: 'pebble',       weaponLabel: 'Pebble Flick',    boostName: 'Basking',            evolvedName: 'Sunbaked Ambers', desc: '30 ambers in a 360° ring every 8s — inflicts burn for 3.5s.' },
-    { id: 'raging_roar',     weaponKey: 'hiss',         weaponLabel: 'Hiss',            boostName: 'Angry',              evolvedName: 'Raging Roar',     desc: 'Always-active 60° rotating cone — slows everything inside.' },
+    { id: 'raging_roar',     weaponKey: 'hiss',         weaponLabel: 'Hiss',            boostName: 'Angry',              evolvedName: 'Raging Roar',     desc: 'Always-active 60° rotating cone — slows everything inside. Reverses direction every time an upgrade is claimed.' },
     { id: 'sticky_shot',     weaponKey: 'lick',         weaponLabel: 'Lick',            boostName: 'Vitamin Supplements',evolvedName: 'Sticky Shot',     desc: 'Fires 5 tongues at once every 1.5s — more damage, slows hit enemies.' },
     { id: 'acid_snake',      weaponKey: 'wormwhip',     weaponLabel: 'Worm Whip',       boostName: 'Venom',              evolvedName: 'Acid Snake',      desc: 'Both sides, 160° arc every 3.5s — poisons 6s, slows 2s.' },
     { id: 'bug_buster',      weaponKey: 'pupamines',    weaponLabel: 'Pupa Mines',      boostName: 'Bug Catcher',        evolvedName: 'Bug Buster',      desc: 'Sprays 8-12 mines lasting 45s — defeated enemies drop a Pupa Mine.' },

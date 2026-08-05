@@ -124,7 +124,10 @@ export const HandBossMethods = {
         const boss = this.boss;
         if (!boss) return;
         boss.handPhase++;
-        this.tweens.add({ targets: boss, alpha: 0.1, duration: 200, yoyo: true, repeat: 2 });
+        // Explicit from:1 so this can't compound with damageBoss()'s own hit-flash tween
+        // (both target the same boss.alpha) and leave the boss stuck semi-transparent —
+        // see the detailed comment on damageBoss() in boss.js.
+        this.tweens.add({ targets: boss, alpha: { from: 1, to: 0.1 }, duration: 200, yoyo: true, repeat: 2 });
 
         // Freeze completely for 3s before the new phase's behaviour kicks in — the only
         // motion visible is a violent trembling in place, no wandering/attacking.
@@ -188,7 +191,7 @@ export const HandBossMethods = {
         for (let i = 0; i < COUNT; i++) {
             const a    = (i / COUNT) * Math.PI * 2;
             const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_calcium');
-            proj.setScale(0.72).setDepth(7);
+            proj.setScale(2.88).setDepth(7);
             proj.setVelocity(Math.cos(a) * 440, Math.sin(a) * 440);
             proj.damage = 15;
             this.physics.add.overlap(proj, this.player, () => {
@@ -275,7 +278,7 @@ export const HandBossMethods = {
         warn.fillRect(0, -60, dist, 120);
         warn.setPosition(boss.x, boss.y);
         warn.setRotation(angle);
-        this.tweens.add({ targets: boss, alpha: 0.3, duration: 75, yoyo: true, repeat: 1 });
+        this.tweens.add({ targets: boss, alpha: { from: 1, to: 0.3 }, duration: 75, yoyo: true, repeat: 1 });
 
         // Short 100ms react window, then charge
         this.time.delayedCall(100, () => {
@@ -575,7 +578,7 @@ export const HandBossMethods = {
                 for (let i = 0; i < 30; i++) {
                     const a    = (i / 30) * Math.PI * 2;
                     const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
-                    proj.setScale(0.72).setDepth(7);
+                    proj.setScale(2.88).setDepth(7);
                     proj.setVelocity(Math.cos(a) * 500, Math.sin(a) * 500);
                     proj.damage = 15;
                     this.physics.add.overlap(proj, this.player, () => {
@@ -618,7 +621,7 @@ export const HandBossMethods = {
             for (let i = 0; i < 30; i++) {
                 const a    = (i / 30) * Math.PI * 2;
                 const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
-                proj.setScale(0.80).setDepth(7);
+                proj.setScale(3.20).setDepth(7);
                 proj.setVelocity(Math.cos(a) * 400, Math.sin(a) * 400);
                 this.physics.add.overlap(proj, this.player, () => {
                     if (!proj.active || this.player.reviveInvincible) return;

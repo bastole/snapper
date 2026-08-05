@@ -114,6 +114,7 @@ export default class GameScene extends Phaser.Scene {
                 const y = Phaser.Math.Between(128, 6272);
                 const item = this.physics.add.image(x, y, 'foodbox');
                 item.setScale(2.20).setDepth(4);
+                item.body.setSize(item.body.width * 0.5, item.body.height * 0.5, true);
                 item.xpValue = 0;
                 item.specialType = 'wormbox';
                 this.tweens.add({ targets: item, scaleX: 2.60, scaleY: 2.60, duration: 350, yoyo: true, loop: -1 });
@@ -178,7 +179,9 @@ export default class GameScene extends Phaser.Scene {
         this.wormboxSpawned  = 0;
         this.score               = 0;
         this.foodboxesCollected  = 0;
+        this.fullboxesCollected  = 0;
         this.treasuresCollected  = 0;
+        this.evolutionsAppliedCount = 0;
         this.gameTime        = 600;
         this.bossSpawned     = false;
         this.boss            = null;
@@ -207,9 +210,13 @@ export default class GameScene extends Phaser.Scene {
         this.biteLevel  = 1;
         this.starvedChompActive = false;
         this._roarAngle = 0;
+        this._roarDirection = 1;
         this._spikeShedderKills = 0;
         this._dubiaDefenderLastShot = 0;
         this._dubiaDefendersActive  = false;
+        this.dubiaDefenderKills = 0;
+        this.dubiaBonusShields  = [];
+        this.dubiaBonusAngle    = 0;
 
         // --- Other weapon stats (initialised when unlocked) ---
         this.tailSlapDamage   = 25;
@@ -246,7 +253,7 @@ export default class GameScene extends Phaser.Scene {
         // --- New weapons ---
         this.poisonClawLevel   = 0;
         this.branchLevel       = 0;
-        this.branchWidth       = 40;
+        this.branchWidth       = 80;
         this.branchLength      = 240;
         this.branchMaxHits     = 15;
         this.dustKickLevel     = 0;
@@ -284,13 +291,13 @@ export default class GameScene extends Phaser.Scene {
             { id: 'steel_slam',            weaponKey: 'tailslap',    weaponLabel: 'Tail Slap',             boostName: 'Hard Scales',          evolvedName: 'Steel Slam',            desc: 'Heavy arc — more damage, high knockback, immobilises for 500ms.',             effect() { this.evolveToSteelSlam(); } },
             { id: 'toxic_ocean',           weaponKey: 'poop',        weaponLabel: 'Poop',                  boostName: 'Well Fed',             evolvedName: 'Toxic Ocean',           desc: 'Fires 3 toxic fields, bigger radius, slows enemies, drifts to crowds.',      effect() { this.evolveToToxicOcean(); } },
             { id: 'sunbaked_ambers',       weaponKey: 'pebble',      weaponLabel: 'Pebble Flick',          boostName: 'Basking',              evolvedName: 'Sunbaked Ambers',       desc: '30 ambers in a 360° ring every 8s — inflicts burn for 3.5s.',               effect() { this.evolveToSunbakedAmbers(); } },
-            { id: 'raging_roar',           weaponKey: 'hiss',        weaponLabel: 'Hiss',                  boostName: 'Angry',                evolvedName: 'Raging Roar',           desc: 'Always-active 60° rotating cone — slows everything inside.',                 effect() { this.evolveToRagingRoar(); } },
+            { id: 'raging_roar',           weaponKey: 'hiss',        weaponLabel: 'Hiss',                  boostName: 'Angry',                evolvedName: 'Raging Roar',           desc: 'Always-active 60° rotating cone — slows everything inside. Reverses direction every time an upgrade is claimed.', effect() { this.evolveToRagingRoar(); } },
             { id: 'sticky_shot',           weaponKey: 'lick',        weaponLabel: 'Lick',                  boostName: 'Vitamin Supplements',  evolvedName: 'Sticky Shot',           desc: 'Fires 5 tongues at once every 1.5s — more damage, slows hit enemies.',       effect() { this.evolveToStickyShot(); } },
             { id: 'acid_snake',            weaponKey: 'wormwhip',    weaponLabel: 'Worm Whip',             boostName: 'Venom',                evolvedName: 'Acid Snake',            desc: 'Both sides, 160° arc every 3.5s — poisons 6s, slows 2s.',                   effect() { this.evolveToAcidSnake(); } },
             { id: 'bug_buster',            weaponKey: 'pupamines',   weaponLabel: 'Pupa Mines',            boostName: 'Bug Catcher',          evolvedName: 'Bug Buster',            desc: 'Sprays 8-12 mines lasting 45s — defeated enemies drop a Pupa Mine.',   effect() { this.evolveToBugBuster(); } },
             { id: 'spike_shedder',         weaponKey: 'skinshed',    weaponLabel: 'Skin Shed',             boostName: 'Big Fangs',            evolvedName: 'Spike Shedder',         desc: 'Drops 3 spiky skins every 8s — far more damage, heals 1 HP per 10 kills.',   effect() { this.evolveToSpikeShedder(); } },
             { id: 'shining_shells',        weaponKey: 'woodiebounce',weaponLabel: 'Woodie Bounce',         boostName: 'Shiny Scales',         evolvedName: 'Shining Shells',        desc: '3 fast-moving shells every 4s, unlimited ricochets 25s, auto-aim, kills explode.', effect() { this.evolveToShiningShells(); } },
-            { id: 'dubia_defenders',       weaponKey: 'dubiashields',weaponLabel: 'Dubia Shields',         boostName: 'Bug Bucket',           evolvedName: 'Dubia Defenders',       desc: 'Shields spin faster — each fires a strong projectile every 5s; 5 hits on the same enemy triggers a small explosion.', effect() { this.evolveToDubiaDefenders(); } },
+            { id: 'dubia_defenders',       weaponKey: 'dubiashields',weaponLabel: 'Dubia Shields',         boostName: 'Bug Bucket',           evolvedName: 'Dubia Defenders',       desc: 'Shields spin faster and pulse red — each fires a strong projectile every 5s; 5 hits on the same enemy triggers a small explosion. Every 15 kills adds a bonus shield orbiting further out (5 per ring, then a new ring); these expire after 20s.', effect() { this.evolveToDubiaDefenders(); } },
             { id: 'flashclaw',             weaponKey: 'poisonclaw',  weaponLabel: 'Poison Claw',           boostName: 'Hunter Instinct',      evolvedName: 'Flashclaw',             desc: 'Double claw strike — immobilises 1s (10s cd per enemy), poisons 6s.',        effect() { this.evolveToFlashclaw(); } },
             { id: 'log_lob',               weaponKey: 'branchthrow', weaponLabel: 'Branch Throw',          boostName: 'Aura Farming',         evolvedName: 'Log Lob',               desc: '2 logs rolling opposite ways — unbreakable 25s, high damage, knockback.',     effect() { this.evolveToLogLob(); } },
             { id: 'duststorm',             weaponKey: 'dustkick',    weaponLabel: 'Dust Kick',             boostName: 'Inflate',              evolvedName: 'Duststorm',             desc: 'Huge area — medium damage, slows all, immobilises nearest for 1.5s.',        effect() { this.evolveToDuststorm(); } },

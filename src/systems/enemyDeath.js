@@ -76,6 +76,7 @@ export const EnemyDeathMethods = {
                 // drops, even during the boss fight.
                 const item = this.physics.add.image(enemy.x, enemy.y, 'fullbox');
                 item.setScale(2.40).setDepth(4);
+                item.body.setSize(item.body.width * 0.5, item.body.height * 0.5, true);
                 item.xpValue = 0;
                 item.specialType = 'fullbox';
                 this.tweens.add({ targets: item, scaleX: 2.88, scaleY: 2.88, duration: 250, yoyo: true, loop: -1 });
@@ -85,6 +86,7 @@ export const EnemyDeathMethods = {
                 // Never drops during the boss fight.
                 const item = this.physics.add.image(enemy.x, enemy.y, 'treasure');
                 item.setScale(2.20).setDepth(4);
+                item.body.setSize(item.body.width * 0.5, item.body.height * 0.5, true);
                 item.xpValue = 0;
                 item.specialType = 'treasure';
                 this.tweens.add({ targets: item, scaleX: 2.60, scaleY: 2.60, duration: 250, yoyo: true, loop: -1 });
@@ -93,6 +95,7 @@ export const EnemyDeathMethods = {
                 // Foodbox — always drops, even during the boss fight
                 const item = this.physics.add.image(enemy.x, enemy.y, 'foodbox');
                 item.setScale(2.20).setDepth(4);
+                item.body.setSize(item.body.width * 0.5, item.body.height * 0.5, true);
                 item.xpValue = 0;
                 item.specialType = 'wormbox';
                 this.tweens.add({ targets: item, scaleX: 2.60, scaleY: 2.60, duration: 350, yoyo: true, loop: -1 });
@@ -234,7 +237,7 @@ export const EnemyDeathMethods = {
             for (let i = 0; i < 3; i++) {
                 const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
                 const proj  = this.physics.add.image(enemy.x, enemy.y, 'projectile_oregano_ghost');
-                proj.setScale(0.56).setDepth(7).setTint(0x44ff44);
+                proj.setScale(2.24).setDepth(7).setTint(0x44ff44);
                 proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
                 proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
                 proj.damage = enemy.damage;

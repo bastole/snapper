@@ -1528,3 +1528,54 @@ Previously there was no `body.setSize` call on the main boss sprite at all — t
 - `doSaladBowl()` (Salad Bowl Phase 3 reprises): `1.2/1.3 → 2.4` across all four bosses.
 - `checkHandPhase4BossSpawn()` (Phase 4 respawn): `0.6/0.65 → 1.2` across all four bosses.
 - `spawnHandMiniBoss()` body line: `mb.body.setSize(mb.body.width * 0.75, ...)` → `* 0.5625`. The mini-boss spawner had been using the old pre-Session-40 enemy ratio (75%); updating it now gives mini-bosses the same hitbox-to-visual proportion as the main boss and all regular enemies.
+
+---
+
+## Session 52 — 2026-08-05
+
+A long session covering a wide grab-bag of requested tweaks, two real bugfixes, and one new mechanic (Dubia Defenders' bonus shields). Grouped by topic below rather than chronologically.
+
+### Bug fixes
+
+- **Branch Throw's "Wider branch" upgrades were shrinking the branch, not growing it.** `levelUp.js`'s tier-2/3 `branchLength` assignments (`180`/`240`) were stale pre-Session-37-doubling values that never got doubled alongside everything else, so picking the upgrade at level 2 actually took the bar from the doubled base of `240` down to `180`. Corrected to `360`/`480` so both picks grow it past the base.
+- **Fullboxes gave zero score; foodboxes gave 10 instead of the intended 100.** `crickets.js`'s fullbox pickup handler healed the player and played a sound but never touched score at all — no counter, no `updateScore()` call. Added `fullboxesCollected` tracking (`hud.js`'s formula now credits foodbox ×100, fullbox ×300, treasure ×500, evolution ×5000).
+- **Bosses could get stuck permanently semi-transparent, most visibly on Lettuce Beetle.** `damageBoss()` (`boss.js`) fires an alpha "hit flash" tween on every single hit using Phaser's implicit-`from` shorthand (`alpha: 0.2`), which captures whatever alpha the boss happens to be at *that instant* rather than a fixed baseline. Multiple hits landing within the ~160ms flash window (very common mid-fight, and guaranteed during a Sunbaked Ambers burn since every 300ms DoT tick routes through `damageBoss()`) stack overlapping tweens, and each one's "return to normal" yoyo target anchors to an already-dipped value instead of true full opacity — enough overlapping hits and the boss settles below 1 permanently. Fixed all 8 boss alpha-flash tweens across `boss.js`/`handBoss.js` (`damageBoss()`'s hit flash, Lettuce Beetle's charge-warning flash, Rocket Spider's leg-slam flash and phase-2 trigger flash, Carrot Scorpion's claw-swipe flash, Mulberry Mantis's strike flash, The Hand's phase-transition and charge-warning flashes) to use explicit `alpha: { from: 1, to: X }` instead, so whichever tween finishes last always resolves back to a true 1 no matter how many overlap.
+  - **Follow-up:** this fix sat unshipped for several turns — forgot to bump `sw.js`'s `CACHE_VERSION` afterward, so the PWA kept serving the old buggy `boss.js` to already-installed players through every change since. Bumped `v19 → v20` this session to actually deliver it (see bottom).
+
+### Boss/enemy animation & visuals
+
+- **Rocket Spider leg slam** (`boss.js`) now has a proper wind-up: freezes and holds frame index 2 (3rd frame) for 300ms, then holds frame index 3 (4th frame) for 800ms during the actual slam (also frozen — `updateRocketSpiderAI()` now checks `isCharging`), then a 500ms screenshake fires right at the slam's impact.
+- **Mulberry Mantis** (`boss.js`) now holds frame index 3 (4th frame) continuously from the moment it starts vanishing through reappearing and right up until it strikes, then switches to frame index 2 (3rd frame) for the strike itself ("vanish attacking"), defaulting back to the normal idle frames (0–1) once it resumes moving or vanishes again.
+- **Oregano Skunk's facing was inverted** relative to every other enemy (its art faces the opposite default direction). Added a per-enemy `flipInverted` tag (`enemySpawn.js`) that `crickets.js`'s shared facing logic now checks and inverts for, scoped to just this enemy type.
+- **Stationary enemies now face the player.** `crickets.js`'s `attractCrickets()` previously froze facing entirely for any `speed === 0` enemy (Lettuce Shooter, Oregano Fan, a surfaced Carrot Mole, etc.). They now continuously flip toward whichever side the player is on — except while actually immobilised (`bugCaught`), which still holds last facing as before.
+- **One frame of the Coriander Carrot (Level 5) mirrored.** Since `setFlipX` flips a whole sprite for every frame, mirroring just one frame of its 2-frame walk cycle required editing the actual PNG: decoded the indexed-color spritesheet, reversed frame 2's pixel-index order per row, re-encoded, verified pixel-perfect against an independent canvas mirror before overwriting the real asset.
+- **Level Select:** a level's box now turns green with gold text once actually cleared (`snapper_unlocked`), distinct from merely unlocked (white) or locked (grey/🔒).
+
+### Score & UI
+
+- Score now shown live under the HP bar (bold) and, in bigger text, on the Level Clear screen under the stats line — both added to `hud.js`/`gameFlow.js`. Level Clear's NEXT LEVEL/MAIN MENU buttons moved down to make room.
+- Picking a level-up card now plays a brief "claim" animation before the 3-2-1 countdown starts: the card shrinks 15% over 50ms, holds for 75ms, grows back over 50ms (halved once from an initial 100/150/100ms), guarded against a second card being claimed mid-animation.
+- The pause menu's evolution-available pulse ring now fires *after* that claim animation finishes, not immediately on pick.
+- Getting an evolution now adds 5,000 score (`evolutionUI.js`'s `applyEvolution()`).
+
+### Weapon/evolution balance and mechanics
+
+- **Dubia Defenders** gained a real new mechanic: every 15 enemy kills it credits, spawns a bonus shield orbiting further out than the normal ring(s) (rings of up to 5, each new ring a step further out); each bonus shield self-destructs into a small AOE burst after 20s, and expiry re-packs remaining bonus shields into the earliest free ring/slot. Its shields also now pulse continuously white-to-red. Evolution description updated to match.
+- **Raging Roar** reverses its rotation direction every time any upgrade is claimed (not just its own). Description updated.
+- Doubled: all 5 boss visual scales, Dubia Shields (+ its manual hit-detection ranges), Dubia Defenders' fired shot, Pupa Mines, Bug Buster, Pebble Flick, Sunbaked Ambers, and all enemy projectiles (quadrupled, per explicit request). Branch Throw/Log Lob thickness (not length) doubled.
+- Branch Throw's width now grows by the same amount as its length on every length upgrade (previously fixed at base regardless of level).
+- Halved: Vitamin Supplements' drop-chance bonus (0.02→0.01/pick), and the visual-size-doubling pass's card/countdown timings noted above.
+- Spike Shedder now rotates (previously didn't at all) — matched to Skin Shed's spin rate.
+- Foodbox/Fullbox/Treasure pickup hitboxes halved (visual size unchanged) via explicit `body.setSize` at all their spawn sites, including the F-key debug scatter.
+- Hungry Forager's magnet-range bonus doubled (80→160/pick); its INDEX-menu tier description (the only one with a number) updated to match.
+
+### Removed
+
+- **REVIVE debug feature** (death-overlay button, gamepad Y binding, and its full teleport/heal/invincibility logic) removed per request. RETRY/MAIN MENU repositioned to fill the gap. `DEBUG.md` updated to move it into the "previously removed" table.
+- **Lettuce Beetle** shrunk 30% (scale `2.4 → 1.68`) per request, independent of the general boss-doubling pass above.
+
+### A note on verification this session
+
+Same frozen-render-loop environment as prior sessions, worked around the same way: cleared the PWA service-worker cache and forced a real `GameScene.create()` (with `this.sound.add`/`.play` stubbed) to get a genuinely live scene with all real state initialized, rather than hand-stubbing dozens of weapon/boost properties. Verified concretely rather than by inspection alone wherever the harness allowed: real card-pick clicks driving the claim-animation tween chain and confirming the pause-glow deferral; a full 90-kill sweep through `registerDubiaDefenderKill()` confirming ring/slot assignment at every threshold plus mid-fight expiry re-consolidation; direct pixel-data comparison (0 byte differences) proving the Coriander Carrot frame mirror against an independently-computed canvas mirror; real pickups through `collectCricket()` confirming the exact 100/300/500/5000 score deltas; a fake-`this` harness for `attractCrickets()` confirming stationary-vs-immobilised facing behavior; and reading the boss-alpha tweens' actual built `TweenData` (`start`/`end`/`key`) to confirm the `{from,to}` fix was registered correctly, since this environment's frozen loop couldn't step Phaser's tween engine far enough to watch one play to completion (the same category of limitation documented in earlier sessions for Arcade Physics). `node --check` on every touched file throughout.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v19` → `v20`.

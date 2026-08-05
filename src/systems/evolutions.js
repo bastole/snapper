@@ -287,7 +287,7 @@ export const EvolutionMethods = {
         for (let i = 0; i < count; i++) {
             const a      = (i / count) * Math.PI * 2;
             const amber  = this.physics.add.image(this.player.x, this.player.y, 'evol_sunbaked_amber');
-            amber.setScale(0.44).setDepth(8);
+            amber.setScale(0.88).setDepth(8);
             amber.setVelocity(Math.cos(a) * 560, Math.sin(a) * 560);
             amber.setAngularVelocity(Phaser.Math.FloatBetween(1.6, 2) * 360);
             this.physics.add.overlap(amber, this.enemies, (am, enemy) => {
@@ -309,7 +309,7 @@ export const EvolutionMethods = {
     updateRagingRoar() {
         if (this.isPaused || this.isLevelingUp || this.isCountdown) return;
         const dt  = this.game.loop.delta / 1000;
-        this._roarAngle = (this._roarAngle + dt * 1.2) % (Math.PI * 2); // ~69°/s
+        this._roarAngle = (this._roarAngle + dt * 1.2 * (this._roarDirection ?? 1)) % (Math.PI * 2); // ~69°/s, direction flips on every upgrade claimed
         const arc = Math.PI / 3; // 60°
         const dmg = 12;
 
@@ -462,7 +462,7 @@ export const EvolutionMethods = {
             const ox = Phaser.Math.Clamp(this.player.x + Math.cos(a) * dr, 64, 6336);
             const oy = Phaser.Math.Clamp(this.player.y + Math.sin(a) * dr, 64, 6336);
             const mine = this.physics.add.image(this.player.x, this.player.y, 'evol_bug_buster');
-            mine.setScale(0.64).setDepth(8);
+            mine.setScale(1.28).setDepth(8);
             mine.exploded = false;
             this.tweens.add({ targets: mine, x: ox, y: oy, duration: 250, ease: 'Quad.easeOut' });
             const explodeMine = () => {
@@ -501,6 +501,7 @@ export const EvolutionMethods = {
             skin.setScale(1.20).setDepth(8);
             const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
             skin.setVelocity(Math.cos(angle) * 240, Math.sin(angle) * 240);
+            skin.setAngularVelocity(0.2 * 360);
             skin.body.setGravityY(700); skin.hitEnemies = new Set();
             this.physics.add.overlap(skin, this.enemies, (s, enemy) => {
                 if (s.hitEnemies.has(enemy) || !this.canDamageEnemy(enemy)) return;
@@ -541,6 +542,8 @@ export const EvolutionMethods = {
             const shell  = this.physics.add.image(this.player.x, this.player.y, 'evol_shining_shell');
             shell.setScale(0.60).setDepth(8);
             shell.setVelocity(Math.cos(angle) * 600, Math.sin(angle) * 600);
+            const spinDir = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
+            shell.body.setAngularVelocity(Phaser.Math.FloatBetween(4, 6) * 360 * spinDir);
             shell.hitEnemies = new Set();
             shell.hitBoss = false;
             this.physics.add.overlap(shell, this.enemies, (s, enemy) => {
@@ -591,7 +594,7 @@ export const EvolutionMethods = {
             // Fire in the direction the shield is currently facing (outward from player)
             const a = Math.atan2(shield.y - this.player.y, shield.x - this.player.x);
             const proj = this.physics.add.image(shield.x, shield.y, 'dubia_shields');
-            proj.setScale(0.48).setDepth(9);
+            proj.setScale(0.96).setDepth(9);
             proj.setVelocity(Math.cos(a) * 700, Math.sin(a) * 700);
             this.physics.add.overlap(proj, this.enemies, (p, enemy) => {
                 if (!p.active || !this.canDamageEnemy(enemy)) return;
@@ -667,8 +670,8 @@ export const EvolutionMethods = {
         const dmg = 50;
         [aimAngle + Math.PI / 2, aimAngle - Math.PI / 2].forEach(travelAngle => {
             const log = this.physics.add.image(this.player.x, this.player.y, 'evol_log_lob');
-            log.setDisplaySize(560, 112).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
-            log.body.setSize(560, 112);
+            log.setDisplaySize(560, 224).setAngle(Phaser.Math.RadToDeg(aimAngle)).setDepth(8);
+            log.body.setSize(560, 224);
             log.setVelocity(Math.cos(travelAngle) * 400, Math.sin(travelAngle) * 400);
             log.hitCooldowns = new Map(); // per-enemy hit cooldown — 300ms, short enough that the
             // knockback below carries an enemy back into the log for 2-3 repeat hits instead of one
