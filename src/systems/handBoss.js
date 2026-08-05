@@ -86,6 +86,7 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
+        boss.play('yun_hand_attack');
 
         const angle    = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
         const halfArc  = Math.PI / 2; // 90° each side = 180° total
@@ -114,7 +115,7 @@ export const HandBossMethods = {
         }
 
         this.time.delayedCall(1500, () => {
-            if (boss.active) boss.handImmobile = false;
+            if (boss.active) { boss.handImmobile = false; boss.play('yun_hand_idle'); }
             this.scheduleHandSlap();
         });
     },
@@ -261,6 +262,7 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         boss.body.setVelocity(0, 0);
+        boss.play('yun_hand_attack');
 
         const targetX = this.player.x;
         const targetY = this.player.y;
@@ -286,6 +288,7 @@ export const HandBossMethods = {
                 if (!boss.active) return;
                 boss.body.setVelocity(0, 0);
                 boss.handImmobile = false;
+                boss.play('yun_hand_idle');
             });
         });
     },
@@ -296,6 +299,7 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
+        boss.play('yun_hand_attack');
 
         // Spin 360° and drop 10 fire zones
         const COUNT  = 10;
@@ -308,7 +312,7 @@ export const HandBossMethods = {
         }
 
         this.tweens.add({ targets: boss, angle: boss.angle + 360, duration: 1200, onComplete: () => {
-            if (boss.active) boss.handImmobile = false;
+            if (boss.active) { boss.handImmobile = false; boss.play('yun_hand_idle'); }
         }});
     },
 
@@ -360,6 +364,7 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
+        boss.play('yun_hand_attack');
 
         const fireBeam = (onDone) => {
             if (!boss.active) { onDone?.(); return; }
@@ -398,7 +403,7 @@ export const HandBossMethods = {
         fireBeam(() => this.time.delayedCall(100, () =>
             fireBeam(() => this.time.delayedCall(100, () =>
                 fireBeam(() => {
-                    if (boss.active) boss.handImmobile = false;
+                    if (boss.active) { boss.handImmobile = false; boss.play('yun_hand_idle'); }
                 })
             ))
         ));
@@ -410,6 +415,7 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
+        boss.play('yun_hand_attack');
 
         const label = this.add.text(boss.x, boss.y - 80, '🥗', {
             fontSize: '80px',
@@ -426,6 +432,7 @@ export const HandBossMethods = {
             ];
             configs.forEach(cfg => this.spawnHandMiniBoss(cfg));
             boss.handImmobile = false;
+            boss.play('yun_hand_idle');
         });
     },
 
@@ -455,10 +462,12 @@ export const HandBossMethods = {
         mb.isWanderer = false;
         mb.isCharging = false; mb.mantisVanishing = false;
 
-        const animKey = `${cfg.key}_walk`;
-        if (!this.anims.exists(animKey)) {
-            this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(cfg.key, { start: 0, end: 1 }), frameRate: 3, repeat: -1 });
-        }
+        const animKey    = `${cfg.key}_walk`;
+        const attackKey  = `${cfg.key}_attack`;
+        if (!this.anims.exists(animKey))
+            this.anims.create({ key: animKey,   frames: this.anims.generateFrameNumbers(cfg.key, { start: 0, end: 1 }), frameRate: 3, repeat: -1 });
+        if (!this.anims.exists(attackKey))
+            this.anims.create({ key: attackKey, frames: this.anims.generateFrameNumbers(cfg.key, { start: 2, end: 3 }), frameRate: 8, repeat: -1 });
         mb.play(animKey);
 
         // World-space health bar under the mini-boss sprite
@@ -646,6 +655,7 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
+        boss.play('yun_hand_attack');
 
         // Boss pulses continuously for the whole build-up, not just a brief initial flash,
         // so it visibly reads as "channeling" the whole time.
@@ -711,6 +721,7 @@ export const HandBossMethods = {
                 onComplete: () => {
                     this.tweens.add({ targets: g, alpha: 0, duration: 300, onComplete: () => g.destroy() });
                     boss.handImmobile = false;
+                    boss.play('yun_hand_idle');
                     this.scheduleHandVacuum();
                 },
             });

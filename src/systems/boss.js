@@ -289,6 +289,7 @@ export const BossMethods = {
 
         // Freeze and lock target position right now
         this.boss.setVelocity(0, 0);
+        this.boss.play('lettuce_beetle_attack');
         const targetX = this.player.x;
         const targetY = this.player.y;
 
@@ -309,7 +310,6 @@ export const BossMethods = {
         this.time.delayedCall(150, () => {
             warn.destroy();
             if (!this.boss?.active) return;
-            this.boss.play('lettuce_beetle_attack');
             const chargeAngle = Math.atan2(targetY - this.boss.y, targetX - this.boss.x);
             const chargeSpeed = 640 * this.getLettuceBeetleSpeedFactor();
             this.boss.setVelocity(Math.cos(chargeAngle) * chargeSpeed, Math.sin(chargeAngle) * chargeSpeed);
@@ -463,10 +463,10 @@ export const BossMethods = {
             this.boss.x + Math.cos(angle + 0.5) * 320, this.boss.y + Math.sin(angle + 0.5) * 320,
         );
         this.tweens.add({ targets: warn, alpha: 0, delay: 140, duration: 200, onComplete: () => warn.destroy() });
+        this.boss.play('carrot_scorpion_attack');
 
         this.time.delayedCall(150, () => {
             if (!this.boss?.active) return;
-            this.boss.play('carrot_scorpion_attack');
             const tx = this.player.x; const ty = this.player.y;
             this.physics.moveTo(this.boss, tx, ty, 960);
             this.tweens.add({ targets: this.boss, alpha: 0.4, duration: 80, yoyo: true });

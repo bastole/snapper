@@ -1480,6 +1480,31 @@ Enemies mid-knockback, stationary (`speed === 0`), immobilised (`bugCaught`), or
 
 ---
 
+## Session 51 — 2026-08-05
+
+### Boss attack animations wired to frames 2–3 for all bosses and Hand mini-boss reprises
+
+Boss spritesheets have 4 frames: 0–1 idle/moving, 2 pre-attack (winding up / charging energy), 3 attacking/lunging. The `{key}_idle` (frames 0–1) and `{key}_attack` (frames 2–3) animation keys were already registered for all 5 main bosses at spawn time in `boss.js`. However, several bosses never actually played their `_attack` animation at the right moment — frames 2–3 were effectively unused. Hand mini-bosses in `handBoss.js`/`handMiniBoss.js` had `{key}_attack` not registered at all and no animation calls in any of their attack functions.
+
+**Root causes found and fixed:**
+
+- **Lettuce Beetle (L1)**: `play('lettuce_beetle_attack')` was inside the `delayedCall(150ms)` callback, so the 150ms wind-up freeze displayed the idle loop. Moved the call to immediately before the `delayedCall`, right when `setVelocity(0, 0)` freezes the boss — frame 2 now shows during the wind-up, and the animation is already mid-cycle when the charge fires. Same fix applied to **Carrot Scorpion (L3)** and its `scorpionClawSwipe()`.
+
+- **Rocket Spider (L2)** and **Mulberry Mantis (L4)**: already correct — Rocket Spider has no wind-up by design (`_attack` fires on the slam immediately), and Mantis's `play('mulberry_mantis_attack')` was already the first call in `mantisStrike()`.
+
+- **The Hand (L5)**: `yun_hand_attack` was registered but `play()` was never called in any of the 6 attack functions. Added `boss.play('yun_hand_attack')` at the start of each (`doHandSlap`, `doTweezerCharge`, `doHeatLamp`, `doSprayBottle`, `doSaladBowl`, `doHandVacuum`) and `boss.play('yun_hand_idle')` at each function's resolve/cleanup point where `handImmobile` is set back to false.
+
+**`handBoss.js` — `spawnHandMiniBoss()`**: only `{key}_walk` (frames 0–1) was registered. Added a matching `{key}_attack` (frames 2–3, 8 fps) registration alongside it for all four mini-boss types.
+
+**`handMiniBoss.js`** — all four mini-boss attack functions now play their `_attack` animation:
+- `miniBeetleCharge()`: `play('lettuce_beetle_attack')` immediately on wind-up; returns to `play('lettuce_beetle_walk')` after the 800ms charge resolves.
+- `miniSpiderLegSlam()`: `play('rocket_spider_attack')` on slam; returns to walk after 800ms.
+- `miniScorpionClawSwipe()`: `play('carrot_scorpion_attack')` on wind-up (before the 150ms `delayedCall`); returns to walk after lunge resolves.
+- `miniMantisStrike()`: `play('mulberry_mantis_attack')` immediately on strike; returns to walk inside `miniMantisVanish()` when the fade-out starts.
+- `miniScorpionStingerBury()` mole emerge: added `carrot_mole_attack` registration alongside `carrot_mole_walk`, and `mole.play('carrot_mole_attack')` + return-to-walk-after-500ms on resurface — matching the identical pattern already present in `boss.js`'s main scorpion stinger-bury, which this function had missed.
+
+---
+
 ## Session 50 — 2026-08-05
 
 ### Boss sprites doubled in visual size, hitbox grown only 50% (same pattern as Session 40 enemies)
