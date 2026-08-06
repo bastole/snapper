@@ -1607,3 +1607,7 @@ Two caching pain points resolved (`sw.js`, `src/registerSW.js`):
 - **Production (Netlify)**: added `self.skipWaiting()` to the `install` handler and `self.clients.claim()` to the `activate` handler. Previously the new SW sat in `waiting` state until all tabs were closed before taking over; with `skipWaiting` it activates immediately on install, and `clients.claim` extends that takeover to already-open tabs. The original concern (swapping assets mid-session) doesn't apply because the version-keyed cache means each new SW brings its own complete, isolated cache — there's no risk of mixing old and new files.
 
 **`sw.js`** — `CACHE_VERSION` bumped `v20` → `v22` (v21 was an intermediate bump from the boss-animation session earlier today).
+
+### Salad Bowl mini-boss reprises scaled to 1.8
+
+The four mini-boss wave configs inside `doSaladBowl()` in `handBoss.js` (Lettuce Beetle, Rocket Spider, Carrot Scorpion, Mulberry Mantis) were still at `scale: 2.4` from before the unified-scale pass above. Updated all four to `scale: 1.8` to match their counterparts in `boss.js`. Phase 4 respawn configs remain at `scale: 1.2` (intentionally smaller for that phase).

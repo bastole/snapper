@@ -440,10 +440,10 @@ export const HandBossMethods = {
             boss.anims.stop();
             boss.setFrame(3);
             const configs = [
-                { key: 'lettuce_beetle',  health: 4000,  damage: 15, speed: 140, scale: 2.4 },
-                { key: 'rocket_spider',   health: 6000,  damage: 18, speed: 160, scale: 2.4 },
-                { key: 'carrot_scorpion', health: 9000,  damage: 20, speed: 170, scale: 2.4 },
-                { key: 'mulberry_mantis', health: 4000,  damage: 12, speed: 200, scale: 2.4 },
+                { key: 'lettuce_beetle',  health: 4000,  damage: 15, speed: 140, scale: 1.8 },
+                { key: 'rocket_spider',   health: 6000,  damage: 18, speed: 160, scale: 1.8 },
+                { key: 'carrot_scorpion', health: 9000,  damage: 20, speed: 170, scale: 1.8 },
+                { key: 'mulberry_mantis', health: 4000,  damage: 12, speed: 200, scale: 1.8 },
             ];
             configs.forEach(cfg => this.spawnHandMiniBoss(cfg));
             boss.handImmobile = false;
