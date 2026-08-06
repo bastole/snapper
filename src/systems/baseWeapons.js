@@ -762,7 +762,15 @@ export const BaseWeaponMethods = {
             if (b.hits >= maxHits && b.active) b.destroy();
         });
         if (this.boss?.active) {
-            this.physics.add.overlap(branch, this.boss, (b) => { if (!b.active) return; this.damageBoss(dmg); this.maybeVenomBoss(); });
+            branch.bossHits = 0;
+            branch.bossLastHit = 0;
+            this.physics.add.overlap(branch, this.boss, (b) => {
+                if (!b.active || b.bossHits >= 5) return;
+                if (this.time.now - b.bossLastHit < 300) return;
+                b.bossLastHit = this.time.now;
+                b.bossHits++;
+                this.damageBoss(dmg); this.maybeVenomBoss();
+            });
         }
 
         this.scheduleProjectileDespawn(branch, 15000);

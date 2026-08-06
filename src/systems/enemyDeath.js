@@ -237,10 +237,10 @@ export const EnemyDeathMethods = {
             for (let i = 0; i < 3; i++) {
                 const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
                 const proj  = this.physics.add.image(enemy.x, enemy.y, 'projectile_oregano_ghost');
-                proj.setScale(2.24).setDepth(7).setTint(0x44ff44);
+                proj.setScale(1.12).setDepth(7).setTint(0x44ff44); // half of 2.24 — enemy projectiles are half size, double damage
                 proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
                 proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
-                proj.damage = enemy.damage;
+                proj.damage = enemy.damage * 2;
                 this.physics.add.overlap(proj, this.player, () => {
                     if (!proj.active || proj.deflected) return;
                     if (this.player.reviveInvincible) return;
@@ -281,6 +281,8 @@ export const EnemyDeathMethods = {
         if (enemy.minionTimer)  enemy.minionTimer.remove();
         if (enemy.phantomTimer) enemy.phantomTimer.remove();
         if (enemy.spawnTimer)   enemy.spawnTimer.remove();
+        if (enemy.fanPhaseTimer) enemy.fanPhaseTimer.remove();
+        if (enemy.fanShotTimer)  enemy.fanShotTimer.remove();
         enemy.destroy();
     },
 

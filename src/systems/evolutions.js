@@ -693,7 +693,17 @@ export const EvolutionMethods = {
                 this.applyKnockback(enemy, a, 60);
                 if (enemy.health <= 0) this.killEnemy(enemy);
             });
-            if (this.boss?.active) this.physics.add.overlap(log, this.boss, (l) => { if (!l.active) return; this.damageBoss(dmg); });
+            if (this.boss?.active) {
+                log.bossHits = 0;
+                log.bossLastHit = 0;
+                this.physics.add.overlap(log, this.boss, (l) => {
+                    if (!l.active || l.bossHits >= 5) return;
+                    if (this.time.now - l.bossLastHit < 300) return;
+                    l.bossLastHit = this.time.now;
+                    l.bossHits++;
+                    this.damageBoss(dmg);
+                });
+            }
             this.scheduleProjectileDespawn(log, 25000);
         });
         this.maybePolycephaly(() => this.doLogLob());

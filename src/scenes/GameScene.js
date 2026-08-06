@@ -12,6 +12,7 @@ import { EvolutionMethods }   from '../systems/evolutions.js';
 import { EvolutionUIMethods } from '../systems/evolutionUI.js';
 import { HandBossMethods }    from '../systems/handBoss.js';
 import { HandMiniBossMethods} from '../systems/handMiniBoss.js';
+import { IndexMenuMethods }   from '../systems/indexMenu.js';
 import { recordEnemySeen } from '../progressIndex.js';
 import { trackInputMode } from '../inputMode.js';
 
@@ -148,7 +149,12 @@ export default class GameScene extends Phaser.Scene {
         const origEnemiesAdd = this.enemies.add.bind(this.enemies);
         this.enemies.add = (child, ...args) => {
             if (child?.texture?.key) recordEnemySeen(child.texture.key);
-            return origEnemiesAdd(child, ...args);
+            const result = origEnemiesAdd(child, ...args);
+            // Must set collideWorldBounds AFTER add() — Arcade Physics groups
+            // re-initialize a body's config when it joins the group, which would
+            // otherwise wipe out a flag set beforehand.
+            child?.body?.setCollideWorldBounds?.(true);
+            return result;
         };
         this.crickets  = this.physics.add.group();
         this.offscreenArrows = this.add.graphics().setDepth(30).setScrollFactor(0);
@@ -179,6 +185,10 @@ export default class GameScene extends Phaser.Scene {
         this.wormboxSpawned  = 0;
         this.score               = 0;
         this.foodboxesCollected  = 0;
+        // Boost flags (unlike weapon flags, which persist across runs via
+        // progressIndex.js) are per-run state — a fresh Set every time this scene's
+        // create() runs means they always reset each round, by construction.
+        this.flaggedBoosts       = new Set();
         this.fullboxesCollected  = 0;
         this.treasuresCollected  = 0;
         this.evolutionsAppliedCount = 0;
@@ -297,7 +307,7 @@ export default class GameScene extends Phaser.Scene {
             { id: 'bug_buster',            weaponKey: 'pupamines',   weaponLabel: 'Pupa Mines',            boostName: 'Bug Catcher',          evolvedName: 'Bug Buster',            desc: 'Sprays 8-12 mines lasting 45s — defeated enemies drop a Pupa Mine.',   effect() { this.evolveToBugBuster(); } },
             { id: 'spike_shedder',         weaponKey: 'skinshed',    weaponLabel: 'Skin Shed',             boostName: 'Big Fangs',            evolvedName: 'Spike Shedder',         desc: 'Drops 3 spiky skins every 8s — far more damage, heals 1 HP per 10 kills.',   effect() { this.evolveToSpikeShedder(); } },
             { id: 'shining_shells',        weaponKey: 'woodiebounce',weaponLabel: 'Woodie Bounce',         boostName: 'Shiny Scales',         evolvedName: 'Shining Shells',        desc: '3 fast-moving shells every 4s, unlimited ricochets 25s, auto-aim, kills explode.', effect() { this.evolveToShiningShells(); } },
-            { id: 'dubia_defenders',       weaponKey: 'dubiashields',weaponLabel: 'Dubia Shields',         boostName: 'Bug Bucket',           evolvedName: 'Dubia Defenders',       desc: 'Shields spin faster and pulse red — each fires a strong projectile every 5s; 5 hits on the same enemy triggers a small explosion. Every 15 kills adds a bonus shield orbiting further out (5 per ring, then a new ring); these expire after 20s.', effect() { this.evolveToDubiaDefenders(); } },
+            { id: 'dubia_defenders',       weaponKey: 'dubiashields',weaponLabel: 'Dubia Shields',         boostName: 'Bug Bucket',           evolvedName: 'Dubia Defenders',       desc: 'Faster spinning dubias that fire projectiles; every fifteen enemies defeated by this will make a temporary extra shield.', effect() { this.evolveToDubiaDefenders(); } },
             { id: 'flashclaw',             weaponKey: 'poisonclaw',  weaponLabel: 'Poison Claw',           boostName: 'Hunter Instinct',      evolvedName: 'Flashclaw',             desc: 'Double claw strike — immobilises 1s (10s cd per enemy), poisons 6s.',        effect() { this.evolveToFlashclaw(); } },
             { id: 'log_lob',               weaponKey: 'branchthrow', weaponLabel: 'Branch Throw',          boostName: 'Aura Farming',         evolvedName: 'Log Lob',               desc: '2 logs rolling opposite ways — unbreakable 25s, high damage, knockback.',     effect() { this.evolveToLogLob(); } },
             { id: 'duststorm',             weaponKey: 'dustkick',    weaponLabel: 'Dust Kick',             boostName: 'Inflate',              evolvedName: 'Duststorm',             desc: 'Huge area — medium damage, slows all, immobilises nearest for 1.5s.',        effect() { this.evolveToDuststorm(); } },
@@ -451,3 +461,4 @@ Object.assign(GameScene.prototype, EvolutionMethods);
 Object.assign(GameScene.prototype, EvolutionUIMethods);
 Object.assign(GameScene.prototype, HandBossMethods);
 Object.assign(GameScene.prototype, HandMiniBossMethods);
+Object.assign(GameScene.prototype, IndexMenuMethods);

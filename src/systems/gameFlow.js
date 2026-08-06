@@ -39,8 +39,13 @@ export const GameFlowMethods = {
             color: '#ff3333', stroke: '#000000', strokeThickness: 12,
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
 
+        addUI(this.add.text(W / 2, H / 2 - 95, `Score: ${this.score}`, {
+            fontSize: '40px', fontFamily: 'Arial Black, Arial',
+            color: '#ffffff', stroke: '#000000', strokeThickness: 6,
+        }).setScrollFactor(0).setDepth(501).setOrigin(0.5));
+
         // RETRY
-        const retryBtn = addUI(this.add.text(W / 2, H / 2 - 60, '[ RETRY ]', {
+        const retryBtn = addUI(this.add.text(W / 2, H / 2 + 10, '[ RETRY ]', {
             fontSize: '40px', fontFamily: 'Arial',
             color: '#ffffff', backgroundColor: '#333333', padding: { x: 40, y: 20 },
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
@@ -49,7 +54,7 @@ export const GameFlowMethods = {
         retryBtn.on('pointerdown', () => { stopBgm(); this.scene.start('GameScene', { level: this.level }); });
 
         // MAIN MENU
-        const menuBtn = addUI(this.add.text(W / 2, H / 2 + 60, '[ MAIN MENU ]', {
+        const menuBtn = addUI(this.add.text(W / 2, H / 2 + 130, '[ MAIN MENU ]', {
             fontSize: '40px', fontFamily: 'Arial',
             color: '#ffffff', backgroundColor: '#333333', padding: { x: 40, y: 20 },
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5).setInteractive({ useHandCursor: true }));
@@ -64,7 +69,7 @@ export const GameFlowMethods = {
             if (idx === 1) menuBtn.emit('pointerdown');
         };
         this.input.gamepad.on('down', this._deathPadHandler);
-        addUI(registerGamepadHint(this.add.text(W / 2, H / 2 + 160, '🎮  A  Retry    B  Menu', {
+        addUI(registerGamepadHint(this.add.text(W / 2, H / 2 + 230, '🎮  A  Retry    B  Menu', {
             fontSize: '22px', fontFamily: 'Arial', color: '#666666',
         }).setScrollFactor(0).setDepth(501).setOrigin(0.5)));
     },

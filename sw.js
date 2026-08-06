@@ -3,7 +3,7 @@
 // handler below. Re-run scripts/generate-precache-list.ps1 and paste its
 // output below whenever files are added/removed/renamed under src/,
 // assets/, or lib/.
-const CACHE_VERSION = 'v22';
+const CACHE_VERSION = 'v28';
 const CACHE_NAME = `snapper-pwa-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -31,6 +31,7 @@ const PRECACHE_URLS = [
   '/src/systems/handBoss.js',
   '/src/systems/handMiniBoss.js',
   '/src/systems/hud.js',
+  '/src/systems/indexMenu.js',
   '/src/systems/levelUp.js',
   '/src/systems/movement.js',
   '/assets/audio/bgm/boss.wav',

@@ -42,8 +42,8 @@ export const HudMethods = {
         pauseBtn.on('pointerdown', () => this.togglePause(pauseBtn));
 
         // ESC and P also toggle pause (blocked in countdown, level clear, game over, upgrade screen)
-        this.input.keyboard.on('keydown-ESC', () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(pauseBtn); });
-        this.input.keyboard.on('keydown-P',   () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(pauseBtn); });
+        this.input.keyboard.on('keydown-ESC', () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen && !this._indexMenuOpen) this.togglePause(pauseBtn); });
+        this.input.keyboard.on('keydown-P',   () => { if (!this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen && !this._indexMenuOpen) this.togglePause(pauseBtn); });
 
         this.pauseBtn = pauseBtn;
         this.updatePauseBtnGlow();
@@ -137,9 +137,9 @@ export const HudMethods = {
                 fontSize: '22px', fontFamily: 'Arial', color: '#666666',
             }).setScrollFactor(0).setDepth(151).setOrigin(0, 1));
 
-            // Corner hint for the volume sliders: "A" to jump in, swaps to "B" to
-            // back out once a slider is actually selected (see updatePauseSliderOutline).
-            this.pauseSliderHint = registerGamepadHint(this.add.text(W - 20, H - 20, '🎮  A  Sliders', {
+            // Corner hint for the volume sliders/INDEX row: "A" to jump in, swaps to
+            // a context hint once a row is actually selected (see updatePauseSliderOutline).
+            this.pauseSliderHint = registerGamepadHint(this.add.text(W - 20, H - 20, '🎮  A  Select', {
                 fontSize: '22px', fontFamily: 'Arial', color: '#666666',
             }).setScrollFactor(0).setDepth(151).setOrigin(1, 1));
 
@@ -148,68 +148,103 @@ export const HudMethods = {
             this.createVolumeSlider('MUSIC', 40, 140, getMusicVolume(), setMusicVolume, null, 'music');
             this.createVolumeSlider('SFX',   40, 200, getSfxVolume(),   setSfxVolume, 'sfx_item_collect', 'sfx');
 
+            // INDEX — below the two sliders, opens the same INDEX menu Level Select
+            // has, but flaggable=true adds the FLAG/UNFLAG button on weapon/boost
+            // entries. Navigable via the same A/D-pad/stick scheme as the sliders
+            // (see _pauseSliderRows.index and the gamepad handler below).
+            this._pauseIndexBtn = this.add.text(40, 260, '📖 INDEX', {
+                fontSize: '22px', fontFamily: 'Arial Black, Arial', color: '#ffffff',
+                backgroundColor: '#333333', padding: { x: 20, y: 10 },
+            }).setScrollFactor(0).setDepth(151).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+            this._pauseIndexBtn.on('pointerover', () => this._pauseIndexBtn.setColor('#ffff00'));
+            this._pauseIndexBtn.on('pointerout',  () => this._pauseIndexBtn.setColor('#ffffff'));
+            this._pauseIndexBtn.on('pointerdown', () => {
+                if (this._pauseQuitting) return;
+                this._indexMenuOpen = true;
+                this.showIndexMenu({ flaggable: true });
+            });
+            if (!this.pauseVolumeElements) this.pauseVolumeElements = [];
+            this.pauseVolumeElements.push(this._pauseIndexBtn);
+            if (!this._pauseSliderRows) this._pauseSliderRows = {};
+            this._pauseSliderRows.index = {
+                centerX: this._pauseIndexBtn.x - 6 + (this._pauseIndexBtn.width + 12) / 2,
+                width: this._pauseIndexBtn.width + 12,
+                y: 260,
+                getValue: () => null,
+                setValue: () => {},
+            };
+
             // Any key resumes (exclude P/ESC which already have their own toggle handlers)
             this.pauseAnyKey = this.input.keyboard.on('keydown', (e) => {
-                if (this._evoMenuOpen) return;
+                if (this._evoMenuOpen || this._indexMenuOpen) return;
                 if (this.isPaused && e.key !== 'Escape' && e.key !== 'p' && e.key !== 'P') this.togglePause(btn);
             });
             // Register resume handlers on the next animation frame so the event
             // that triggered pause doesn't immediately re-fire and unpause
             requestAnimationFrame(() => {
+                const sliderOrder = ['sfx', 'music', 'index'];
                 this.input.on('pointerdown', this._pausePointerHandler = () => {
-                    if (this._evoMenuOpen || this._sliderInteracting) return;
+                    if (this._evoMenuOpen || this._indexMenuOpen || this._sliderInteracting) return;
                     if (this.isPaused && !this._pauseQuitting) this.togglePause(btn);
                 });
                 this.input.on('pointerup', this._pauseSliderReleaseHandler = () => {
                     this._sliderInteracting = false;
                 });
                 this.input.gamepad.on('down', this._pauseGamepadHandler = (pad, button) => {
-                    if (this._evoMenuOpen) return;
+                    if (this._evoMenuOpen || this._indexMenuOpen) return;
                     // X opens the EVOLUTIONS menu instead of resuming (always openable)
                     if (button.index === 2) { this._evoMenuOpen = true; this.showEvolutionMenu(); return; }
                     // Y quits to the main menu instead of resuming
                     if (button.index === 3) { this.pauseQuitBtn.emit('pointerdown'); return; }
-                    // A selects/highlights the SFX slider (first press) instead of resuming
+                    // A selects/highlights the SFX row (first press) instead of resuming;
+                    // pressing A again while INDEX is highlighted opens it (the sliders
+                    // themselves aren't "pressed" — only adjusted via D-pad/stick — so A
+                    // does nothing further while one of them is selected)
                     if (button.index === 0) {
                         if (!this._pauseSliderSelected) { this._pauseSliderSelected = 'sfx'; this.updatePauseSliderOutline(); }
+                        else if (this._pauseSliderSelected === 'index') { this._pauseIndexBtn.emit('pointerdown'); }
                         return;
                     }
-                    // B un-highlights the selected slider instead of resuming; if nothing
+                    // B un-highlights the selected row instead of resuming; if nothing
                     // is selected, B falls through to the normal "any button resumes" case
                     if (button.index === 1 && this._pauseSliderSelected) {
                         this._pauseSliderSelected = null;
                         this.updatePauseSliderOutline();
                         return;
                     }
-                    // D-pad up/down swaps the highlight between SFX and MUSIC while one is selected
+                    // D-pad up/down cycles the highlight through SFX → MUSIC → INDEX
                     if (this._pauseSliderSelected && (button.index === 12 || button.index === 13)) {
-                        this._pauseSliderSelected = this._pauseSliderSelected === 'sfx' ? 'music' : 'sfx';
+                        const cur = sliderOrder.indexOf(this._pauseSliderSelected);
+                        const dir = button.index === 13 ? 1 : -1;
+                        this._pauseSliderSelected = sliderOrder[(cur + dir + sliderOrder.length) % sliderOrder.length];
                         this.updatePauseSliderOutline();
                         return;
                     }
-                    // D-pad left/right nudges the selected slider's volume by 5%
-                    if (this._pauseSliderSelected && (button.index === 14 || button.index === 15)) {
+                    // D-pad left/right nudges the selected slider's volume by 5% (no-op on INDEX)
+                    if (this._pauseSliderSelected && this._pauseSliderSelected !== 'index' && (button.index === 14 || button.index === 15)) {
                         const row = this._pauseSliderRows[this._pauseSliderSelected];
                         row.setValue(row.getValue() + (button.index === 15 ? 0.05 : -0.05));
                         return;
                     }
                     if (this.isPaused && button.index !== 9 && !this._pauseQuitting) this.togglePause(btn);
                 });
-                // Left stick: X continuously adjusts the selected slider's volume, Y swaps
-                // the highlight between SFX and MUSIC (discrete, cooldown-gated)
+                // Left stick: X continuously adjusts the selected slider's volume (no-op on
+                // INDEX), Y cycles the highlight through SFX → MUSIC → INDEX (discrete, cooldown-gated)
                 this._pauseSliderStickCooldown = 0;
                 this.events.on('update', this._pauseSliderStickHandler = (_, delta) => {
                     if (!this._pauseSliderSelected) return;
                     const pad = this.input.gamepad.pad1;
                     if (!pad) return;
-                    if (Math.abs(pad.leftStick.x) > 0.2) {
+                    if (this._pauseSliderSelected !== 'index' && Math.abs(pad.leftStick.x) > 0.2) {
                         const row = this._pauseSliderRows[this._pauseSliderSelected];
                         row.setValue(row.getValue() + pad.leftStick.x * (delta / 1000) * 0.8);
                     }
                     this._pauseSliderStickCooldown -= delta;
                     if (this._pauseSliderStickCooldown > 0) return;
                     if (Math.abs(pad.leftStick.y) > 0.5) {
-                        this._pauseSliderSelected = this._pauseSliderSelected === 'sfx' ? 'music' : 'sfx';
+                        const cur = sliderOrder.indexOf(this._pauseSliderSelected);
+                        const dir = pad.leftStick.y > 0 ? 1 : -1;
+                        this._pauseSliderSelected = sliderOrder[(cur + dir + sliderOrder.length) % sliderOrder.length];
                         this.updatePauseSliderOutline();
                         this._pauseSliderStickCooldown = 250;
                     }
@@ -235,6 +270,7 @@ export const HudMethods = {
             this._sliderInteracting = false;
             this.pauseVolumeElements?.forEach(el => el.destroy());
             this.pauseVolumeElements = null;
+            this._pauseIndexBtn = null;
             this._pauseSliderOutline?.destroy(); this._pauseSliderOutline = null;
             this._pauseSliderSelected = null;
             this._pauseSliderRows     = null;
@@ -318,7 +354,11 @@ export const HudMethods = {
     // selected volume slider row (see _pauseSliderSelected).
     updatePauseSliderOutline() {
         const key = this._pauseSliderSelected;
-        this.pauseSliderHint?.setText(key ? '🎮  ◀▶  Adjust    ▲▼  Swap    B  Back' : '🎮  A  Sliders');
+        this.pauseSliderHint?.setText(
+            key === 'index' ? '🎮  A  Open    ▲▼  Swap    B  Back'
+            : key           ? '🎮  ◀▶  Adjust    ▲▼  Swap    B  Back'
+            : '🎮  A  Select'
+        );
         const row = key ? this._pauseSliderRows?.[key] : null;
         if (!row) {
             this._pauseSliderOutline?.destroy();
@@ -346,15 +386,16 @@ export const HudMethods = {
         this.hpBar.width = Math.max(0, (this.playerHealth / this.playerMaxHealth) * (W - 80));
     },
 
-    // Score = current player level ×10 + kills + Foodboxes collected ×100 + Fullboxes
-    // collected ×300 + Treasures collected ×500 + Evolutions applied ×5000. Recomputed
+    // Score = (current player level ×10 − 10) + kills + Foodboxes collected ×100 + Fullboxes
+    // collected ×300 + Treasures collected ×500 + Evolutions applied ×5000. The −10 offsets
+    // playerLevel's starting value of 1 so a fresh run starts at 0, not 10. Recomputed
     // (and checked against the per-level high score) every time one of those numbers
     // changes — kills, a level-up, an item pickup, or an evolution — so it's always
     // current whenever the pause menu is opened, and the high score is banked
     // continuously rather than only at round's end (so it's still recorded even if the
     // player quits mid-run).
     updateScore() {
-        this.score = this.playerLevel * 10 + this.kills
+        this.score = this.playerLevel * 10 - 10 + this.kills
             + this.foodboxesCollected * 100 + this.fullboxesCollected * 300
             + this.treasuresCollected * 500
             + this.evolutionsAppliedCount * 5000;

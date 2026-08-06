@@ -135,6 +135,14 @@ export const EvolutionUIMethods = {
         // landing — navigation is locked out so the animation can't be interrupted.
         let unlocking = false;
         let currentUnlockTrigger = null; // set by buildZoom(), used by the gamepad A handler
+
+        // An evolution can't actually be selected (UNLOCK?) until 500ms after this menu
+        // opens, so a reflexive click/press right as it appears can't blow past it unread.
+        // Uses setTimeout rather than this.time.delayedCall since this menu only opens
+        // from the pause menu (this.time.paused = true), same reasoning as the shake
+        // tween above and the level-up screen's own 1000ms card-selection gate.
+        let selectionReady = false;
+        setTimeout(() => { selectionReady = true; }, 500);
         const destroyModeItems = () => { modeItems.forEach(o => o.destroy()); modeItems = []; };
 
         // Closes this menu (any method) without letting the same input also fall through
@@ -444,7 +452,7 @@ export const EvolutionUIMethods = {
                 // this button's own idle pulse tween works while paused — so the shake
                 // uses a value-only counter tween instead.
                 const triggerUnlock = () => {
-                    if (unlocking) return;
+                    if (unlocking || !selectionReady) return;
                     unlocking = true;
                     pulseTween.stop();
                     unlockBtn.disableInteractive();

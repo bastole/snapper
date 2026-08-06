@@ -35,6 +35,7 @@ export const CricketMethods = {
                 return; // stays stationary until snapped
             }
             if (enemy.isCharging) return;
+            if (enemy.fanAI) { this.updateOreganoFanAI(enemy); return; }
             if (enemy.speed === 0) {
                 // Stationary enemies (Lettuce Shooter, Oregano Fan, a surfaced Carrot Mole,
                 // etc.) never move, but should still visually track which side the player is
@@ -103,6 +104,51 @@ export const CricketMethods = {
         });
     },
 
+    // Oregano Fan's per-frame movement for whichever of its 4 phases is currently
+    // active (the phase-switch timer and the phase-3 shot timer live in
+    // enemySpawn.js's spawnEnemy(), alongside the other enemy-type timers).
+    updateOreganoFanAI(enemy) {
+        if (enemy.knockbackUntil && this.time.now < enemy.knockbackUntil) return;
+        const px = this.player.x, py = this.player.y;
+
+        if (enemy.fanPhase === 3) {
+            // Holds position while lining up its next gas shot
+            enemy.setVelocity(0, 0);
+            const facingRight = px > enemy.x;
+            enemy.setFlipX(enemy.flipInverted ? facingRight : !facingRight);
+            return;
+        }
+
+        if (enemy.fanPhase === 2) {
+            // Pathfinds to a random point within the camera's current view
+            if (!enemy.wanderTarget) enemy.wanderTarget = this.pickCycloneWanderTarget();
+            const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, enemy.wanderTarget.x, enemy.wanderTarget.y);
+            if (d < 80) {
+                enemy.wanderTarget = this.pickCycloneWanderTarget();
+            } else {
+                this.physics.moveTo(enemy, enemy.wanderTarget.x, enemy.wanderTarget.y, enemy.speed);
+                const wanderRight = enemy.wanderTarget.x > enemy.x;
+                if (enemy.wanderTarget.x !== enemy.x) enemy.setFlipX(enemy.flipInverted ? wanderRight : !wanderRight);
+            }
+            return;
+        }
+
+        // Phase 1: straight chase toward the player at base speed. Phase 4: the same
+        // chase but faster and weaving side to side via a sine offset on the approach
+        // angle, reading as a zigzag path in.
+        const bearing = Phaser.Math.Angle.Between(enemy.x, enemy.y, px, py);
+        let angle = bearing;
+        let speed = enemy.speed;
+        if (enemy.fanPhase === 4) {
+            speed = enemy.fanZigzagSpeed;
+            angle += Math.sin(this.time.now * 0.006 + enemy.fanZigzagPhase) * (Math.PI / 3);
+        }
+        const vx = Math.cos(angle) * speed;
+        enemy.setVelocity(vx, Math.sin(angle) * speed);
+        const movingRight = vx > 0;
+        if (vx !== 0) enemy.setFlipX(enemy.flipInverted ? movingRight : !movingRight);
+    },
+
     collectCricket(player, cricket) {
         if (cricket.specialType === 'fullbox') {
             cricket.destroy();
@@ -154,8 +200,8 @@ export const CricketMethods = {
     },
 
     // True for an enemy that can't currently move under its own power — either an
-    // inherently stationary type (Lettuce Shooter/Oregano Fan always; Carrot Mole
-    // while surfaced), a dormant Lettuce Trap waiting to be triggered, or any enemy
+    // inherently stationary type (Lettuce Shooter always; Carrot Mole while surfaced),
+    // a dormant Lettuce Trap waiting to be triggered, or any enemy
     // currently frozen by an immobilize effect (Bug Catcher, Steel Slam, etc). Used
     // to let the enemy-vs-enemy collider skip physical separation for these — a
     // stationary shooter shouldn't be able to block/push around the crowd chasing

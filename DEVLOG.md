@@ -1611,3 +1611,65 @@ Two caching pain points resolved (`sw.js`, `src/registerSW.js`):
 ### Salad Bowl mini-boss reprises scaled to 1.8
 
 The four mini-boss wave configs inside `doSaladBowl()` in `handBoss.js` (Lettuce Beetle, Rocket Spider, Carrot Scorpion, Mulberry Mantis) were still at `scale: 2.4` from before the unified-scale pass above. Updated all four to `scale: 1.8` to match their counterparts in `boss.js`. Phase 4 respawn configs remain at `scale: 1.2` (intentionally smaller for that phase).
+
+---
+
+## Session 54 — 2026-08-06
+
+### Branch Throw / Log Lob capped at 5 hits against a boss
+
+Both `doBranchThrow()` (`baseWeapons.js`) and its evolution `doLogLob()` (`evolutions.js`) registered their boss-overlap `damageBoss()` callback with no cooldown and no hit cap at all — unlike the enemy-hit path in the same functions, which already had a 300ms per-target cooldown. Since Arcade Physics overlap fires every frame the two bodies touch, a slow-moving branch/log sitting inside the (much bigger) boss hitbox could apply damage far more times than intended. Added the same 300ms-per-hit pattern to the boss callback too, capped at 5 total hits per thrown branch/log (each of Log Lob's two logs tracked independently). Verified live against a real spawned boss: 10 simulated overlap ticks spaced past the cooldown produced exactly 5 registered hits for Branch Throw, and 5+5 for Log Lob's two logs.
+
+### Enemies/bosses can no longer clip through the world edge; score no longer starts at 10
+
+Neither regular enemies nor any boss ever had `collideWorldBounds` set (only the player did), so nothing stopped them physically leaving the 6400×6400 world — only the camera/spawn logic kept them looking contained. Added `body.setCollideWorldBounds(true)` to the boss spawn site (`boss.js`) and to the shared `this.enemies.add()` wrapper in `GameScene.js` (the single choke point every enemy/minion/split/mini-boss already passes through to register for the INDEX menu's "seen" tracking) so every enemy type is covered by one change. Hit a real bug while wiring this: setting the flag *before* calling the group's real `add()` didn't stick, because Arcade Physics groups re-initialize a body's config when it joins the group — moved the flag-set to *after* `add()` and confirmed live that both a spawned enemy and the boss report `collideWorldBounds: true`.
+
+`hud.js`'s `updateScore()` formula (`playerLevel × 10 + kills + ...`) meant a fresh run at player level 1 started at score 10 instead of 0. Subtracted a flat 10 to offset `playerLevel`'s starting value. Verified live: a freshly-created scene's `updateScore()` now produces exactly `0`.
+
+### Oregano Fan rebuilt as a 4-phase enemy
+
+Oregano Fan previously just used the generic always-stationary `shoots` mechanic (same as Lettuce Shooter). Replaced with a dedicated cycle, each phase lasting a random 2–10s: **(1)** chase the player directly at 100px/s, **(2)** pathfind to a random point within the camera's current view (reusing the existing Spinach Cyclone wander helper), **(3)** hold position and fire a gas projectile every 1–5s, but only while actually on camera, **(4)** a 200px/s chase with a sine-wave weave on the approach angle for a zigzag path. Phase-switch/shot timers live in `enemySpawn.js`; per-frame movement for whichever phase is active is driven from `crickets.js`'s `attractCrickets()` via a new `updateOreganoFanAI()`.
+
+Along the way, extracted the ~35-line projectile-spawn-and-hit logic (previously duplicated across the generic shooter and about to be duplicated a third time for the fan's phase-3 shot) into one shared `fireEnemyShotIfInView()` helper in `enemySpawn.js`. Verified live against a real spawned fan: drove it through all 4 phases and confirmed exact speed (100/100/—/200), direct-bearing angle in phase 1, a wander target genuinely inside the camera's bounds in phase 2, zero velocity plus correctly gated in-view-only firing in phase 3 (confirmed both a real fire and a real skip), and an oscillating angle at a constant 200px/s in phase 4 — plus confirmed the shared-helper refactor didn't change Lettuce Shooter's behavior.
+
+### Dubia Defenders description rewritten; enemy projectiles halved in size, doubled in damage (Hand excluded)
+
+Per exact requested wording, Dubia Defenders' description in both `upgradeContent.js` (INDEX) and `GameScene.js` (live evolutions menu) now reads: *"Faster spinning dubias that fire projectiles; every fifteen enemies defeated by this will make a temporary extra shield."*
+
+Every enemy-fired projectile — the shared shooter helper (Lettuce Shooter/Mulberry Snake/Oregano Fan), Oregano Phantom's live shot, and Oregano Phantom's 3-projectile death burst — had its visual scale halved and its damage doubled. The Hand's calcium/vitamin projectiles (`handBoss.js`) were deliberately left untouched, per request. Verified live: confirmed exact halved scale/doubled damage at all three enemy-projectile sites, and confirmed the Hand's projectiles are unchanged by reading the source directly.
+
+### Score now shown on the GAME OVER (death) screen
+
+`gameFlow.js`'s `showDeathOverlay()` gained a `Score: N` line under the "GAME OVER" title, matching the style already used on the Level Clear screen. RETRY/MAIN MENU/the gamepad hint shifted down to make room (no change to their relative spacing).
+
+### INDEX menu extracted into a shared module, made accessible from the pause menu
+
+`LevelSelectScene.js`'s ~470-line `showIndexMenu()` (grid + zoom browser for every weapon/boost/evolution/enemy ever seen, backed by `progressIndex.js`) was scene-local code, unusable from `GameScene`. Extracted verbatim into a new `src/systems/indexMenu.js` (`IndexMenuMethods`), mixed into both `LevelSelectScene.prototype` and `GameScene.prototype` the same way every other `GameScene` system already is. Every element gained `.setScrollFactor(0)` in the process — `LevelSelectScene`'s camera never scrolls so this was a no-op there, but `GameScene`'s camera follows the player, and without it the whole menu would've scrolled off-screen with the world instead of staying fixed like the pause/Evolutions menus already do.
+
+`hud.js`'s pause menu gained a third row, **📖 INDEX**, positioned directly below the MUSIC/SFX sliders. It's reachable through the exact same navigation scheme the sliders already used: gamepad A selects/enters the row group (starting on SFX), D-pad up/down or the left stick's Y-axis cycles SFX → MUSIC → INDEX (extended from the old 2-way SFX/MUSIC toggle), and A again while INDEX is highlighted opens it. Opening it calls `showIndexMenu({ flaggable: true })` — the `flaggable` option (false/omitted everywhere else, including every existing Level Select call site) is what turns on the new FLAG button below. Added an `_indexMenuOpen` guard (mirroring the existing `_evoMenuOpen` one from the Session 9 Evolutions-menu bugfix) to the pause menu's keyboard/pointer/gamepad "any input resumes" handlers, so opening/closing the INDEX from pause can't also toggle pause itself.
+
+### FLAG / UNFLAG — only on weapons/boosts, only when opened from pause
+
+`indexMenu.js`'s zoom view gained a FLAG button (bottom-left corner, mirroring the existing PREVIOUS/NEXT TIER pair at bottom-right) shown only when `flaggable` is true, the entry is a weapon or boost, and it's already been discovered (same "known" gate the rest of the zoom view already uses). Clicking FLAG immediately flags the entry and swaps the button to a differently-coloured UNFLAG (white/`#224400` → red/`#330000`), which stays un-pressable for 1000ms (a dimmer red, `#884444`, while locked) before becoming clickable — a plain `setTimeout` since `this.time` is paused for the whole pause menu. Un-flagging has no such delay. Flagged entries also show a small 🚩 and a gold border in the grid view.
+
+Weapon flags persist across every playthrough — `progressIndex.js` gained a `flaggedWeapons` bucket (`isWeaponFlagged`/`toggleWeaponFlag`) alongside the existing weapon/boost/evolution/enemy/high-score data, all in the same `localStorage` blob. Boost flags are deliberately **not** persisted: they live only in a `this.flaggedBoosts` Set on the `GameScene` instance, initialized fresh in `create()` — since `create()` runs on every retry/next-level/restart, this resets them every round by construction, per request, with no extra reset code needed.
+
+### Flagged upgrades blink gold on the level-up screen
+
+`levelUp.js`'s weapon/boost card definitions each gained an explicit `boostName` (weapons already had `weaponKey`) so a card can be matched against the flag stores. `drawCards()` now checks `isCardFlagged()` per card and, if true, draws a separate pulsing gold-stroked rectangle over it (`alpha` tweened 1↔0.15, `yoyo`/`repeat: -1`) — kept in its own array rather than mixed into `cardEls`, since `applyCardHighlight()`/the claim-animation code both index `cardEls` assuming a fixed 3-per-card layout (rect/title/desc) that an extra element would have broken. The glow naturally stops once a flagged weapon is fully upgraded, since a maxed weapon's `available()` simply stops offering it as a card at all — no separate "maxed" check needed. Unflagging (via the pause-menu INDEX) also stops it, checked fresh on every draw/reroll.
+
+Simplified `pickCard()`'s existing progress-recording step alongside this: it used to infer which boost was just picked by diffing `ownedPassives.length` before/after `effect()` and reading the last-pushed entry, because boost cards had no explicit name to record directly. With `boostName` now on every card, it just calls `recordBoostPick(upgrade.boostName, ...)` directly — same recorded result, one less indirection.
+
+### A note on verification for the INDEX/FLAG feature
+
+Same frozen-render-loop environment as recent sessions; used the audio-stub-and-call-`.create()`-directly workaround throughout, on both `LevelSelectScene` and `GameScene`. Confirmed the `IndexMenuMethods` extraction didn't regress `LevelSelectScene`'s own INDEX: opened it fresh (title/tabs present) and zoomed into a real known weapon (`recordWeaponLevel('bite', 3)` beforehand) — no FLAG button present, exactly as expected for a non-`flaggable` open. Then, on a real paused `GameScene` (`togglePause()`), confirmed the INDEX button exists at the expected position and `_pauseSliderRows.index` is registered; clicked it, zoomed into the same known Bite entry, and this time got a real FLAG button. Clicked it and confirmed, all against real state (not mocks): the button flips to UNFLAG with the dimmed/locked styling and `input.enabled === false` immediately, `isWeaponFlagged('bite')` becomes `true` in the actual `progressIndex.js` module; waited out the real 1000ms and confirmed the button becomes interactive with the brighter red; clicked UNFLAG and confirmed an immediate, undelayed revert on both the button and the stored flag. For the per-round reset: flagged a boost onto a real `this.flaggedBoosts`, called `create()` again (the same thing a retry/next-level does), and confirmed the boost flag was gone while the weapon flag (checked via the real `progressIndex.js` import) survived. For the golden blink: flagged Bite, opened a real `showLevelUp()`, and repeatedly fired the real reroll button (a `Math.random`-based stub attempt broke unrelated Phaser internals and was abandoned in favor of this) until a Bite card was drawn — found exactly one gold-stroked glow rectangle, positioned at the same x as the Bite card and with its blink tween actually running. Confirmed the GAME OVER score line via a real `showDeathOverlay()` call. `node --check` on all 8 touched/added files throughout.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v26` → `v27`; `/src/systems/indexMenu.js` added to `PRECACHE_URLS`.
+
+### 500ms selection cooldown on the Evolutions menu
+
+`showEvolutionMenu()` (`evolutionUI.js`) could have its UNLOCK? button pressed the instant the menu opened — no protection against a reflexive click/press carrying over from whatever opened the menu, unlike the level-up screen's existing 1000ms card-selection gate and Level Select's own 1000ms gate. Added the same `selectionReady` pattern here (500ms via `setTimeout`, since `this.time` is paused for the whole menu): `triggerUnlock()` — shared by both the UNLOCK? button's click and gamepad A — now bails out silently until it's elapsed.
+
+Verified live against a real available evolution (Starved Chomp, with Bite maxed and Hungry Forager owned): within a single synchronous script (so real elapsed time stayed under 500ms), clicking UNLOCK? immediately after `showEvolutionMenu()` left the button completely untouched (still enabled, still reading "UNLOCK?", no shake). Awaiting a real 600ms inside the same script and clicking again correctly triggered the unlock flow (button disabled, shake begins) — confirming the gate blocks the early click but not a later one.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v27` → `v28`.

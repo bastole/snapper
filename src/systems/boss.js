@@ -65,6 +65,7 @@ export const BossMethods = {
             recordEnemySeen(bossCfg.key);
             this.boss.setScale(bossCfg.scale);
             this.boss.body.setSize(this.boss.body.width * 0.5625, this.boss.body.height * 0.5625);
+            this.boss.setCollideWorldBounds(true);
             this.boss.setDepth(8);
             this.boss.health      = bossCfg.health;
             this.boss.maxHealth   = bossCfg.health;

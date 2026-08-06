@@ -92,7 +92,7 @@ export const EnemySpawnMethods = {
                 { key: 'oregano_skunk', health: 40,  damage: 10, speed: 100, scale: 1.12, minTime: 0,   emitsGas: true },
                 { key: 'rocket_knife',  health: 10,  damage: 15, speed: 300, scale: 1.00, minTime: 120 },
                 { key: 'oregano_ghost', health: 80,  damage: 12, speed: 70,  scale: 1.20, minTime: 300 },
-                { key: 'oregano_fan',   health: 60,  damage: 8,  speed: 0,   scale: 1.00, minTime: 300, shoots: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 2.24, poisonous: true },
+                { key: 'oregano_fan',   health: 60,  damage: 8,  speed: 100, scale: 1.00, minTime: 300, fanAI: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 2.24, poisonous: true },
                 { key: 'rocket_sword',  health: 50,  damage: 18, speed: 310, scale: 1.00, minTime: 480 },
             ],
             3: [
@@ -128,7 +128,7 @@ export const EnemySpawnMethods = {
                 // 3:30 — mealworm droppers
                 { key: 'lettuce_shooter', health: 90,  damage: 6,  speed: 0,   scale: 1.00, minTime: 210, shoots: true },
                 { key: 'oregano_ghost',   health: 150, damage: 12, speed: 70,  scale: 1.20, minTime: 210, emitsGas: true },
-                { key: 'oregano_fan',     health: 80,  damage: 10, speed: 100, scale: 1.00, minTime: 210, shoots: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 2.24, poisonous: true },
+                { key: 'oregano_fan',     health: 80,  damage: 10, speed: 100, scale: 1.00, minTime: 210, fanAI: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 2.24, poisonous: true },
                 { key: 'coriander_hydra', health: 220, damage: 13, speed: 76,  scale: 1.20, minTime: 210, hydra: true },
                 { key: 'carrot_wheel',    health: 22,  damage: 9,  speed: 260, scale: 0.72, minTime: 210 },
                 { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 96,  scale: 1.12, minTime: 210, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 2.08, snakeWhip: true },
@@ -173,6 +173,7 @@ export const EnemySpawnMethods = {
         enemy.lastHitTime   = 0;
         enemy.splits        = def.splits       ?? false;
         enemy.shoots        = def.shoots       ?? false;
+        enemy.fanAI         = def.fanAI        ?? false;
         enemy.emitsGas      = def.emitsGas    ?? false;
         enemy.splitsInto    = def.splitsInto   ?? null;
         enemy.hydra         = def.hydra        ?? false;
@@ -226,60 +227,51 @@ export const EnemySpawnMethods = {
             scheduleBurrow();
         }
 
-        // Shooters fire a projectile toward the player every 5–15 seconds
+        // Shooters fire a projectile toward the player every 5–15 seconds, only while
+        // on camera. Shared with Oregano Fan's phase-3 gas shot below (fireEnemyShotIfInView).
         if (enemy.shoots) {
             const scheduleShot = () => {
                 if (!enemy.active) return;
                 enemy.shootTimer = this.time.delayedCall(Phaser.Math.Between(5000, 15000), () => {
                     if (!enemy.active) return;
-                    const cam    = this.cameras.main;
-                    const margin = 100;
-                    const inView = enemy.x > cam.scrollX + margin &&
-                                   enemy.x < cam.scrollX + cam.width  - margin &&
-                                   enemy.y > cam.scrollY + margin &&
-                                   enemy.y < cam.scrollY + cam.height - margin;
-                    if (inView) {
-                        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
-                        const proj  = this.physics.add.image(enemy.x, enemy.y, def.projKey ?? 'projectile_lettuce_shooter');
-                        proj.setScale(def.projScale ?? 0.96).setDepth(7);
-                        if (def.projTint) proj.setTint(def.projTint);
-                        proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
-                        if (def.key !== 'mulberry_snake') proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
-                        proj.damage = enemy.damage;
-                        this.physics.add.overlap(proj, this.player, () => {
-                            if (!proj.active || proj.deflected) return;
-                            if (this.player.reviveInvincible) return;
-                            if (this.deflectChance > 0 && Math.random() < this.deflectChance) {
-                                proj.deflected = true;
-                                this.tweens.add({ targets: this.player, alpha: 0.5, duration: 80, yoyo: true });
-                                proj.setVelocity(-proj.body.velocity.x * 1.4, -proj.body.velocity.y * 1.4);
-                                this.physics.add.overlap(proj, this.enemies, (p, e) => {
-                                    if (!p.active) return;
-                                    this.damageDealt += 20; e.health -= 20;
-                                    this.playEnemyHurtSfx();
-                                    this.tweens.add({ targets: e, alpha: 0.2, duration: 80, yoyo: true });
-                                    if (e.health <= 0) this.killEnemy(e);
-                                    p.destroy();
-                                });
-                                return;
-                            }
-                            this.lastDamageSource = enemy.texture.key;
-                            this.playerHealth -= proj.damage;
-                            this.updateHPBar();
-                            this.playerDamageFlash();
-                            if (def.poisonous) this.applyPoison();
-                            if (this.playerHealth <= 0) {
-                                this.playerHealth = 0;
-                                this.showDeathOverlay();
-                            }
-                            proj.destroy();
-                        });
-                        this.scheduleProjectileDespawn(proj, 6000);
-                    }
+                    this.fireEnemyShotIfInView(enemy, def);
                     scheduleShot();
                 });
             };
             scheduleShot();
+        }
+
+        // Oregano Fan: cycles through 4 behavior phases, each lasting a random 2–10s —
+        // (1) chase the player directly at base speed (100), (2) pathfind to a random
+        // point within the camera view, (3) hold position and fire a gas projectile
+        // every 1–5s while on camera, (4) a fast 200px/s zigzag chase. Movement for
+        // phases 1/2/4 is driven every frame by crickets.js's updateOreganoFanAI()
+        // (see the enemy.fanAI check in attractCrickets()); this block only owns the
+        // phase-switch timer and the phase-3 shot timer.
+        if (enemy.fanAI) {
+            enemy.fanPhase       = 1;
+            enemy.fanZigzagSpeed = 200;
+            enemy.fanZigzagPhase = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const scheduleFanPhase = () => {
+                if (!enemy.active) return;
+                enemy.fanPhaseTimer = this.time.delayedCall(Phaser.Math.Between(2000, 10000), () => {
+                    if (!enemy.active) return;
+                    enemy.fanPhase = enemy.fanPhase >= 4 ? 1 : enemy.fanPhase + 1;
+                    if (enemy.fanPhase === 2) enemy.wanderTarget = null; // force a fresh pick for the new wander leg
+                    scheduleFanPhase();
+                });
+            };
+            scheduleFanPhase();
+
+            const scheduleFanShot = () => {
+                if (!enemy.active) return;
+                enemy.fanShotTimer = this.time.delayedCall(Phaser.Math.Between(1000, 5000), () => {
+                    if (!enemy.active) return;
+                    if (enemy.fanPhase === 3) this.fireEnemyShotIfInView(enemy, def);
+                    scheduleFanShot();
+                });
+            };
+            scheduleFanShot();
         }
 
         // Oregano Skunk: larger gas-cloud physics body for proximity damage
@@ -523,9 +515,9 @@ export const EnemySpawnMethods = {
                     if (!enemy.active) return;
                     const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
                     const proj  = this.physics.add.image(enemy.x, enemy.y, 'projectile_oregano_ghost');
-                    proj.setScale(2.24).setDepth(7);
+                    proj.setScale(1.12).setDepth(7); // half of 2.24 — enemy projectiles are half size, double damage
                     proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
-                    proj.damage = enemy.damage;
+                    proj.damage = enemy.damage * 2;
                     this.physics.add.overlap(proj, this.player, () => {
                         if (!proj.active || proj.deflected) return;
                         if (this.player.reviveInvincible) return;
@@ -734,6 +726,57 @@ export const EnemySpawnMethods = {
 
         // Move toward player every frame via physics
         this.physics.moveToObject(enemy, this.player, enemy.speed);
+    },
+
+    // Fires a projectile from `enemy` toward the player, but only if the enemy is
+    // currently on camera. Shared by every "shoots"-style enemy (Lettuce Shooter,
+    // Mulberry Snake) and Oregano Fan's phase-3 gas shot.
+    fireEnemyShotIfInView(enemy, def) {
+        const cam    = this.cameras.main;
+        const margin = 100;
+        const inView = enemy.x > cam.scrollX + margin &&
+                       enemy.x < cam.scrollX + cam.width  - margin &&
+                       enemy.y > cam.scrollY + margin &&
+                       enemy.y < cam.scrollY + cam.height - margin;
+        if (!inView) return;
+        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+        const proj  = this.physics.add.image(enemy.x, enemy.y, def.projKey ?? 'projectile_lettuce_shooter');
+        // Enemy projectiles are half visual size but double damage (not the Hand's — those
+        // are spawned separately in handBoss.js and untouched by this helper).
+        proj.setScale((def.projScale ?? 0.96) * 0.5).setDepth(7);
+        if (def.projTint) proj.setTint(def.projTint);
+        proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
+        if (def.key !== 'mulberry_snake') proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
+        proj.damage = enemy.damage * 2;
+        this.physics.add.overlap(proj, this.player, () => {
+            if (!proj.active || proj.deflected) return;
+            if (this.player.reviveInvincible) return;
+            if (this.deflectChance > 0 && Math.random() < this.deflectChance) {
+                proj.deflected = true;
+                this.tweens.add({ targets: this.player, alpha: 0.5, duration: 80, yoyo: true });
+                proj.setVelocity(-proj.body.velocity.x * 1.4, -proj.body.velocity.y * 1.4);
+                this.physics.add.overlap(proj, this.enemies, (p, e) => {
+                    if (!p.active) return;
+                    this.damageDealt += 20; e.health -= 20;
+                    this.playEnemyHurtSfx();
+                    this.tweens.add({ targets: e, alpha: 0.2, duration: 80, yoyo: true });
+                    if (e.health <= 0) this.killEnemy(e);
+                    p.destroy();
+                });
+                return;
+            }
+            this.lastDamageSource = enemy.texture.key;
+            this.playerHealth -= proj.damage;
+            this.updateHPBar();
+            this.playerDamageFlash();
+            if (def.poisonous) this.applyPoison();
+            if (this.playerHealth <= 0) {
+                this.playerHealth = 0;
+                this.showDeathOverlay();
+            }
+            proj.destroy();
+        });
+        this.scheduleProjectileDespawn(proj, 6000);
     },
 
     // Keep enemies chasing player (called via time event would lag; use overlap update instead)

@@ -1,5 +1,5 @@
 import { playSfx } from '../audio.js';
-import { recordWeaponLevel, recordBoostPick } from '../progressIndex.js';
+import { recordWeaponLevel, recordBoostPick, isWeaponFlagged } from '../progressIndex.js';
 import { registerGamepadHint } from '../inputMode.js';
 
 // Cold Glare's 4 levels (originally 7: unlock + 3 cooldown steps + 3 slow steps,
@@ -323,13 +323,13 @@ export const LevelUpMethods = {
 
         // Passives — always available
         const passiveUpgrades = [
-            { name: this.boostCardLabel('Inflate'),      desc: 'Taking damage knocks back and hurts nearby enemies', available: () => this.ownedPassives.filter(p => p === 'Inflate').length < 1, effect: () => { this.ownedPassives.push('Inflate');      this.inflateActive = true; } },
-            { name: this.boostCardLabel('Inflate'),      desc: 'Heavier damage and knockback, with a random ailment inflicted half the time.', available: () => this.ownedPassives.filter(p => p === 'Inflate').length === 1, effect: () => { this.ownedPassives.push('Inflate'); } },
-            { name: this.boostCardLabel('Shiny Scales'), desc: this.deflectChance === 0 ? '30% chance to deflect enemy projectiles back at them' : '60% chance to deflect enemy projectiles back at them', available: () => this.deflectChance < 0.60, effect: () => { this.ownedPassives.push('Shiny Scales'); this.deflectChance = this.deflectChance === 0 ? 0.30 : 0.60; } },
-            { name: this.boostCardLabel('Angry'),           desc: 'Snapper moves faster',                available: () => this.ownedPassives.filter(p => p === 'Angry').length           < 5, effect: () => { this.ownedPassives.push('Angry');           this.playerSpeed += 30; } },
-            { name: this.boostCardLabel('Aura Farming'),    desc: 'Snapper\'s attacks do more damage',   available: () => this.ownedPassives.filter(p => p === 'Aura Farming').length    < 5, effect: () => { this.ownedPassives.push('Aura Farming');    this.biteDamage += 10; this.tailSlapDamage += 10; this.poopDamage += 10; this.pebbleDamage += 10; this.lickDamage += 10; this.wormWhipDamage += 10; this.pupaDamage += 10; this.skinDamage += 10; this.woodieDamage += 10; this.dubiaShieldDamage += 10; } },
-            { name: this.boostCardLabel('Hunter Instinct'), desc: 'Snapper\'s attacks reach further',    available: () => this.ownedPassives.filter(p => p === 'Hunter Instinct').length < 5, effect: () => { this.ownedPassives.push('Hunter Instinct'); this.biteRange += 31; this.tailSlapRange += 25; this.hissRange += 25; this.lickRangeBonus += 25; this.wormWhipRange += 25; this.pupaRadius += 15; this.dustKickLength += 40; } },
-            { name: this.boostCardLabel('Basking'),         desc: 'Snapper\'s attacks fire faster',      available: () => this.ownedPassives.filter(p => p === 'Basking').length < 5, effect: () => {
+            { name: this.boostCardLabel('Inflate'),      boostName: 'Inflate',      desc: 'Taking damage knocks back and hurts nearby enemies', available: () => this.ownedPassives.filter(p => p === 'Inflate').length < 1, effect: () => { this.ownedPassives.push('Inflate');      this.inflateActive = true; } },
+            { name: this.boostCardLabel('Inflate'),      boostName: 'Inflate',      desc: 'Heavier damage and knockback, with a random ailment inflicted half the time.', available: () => this.ownedPassives.filter(p => p === 'Inflate').length === 1, effect: () => { this.ownedPassives.push('Inflate'); } },
+            { name: this.boostCardLabel('Shiny Scales'), boostName: 'Shiny Scales', desc: this.deflectChance === 0 ? '30% chance to deflect enemy projectiles back at them' : '60% chance to deflect enemy projectiles back at them', available: () => this.deflectChance < 0.60, effect: () => { this.ownedPassives.push('Shiny Scales'); this.deflectChance = this.deflectChance === 0 ? 0.30 : 0.60; } },
+            { name: this.boostCardLabel('Angry'),           boostName: 'Angry',           desc: 'Snapper moves faster',                available: () => this.ownedPassives.filter(p => p === 'Angry').length           < 5, effect: () => { this.ownedPassives.push('Angry');           this.playerSpeed += 30; } },
+            { name: this.boostCardLabel('Aura Farming'),    boostName: 'Aura Farming',    desc: 'Snapper\'s attacks do more damage',   available: () => this.ownedPassives.filter(p => p === 'Aura Farming').length    < 5, effect: () => { this.ownedPassives.push('Aura Farming');    this.biteDamage += 10; this.tailSlapDamage += 10; this.poopDamage += 10; this.pebbleDamage += 10; this.lickDamage += 10; this.wormWhipDamage += 10; this.pupaDamage += 10; this.skinDamage += 10; this.woodieDamage += 10; this.dubiaShieldDamage += 10; } },
+            { name: this.boostCardLabel('Hunter Instinct'), boostName: 'Hunter Instinct', desc: 'Snapper\'s attacks reach further',    available: () => this.ownedPassives.filter(p => p === 'Hunter Instinct').length < 5, effect: () => { this.ownedPassives.push('Hunter Instinct'); this.biteRange += 31; this.tailSlapRange += 25; this.hissRange += 25; this.lickRangeBonus += 25; this.wormWhipRange += 25; this.pupaRadius += 15; this.dustKickLength += 40; } },
+            { name: this.boostCardLabel('Basking'),         boostName: 'Basking',         desc: 'Snapper\'s attacks fire faster',      available: () => this.ownedPassives.filter(p => p === 'Basking').length < 5, effect: () => {
                 this.ownedPassives.push('Basking');
                 this.biteRate = Math.max(300, this.biteRate - 150);
                 this.biteTimer.reset({ delay: this.biteRate, callback: this.ownedWeapons.has('starvechomp') ? this.doStarvedChomp : this.doBite, callbackScope: this, loop: true });
@@ -348,18 +348,20 @@ export const LevelUpMethods = {
                 if (this.scratchTimer)      this.scratchTimer.reset({      delay: Math.max(300, this.scratchTimer.delay      - 150), callback: this.ownedWeapons.has('thrash') ? this.doLuckyThrash : this.doLuckyScratch, callbackScope: this, loop: true });
                 if (this.coldGlareActive) { this.coldGlareCooldown = Math.max(5000, this.coldGlareCooldown - 1500); this.scheduleColdGlare(); }
             } },
-            { name: this.boostCardLabel('Bug Bucket'),      desc: 'Snapper\'s max health increases by 25',  available: () => this.ownedPassives.filter(p => p === 'Bug Bucket').length     < 5, effect: () => { this.ownedPassives.push('Bug Bucket');      this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
-            { name: this.boostCardLabel('Well Fed'),        desc: 'Passively regenerate health faster', available: () => this.ownedPassives.filter(p => p === 'Well Fed').length < 3, effect: () => { this.ownedPassives.push('Well Fed'); this.startRegen(); } },
-            { name: this.boostCardLabel('Hungry Forager'),  desc: 'Insects attract to Snapper from further', available: () => this.ownedPassives.filter(p => p === 'Hungry Forager').length < 4, effect: () => { this.ownedPassives.push('Hungry Forager'); this.magnetRange += 160; } },
-            { name: this.boostCardLabel('Hard Scales'),     desc: 'Enemies deal less damage to Snapper',    available: () => this.ownedPassives.filter(p => p === 'Hard Scales').length    < 4, effect: () => { this.ownedPassives.push('Hard Scales');    this.enemies.getChildren().forEach(e => { e.damage = Math.max(1, e.damage - 2); }); } },
+            { name: this.boostCardLabel('Bug Bucket'),      boostName: 'Bug Bucket',      desc: 'Snapper\'s max health increases by 25',  available: () => this.ownedPassives.filter(p => p === 'Bug Bucket').length     < 5, effect: () => { this.ownedPassives.push('Bug Bucket');      this.playerMaxHealth += 25; this.playerHealth = Math.min(this.playerHealth + 25, this.playerMaxHealth); this.updateHPBar(); } },
+            { name: this.boostCardLabel('Well Fed'),        boostName: 'Well Fed',        desc: 'Passively regenerate health faster', available: () => this.ownedPassives.filter(p => p === 'Well Fed').length < 3, effect: () => { this.ownedPassives.push('Well Fed'); this.startRegen(); } },
+            { name: this.boostCardLabel('Hungry Forager'),  boostName: 'Hungry Forager',  desc: 'Insects attract to Snapper from further', available: () => this.ownedPassives.filter(p => p === 'Hungry Forager').length < 4, effect: () => { this.ownedPassives.push('Hungry Forager'); this.magnetRange += 160; } },
+            { name: this.boostCardLabel('Hard Scales'),     boostName: 'Hard Scales',     desc: 'Enemies deal less damage to Snapper',    available: () => this.ownedPassives.filter(p => p === 'Hard Scales').length    < 4, effect: () => { this.ownedPassives.push('Hard Scales');    this.enemies.getChildren().forEach(e => { e.damage = Math.max(1, e.damage - 2); }); } },
             {
                 name: this.boostCardLabel('Polycephaly'),
+                boostName: 'Polycephaly',
                 desc: `${Math.round((this.polycephalyChance + 0.10) * 100)}% chance for each attack to fire twice`,
                 available: () => this.ownedPassives.filter(p => p === 'Polycephaly').length < 4,
                 effect: () => { this.ownedPassives.push('Polycephaly'); this.polycephalyChance += 0.10; },
             },
             {
                 name: this.boostCardLabel('Venom'),
+                boostName: 'Venom',
                 desc: (() => {
                     const level = this.ownedPassives.filter(p => p === 'Venom').length;
                     const first = level === 0;
@@ -376,9 +378,10 @@ export const LevelUpMethods = {
                     if (!first) this.venomDuration += 500;
                 },
             },
-            { name: this.boostCardLabel('Vitamin Supplements'), desc: 'Higher chance of Foodbox and Treasure drops', available: () => this.ownedPassives.filter(p => p === 'Vitamin Supplements').length < 4, effect: () => { this.ownedPassives.push('Vitamin Supplements'); this.vitaminBonus += 0.01; } },
+            { name: this.boostCardLabel('Vitamin Supplements'), boostName: 'Vitamin Supplements', desc: 'Higher chance of Foodbox and Treasure drops', available: () => this.ownedPassives.filter(p => p === 'Vitamin Supplements').length < 4, effect: () => { this.ownedPassives.push('Vitamin Supplements'); this.vitaminBonus += 0.01; } },
             {
                 name: this.boostCardLabel('Big Fangs'),
+                boostName: 'Big Fangs',
                 desc: (() => {
                     const lvl = this.ownedPassives.filter(p => p === 'Big Fangs').length;
                     const chances = [5, 9, 14, 18];
@@ -398,6 +401,7 @@ export const LevelUpMethods = {
             },
             {
                 name: this.boostCardLabel('Hyperactivity'),
+                boostName: 'Hyperactivity',
                 desc: (() => {
                     const lvl = this.ownedPassives.filter(p => p === 'Hyperactivity').length;
                     if (lvl === 0) return 'Every 70 kills: move faster for 5s';
@@ -416,6 +420,7 @@ export const LevelUpMethods = {
             },
             {
                 name: this.boostCardLabel('Bug Catcher'),
+                boostName: 'Bug Catcher',
                 desc: (() => {
                     const lvl = this.ownedPassives.filter(p => p === 'Bug Catcher').length;
                     const chances = [10, 17, 25];
@@ -472,25 +477,36 @@ export const LevelUpMethods = {
         let selectedCard = 0;
         let cardClaimed = false; // guards against a second card's click firing during the claim animation below, since cardEls now survive briefly after pickCard() starts
 
+        // Golden blink for cards matching a flagged weapon/boost (flagged via the
+        // INDEX menu's FLAG button, only reachable through the pause menu). Kept in
+        // their own arrays rather than cardEls, since applyCardHighlight()/pickCard()
+        // both index cardEls assuming a fixed 3-elements-per-card layout (rect/title/desc).
+        let flagGlowEls = [];
+        let flagGlowTweens = [];
+        const clearFlagGlows = () => {
+            flagGlowTweens.forEach(t => t.stop()); flagGlowTweens = [];
+            flagGlowEls.forEach(el => el.destroy()); flagGlowEls = [];
+        };
+        const isCardFlagged = (upgrade) => {
+            if (upgrade.weaponKey) return isWeaponFlagged(upgrade.weaponKey);
+            if (upgrade.boostName) return this.flaggedBoosts?.has(upgrade.boostName);
+            return false;
+        };
+
         const pickCard = (upgrade, cardIndex) => {
             if (cardClaimed) return;
             cardClaimed = true;
             playSfx(this, 'sfx_upgrade_selected');
-            const prevPassiveCount = this.ownedPassives.length;
             upgrade.effect();
             // Raging Roar reverses its rotation direction on every upgrade claimed,
             // regardless of what was picked.
             this._roarDirection = -(this._roarDirection ?? 1);
             // Record into the persistent (cross-run) progress index that powers the
-            // level-select INDEX menu. Weapon cards always carry weaponKey; boost cards
-            // don't carry an explicit name, but every boost effect() pushes exactly its
-            // own name onto ownedPassives, so a length-increase reveals which one fired
-            // without needing to touch each of the 16 individual boost card definitions.
+            // level-select INDEX menu.
             if (upgrade.weaponKey) {
                 recordWeaponLevel(upgrade.weaponKey, this.getWeaponLevel(upgrade.weaponKey));
-            } else if (this.ownedPassives.length > prevPassiveCount) {
-                const boostName = this.ownedPassives[this.ownedPassives.length - 1];
-                recordBoostPick(boostName, this.getBoostLevel(boostName));
+            } else if (upgrade.boostName) {
+                recordBoostPick(upgrade.boostName, this.getBoostLevel(upgrade.boostName));
             }
             rKeyHandler && this.input.keyboard.off('keydown-R', rKeyHandler);
             padHandler  && this.input.gamepad.off('down', padHandler);
@@ -501,6 +517,7 @@ export const LevelUpMethods = {
             // explosion" pulse ring doesn't fire until after the card animation resolves.
             const beginCountdown = () => {
                 this.updatePauseBtnGlow();
+                clearFlagGlows();
                 cardEls.forEach(el => el.destroy());
                 ui.forEach(el => el.destroy());
                 // Keep time.paused / physics.pause() (set when the level-up screen opened) in
@@ -603,6 +620,7 @@ export const LevelUpMethods = {
         const drawCards = () => {
             cardEls.forEach(el => el.destroy());
             cardEls = [];
+            clearFlagGlows();
             selectedCard = 0;
 
             currentChoices = pickWeighted(allUpgrades, 3);
@@ -630,6 +648,18 @@ export const LevelUpMethods = {
                 }).setScrollFactor(0).setDepth(202).setOrigin(0.5);
 
                 cardEls.push(card, title, desc);
+
+                // Golden blink border for a flagged weapon/boost — stops once the flag
+                // is cleared or the weapon/boost is maxed (at which point it simply stops
+                // appearing in the card pool via available() above, so there's nothing
+                // left to draw a glow around).
+                if (isCardFlagged(upgrade)) {
+                    const glow = this.add.rectangle(cx, cy, cardW, cardH, 0xffffff, 0)
+                        .setScrollFactor(0).setDepth(203).setOrigin(0.5)
+                        .setStrokeStyle(6, 0xffd700);
+                    flagGlowEls.push(glow);
+                    flagGlowTweens.push(this.tweens.add({ targets: glow, alpha: 0.15, duration: 350, yoyo: true, repeat: -1 }));
+                }
 
                 card.on('pointerover', () => { selectedCard = i; applyCardHighlight(); });
                 card.on('pointerout',  () => card.setFillStyle(cardColor));
