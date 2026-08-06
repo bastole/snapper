@@ -86,7 +86,9 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
-        boss.play('yun_hand_attack');
+        boss.anims.stop();
+        boss.setFrame(2);
+        this.time.delayedCall(150, () => { if (boss.active) { boss.anims.stop(); boss.setFrame(3); } });
 
         const angle    = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
         const halfArc  = Math.PI / 2; // 90° each side = 180° total
@@ -265,7 +267,8 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         boss.body.setVelocity(0, 0);
-        boss.play('yun_hand_attack');
+        boss.anims.stop();
+        boss.setFrame(2);
 
         const targetX = this.player.x;
         const targetY = this.player.y;
@@ -284,6 +287,8 @@ export const HandBossMethods = {
         this.time.delayedCall(100, () => {
             warn.destroy();
             if (!boss.active) return;
+            boss.anims.stop();
+            boss.setFrame(3);
             const chargeAngle = Math.atan2(targetY - boss.y, targetX - boss.x);
             const chargeSpeed = 840 * this.getHandSpeedMultiplier();
             boss.body.setVelocity(Math.cos(chargeAngle) * chargeSpeed, Math.sin(chargeAngle) * chargeSpeed);
@@ -302,7 +307,9 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
-        boss.play('yun_hand_attack');
+        boss.anims.stop();
+        boss.setFrame(2);
+        this.time.delayedCall(150, () => { if (boss.active) { boss.anims.stop(); boss.setFrame(3); } });
 
         // Spin 360° and drop 10 fire zones
         const COUNT  = 10;
@@ -367,7 +374,9 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
-        boss.play('yun_hand_attack');
+        boss.anims.stop();
+        boss.setFrame(2);
+        this.time.delayedCall(150, () => { if (boss.active) { boss.anims.stop(); boss.setFrame(3); } });
 
         const fireBeam = (onDone) => {
             if (!boss.active) { onDone?.(); return; }
@@ -418,7 +427,8 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
-        boss.play('yun_hand_attack');
+        boss.anims.stop();
+        boss.setFrame(2);
 
         const label = this.add.text(boss.x, boss.y - 80, '🥗', {
             fontSize: '80px',
@@ -427,6 +437,8 @@ export const HandBossMethods = {
 
         this.time.delayedCall(600, () => {
             if (!boss.active) return;
+            boss.anims.stop();
+            boss.setFrame(3);
             const configs = [
                 { key: 'lettuce_beetle',  health: 4000,  damage: 15, speed: 140, scale: 2.4 },
                 { key: 'rocket_spider',   health: 6000,  damage: 18, speed: 160, scale: 2.4 },
@@ -658,7 +670,8 @@ export const HandBossMethods = {
 
         boss.handImmobile = true;
         if (boss.body) boss.body.setVelocity(0, 0);
-        boss.play('yun_hand_attack');
+        boss.anims.stop();
+        boss.setFrame(2);
 
         // Boss pulses continuously for the whole build-up, not just a brief initial flash,
         // so it visibly reads as "channeling" the whole time.
@@ -681,6 +694,8 @@ export const HandBossMethods = {
             this.handVacuumActive = false;
             chargeFlash.stop();
             boss.setAlpha(1);
+            boss.anims.stop();
+            boss.setFrame(3);
             if (!boss.active) { redOverlay.destroy(); this.handVacuumOverlay = null; return; }
 
             // Kill every sucked target

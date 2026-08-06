@@ -3,7 +3,7 @@
 // handler below. Re-run scripts/generate-precache-list.ps1 and paste its
 // output below whenever files are added/removed/renamed under src/,
 // assets/, or lib/.
-const CACHE_VERSION = 'v20';
+const CACHE_VERSION = 'v22';
 const CACHE_NAME = `snapper-pwa-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -123,16 +123,19 @@ const PRECACHE_URLS = [
 ];
 
 self.addEventListener('install', (event) => {
+  // skipWaiting() activates the new SW immediately instead of waiting for all
+  // tabs to close. Safe here because each CACHE_VERSION gets its own named
+  // cache — there's no risk of serving a mix of old and new assets.
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
-  // Deliberately not calling skipWaiting(): this is a real-time game
-  // (timers, audio, gamepad state) — force-activating a new SW mid-session
-  // could swap cached assets out from under a live tab. A tab left open
-  // across a deploy keeps the old version until it's closed and reopened.
 });
 
 self.addEventListener('activate', (event) => {
+  // clients.claim() makes the newly-activated SW take control of already-open
+  // tabs immediately, so a reload after a deploy always gets the new version.
+  self.clients.claim();
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(

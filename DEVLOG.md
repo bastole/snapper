@@ -1579,3 +1579,31 @@ A long session covering a wide grab-bag of requested tweaks, two real bugfixes, 
 Same frozen-render-loop environment as prior sessions, worked around the same way: cleared the PWA service-worker cache and forced a real `GameScene.create()` (with `this.sound.add`/`.play` stubbed) to get a genuinely live scene with all real state initialized, rather than hand-stubbing dozens of weapon/boost properties. Verified concretely rather than by inspection alone wherever the harness allowed: real card-pick clicks driving the claim-animation tween chain and confirming the pause-glow deferral; a full 90-kill sweep through `registerDubiaDefenderKill()` confirming ring/slot assignment at every threshold plus mid-fight expiry re-consolidation; direct pixel-data comparison (0 byte differences) proving the Coriander Carrot frame mirror against an independently-computed canvas mirror; real pickups through `collectCricket()` confirming the exact 100/300/500/5000 score deltas; a fake-`this` harness for `attractCrickets()` confirming stationary-vs-immobilised facing behavior; and reading the boss-alpha tweens' actual built `TweenData` (`start`/`end`/`key`) to confirm the `{from,to}` fix was registered correctly, since this environment's frozen loop couldn't step Phaser's tween engine far enough to watch one play to completion (the same category of limitation documented in earlier sessions for Arcade Physics). `node --check` on every touched file throughout.
 
 **`sw.js`** — `CACHE_VERSION` bumped `v19` → `v20`.
+
+---
+
+## Session 53 — 2026-08-06
+
+### Boss attack animations: single-frame wind-up and attack (no looping)
+
+Boss spritesheets have 4 frames: 0–1 idle/moving, 2 wind-up/pre-attack, 3 attack/lunge. The rule was always meant to be: hold frame 2 as a frozen single frame during the pre-attack freeze, switch to frame 3 as a frozen single frame when the attack fires, return to idle. Several bosses weren't following this — they used `play('{key}_attack')` which loops frames 2–3 continuously instead of holding each one. Fixed across all bosses and all Hand mini-boss reprises (`boss.js`, `handBoss.js`, `handMiniBoss.js`):
+
+- **Lettuce Beetle** (`bossCharge`): was playing the looping attack animation for the entire wind-up + charge. Now `setFrame(2)` when the boss freezes (150ms window), `setFrame(3)` when the charge velocity fires.
+- **Carrot Scorpion** (`scorpionClawSwipe`): same looping issue. Now `setFrame(2)` on freeze, `setFrame(3)` on lunge.
+- **Mulberry Mantis** (`mantisVanish` / `mantisStrike`): the two frames were **swapped** — vanish was using frame 3 (attack) and the strike was using frame 2 (wind-up). Corrected: `setFrame(2)` during vanish/repositioning (pre-attack), `setFrame(3)` on the actual strike.
+- **Rocket Spider**: was already correct from Session 52 — `setFrame(2)` on wind-up, `setFrame(3)` on slam.
+- **The Hand** (all 6 attacks — `doHandSlap`, `doTweezerCharge`, `doHeatLamp`, `doSprayBottle`, `doSaladBowl`, `doHandVacuum`): all were using `play('yun_hand_attack')` (looping). Each now shows `setFrame(2)` at the start of the freeze, transitions to `setFrame(3)` when the attack executes (150ms delay for Slap/HeatLamp/SprayBottle matching their existing timing; at the natural execution point for TweezerCharge/SaladBowl/Vacuum), and returns to `play('yun_hand_idle')` as before.
+- **All 4 Hand mini-boss reprises** (`handMiniBoss.js`): Beetle/Scorpion/Mantis minis were using looping `play()` calls. Fixed to `setFrame(2)`/`setFrame(3)` matching their main-boss counterparts. Rocket Spider mini additionally gained a proper 300ms wind-up before spawning swords (previously had none — swords spawned the instant the slam function was called), mirroring the main boss's `bossLegSlamWindup` → `bossLegSlam` two-phase pattern.
+
+### Boss scales unified to 1.8
+
+All four non-Hand main bosses now share a uniform `scale: 1.8` in `boss.js`'s `bossCfg` block. Previous values were inconsistent: Lettuce Beetle was `1.68` (shrunk in Session 52) and Rocket Spider/Carrot Scorpion/Mulberry Mantis were each `2.4`. The Hand stays at `3.2` as the final boss. Collision boxes scale automatically via the existing `body.setSize(body.width * 0.5625)` formula applied at spawn — no per-boss hitbox changes needed.
+
+### Service worker: no longer registered on localhost; activates immediately on deploy
+
+Two caching pain points resolved (`sw.js`, `src/registerSW.js`):
+
+- **Localhost**: `registerSW.js` now returns early when `location.hostname` is `localhost` or `127.0.0.1` — the SW is never registered during local dev, so every page reload fetches files directly from the dev server with no cache interference.
+- **Production (Netlify)**: added `self.skipWaiting()` to the `install` handler and `self.clients.claim()` to the `activate` handler. Previously the new SW sat in `waiting` state until all tabs were closed before taking over; with `skipWaiting` it activates immediately on install, and `clients.claim` extends that takeover to already-open tabs. The original concern (swapping assets mid-session) doesn't apply because the version-keyed cache means each new SW brings its own complete, isolated cache — there's no risk of mixing old and new files.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v20` → `v22` (v21 was an intermediate bump from the boss-animation session earlier today).

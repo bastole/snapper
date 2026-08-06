@@ -30,12 +30,12 @@ export const BossMethods = {
         const bossCfg = this.level === 5
             ? { key: 'yun_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 3.2 }
             : this.level === 4
-            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 2.4 }
+            ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 1.8 }
             : this.level === 3
-            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 2.4 }
+            ? { key: 'carrot_scorpion', label: 'CARROT SCORPION', health: 2500, damage: 28, scale: 1.8 }
             : this.level === 2
-            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 2.4 }
-            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 1.68, chargeDelay: 3500 };
+            ? { key: 'rocket_spider',   label: 'ROCKET SPIDER',   health: 3800, damage: 25, scale: 1.8 }
+            : { key: 'lettuce_beetle',  label: 'LETTUCE BEETLE',  health: 3000, damage: 20, scale: 1.8, chargeDelay: 3500 };
 
         // Warning banner
         const warn = this.add.text(W / 2, H / 2 - 120, `⚠  ${bossCfg.label} APPROACHES  ⚠`, {
@@ -289,7 +289,8 @@ export const BossMethods = {
 
         // Freeze and lock target position right now
         this.boss.setVelocity(0, 0);
-        this.boss.play('lettuce_beetle_attack');
+        this.boss.anims.stop();
+        this.boss.setFrame(2);
         const targetX = this.player.x;
         const targetY = this.player.y;
 
@@ -315,6 +316,8 @@ export const BossMethods = {
         this.time.delayedCall(150, () => {
             warn.destroy();
             if (!this.boss?.active) return;
+            this.boss.anims.stop();
+            this.boss.setFrame(3);
             const chargeAngle = Math.atan2(targetY - this.boss.y, targetX - this.boss.x);
             const chargeSpeed = 640 * this.getLettuceBeetleSpeedFactor();
             this.boss.setVelocity(Math.cos(chargeAngle) * chargeSpeed, Math.sin(chargeAngle) * chargeSpeed);
@@ -488,10 +491,13 @@ export const BossMethods = {
             this.boss.x + Math.cos(angle + 0.5) * 320, this.boss.y + Math.sin(angle + 0.5) * 320,
         );
         this.tweens.add({ targets: warn, alpha: 0, delay: 140, duration: 200, onComplete: () => warn.destroy() });
-        this.boss.play('carrot_scorpion_attack');
+        this.boss.anims.stop();
+        this.boss.setFrame(2);
 
         this.time.delayedCall(150, () => {
             if (!this.boss?.active) return;
+            this.boss.anims.stop();
+            this.boss.setFrame(3);
             const tx = this.player.x; const ty = this.player.y;
             this.physics.moveTo(this.boss, tx, ty, 960);
             this.tweens.add({ targets: this.boss, alpha: { from: 1, to: 0.4 }, duration: 80, yoyo: true });
@@ -619,10 +625,9 @@ export const BossMethods = {
 
         boss.mantisVanishing = true;
         boss.setVelocity(0, 0);
-        // Hold the 4th frame, unmoving, all the way from here through reappearing
-        // and up until the strike itself fires (see mantisStrike below).
+        // Hold the 3rd frame (wind-up) while vanishing and repositioning.
         boss.anims.stop();
-        boss.setFrame(3);
+        boss.setFrame(2);
 
         // Stay still and slowly fade out before going invisible
         this.tweens.add({ targets: boss, alpha: 0, duration: 1000, onComplete: () => {
@@ -693,10 +698,9 @@ export const BossMethods = {
 
         // Red flash warning
         this.tweens.add({ targets: boss, alpha: { from: 1, to: 0.2 }, duration: 80, yoyo: true, repeat: 1 });
-        // Vanish-attack: hold the 3rd frame for the strike, until he resumes moving
-        // (idle, 1st/2nd frames) or vanishes again (4th frame, see mantisVanish above).
+        // Hold the 4th frame (attack) for the strike, then return to idle.
         boss.anims.stop();
-        boss.setFrame(2);
+        boss.setFrame(3);
         this.time.delayedCall(400, () => { if (this.boss?.active) this.boss.play('mulberry_mantis_idle'); });
 
         // Deal 25 damage if player is still nearby

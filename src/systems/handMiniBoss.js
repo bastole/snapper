@@ -19,7 +19,8 @@ export const HandMiniBossMethods = {
         if (!mb?.active || mb.isCharging) return;
         mb.isCharging = true;
         mb.setVelocity(0, 0);
-        mb.play('lettuce_beetle_attack');
+        mb.anims.stop();
+        mb.setFrame(2);
 
         const targetX = this.player.x;
         const targetY = this.player.y;
@@ -36,6 +37,8 @@ export const HandMiniBossMethods = {
         this.time.delayedCall(150, () => {
             warn.destroy();
             if (!mb.active) return;
+            mb.anims.stop();
+            mb.setFrame(3);
             const chargeAngle = Math.atan2(targetY - mb.y, targetX - mb.x);
             mb.setVelocity(Math.cos(chargeAngle) * 640, Math.sin(chargeAngle) * 640);
             this.time.delayedCall(800, () => {
@@ -97,10 +100,15 @@ export const HandMiniBossMethods = {
 
     miniSpiderLegSlam(mb) {
         if (!mb?.active) return;
-        mb.play('rocket_spider_attack');
-        this.tweens.add({ targets: mb, alpha: 0.3, duration: 100, yoyo: true });
-        this.time.delayedCall(800, () => { if (mb.active) mb.play('rocket_spider_walk'); });
-        for (let i = 0; i < 3; i++) {
+        mb.anims.stop();
+        mb.setFrame(2);
+        this.time.delayedCall(300, () => {
+            if (!mb.active) return;
+            mb.anims.stop();
+            mb.setFrame(3);
+            this.tweens.add({ targets: mb, alpha: 0.3, duration: 100, yoyo: true });
+            this.time.delayedCall(800, () => { if (mb.active) mb.play('rocket_spider_walk'); });
+            for (let i = 0; i < 3; i++) {
             const ox = this.player.x + Phaser.Math.Between(-260, 260);
             const oy = this.player.y + Phaser.Math.Between(-260, 260);
             const sword = this.physics.add.sprite(ox, oy, 'rocket_sword');
@@ -115,6 +123,7 @@ export const HandMiniBossMethods = {
             sword.play('rocket_sword_walk');
             this.enemies.add(sword);
         }
+        });
     },
 
     triggerMiniSpiderPhase2(mb) {
@@ -199,10 +208,13 @@ export const HandMiniBossMethods = {
             mb.x + Math.cos(angle + 0.5) * 160, mb.y + Math.sin(angle + 0.5) * 160,
         );
         this.tweens.add({ targets: warn, alpha: 0, delay: 140, duration: 200, onComplete: () => warn.destroy() });
-        mb.play('carrot_scorpion_attack');
+        mb.anims.stop();
+        mb.setFrame(2);
 
         this.time.delayedCall(150, () => {
             if (!mb.active) return;
+            mb.anims.stop();
+            mb.setFrame(3);
             const tx = this.player.x; const ty = this.player.y;
             this.physics.moveTo(mb, tx, ty, 960);
             this.tweens.add({ targets: mb, alpha: 0.4, duration: 80, yoyo: true });
@@ -328,7 +340,8 @@ export const HandMiniBossMethods = {
         mb.mantisVanishing = true;
         mb.isCharging       = true;
         mb.setVelocity(0, 0);
-        mb.play('mulberry_mantis_walk');
+        mb.anims.stop();
+        mb.setFrame(2);
 
         // Stay still and slowly fade out before going invisible
         this.tweens.add({ targets: mb, alpha: 0, duration: 1000, onComplete: () => {
@@ -386,7 +399,9 @@ export const HandMiniBossMethods = {
             return;
         }
 
-        mb.play('mulberry_mantis_attack');
+        mb.anims.stop();
+        mb.setFrame(3);
+        this.time.delayedCall(400, () => { if (mb.active) mb.play('mulberry_mantis_walk'); });
         this.tweens.add({ targets: mb, alpha: 0.2, duration: 80, yoyo: true, repeat: 1 });
 
         const dist = Phaser.Math.Distance.Between(mb.x, mb.y, this.player.x, this.player.y);
