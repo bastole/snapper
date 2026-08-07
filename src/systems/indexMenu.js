@@ -1,4 +1,4 @@
-import { getProgressIndex, isWeaponFlagged, toggleWeaponFlag } from '../progressIndex.js';
+import { getProgressIndex } from '../progressIndex.js';
 import { WEAPON_CONTENT, BOOST_CONTENT, EVOLUTION_LIST, ENEMY_LIST } from '../upgradeContent.js';
 import { registerGamepadHint } from '../inputMode.js';
 
@@ -19,6 +19,16 @@ export const IndexMenuMethods = {
 
         this._indexMenuOpen = true;
         const progress = getProgressIndex();
+
+        // Blocks selecting (zooming into) an entry for 500ms after the menu opens, so a
+        // reflexive click/press carrying over from whatever opened the INDEX (e.g. the
+        // same click that opened it from the pause menu) can't also immediately select
+        // whatever entry happens to be underneath — same pattern as the level-up screen's
+        // 1000ms card gate and the Evolutions menu's 500ms UNLOCK? gate. `this.time` can be
+        // paused for the whole menu (opened from GameScene's pause screen), so this uses a
+        // real `setTimeout` rather than `this.time.delayedCall`, matching those two gates.
+        let selectionReady = false;
+        setTimeout(() => { selectionReady = true; }, 500);
 
         const weaponEntries = Object.entries(WEAPON_CONTENT).map(([key, data]) => ({
             section: 'weapon', key, label: data.label, tiers: data.tiers, gotten: progress.weapons[key] ?? 0,
@@ -42,16 +52,18 @@ export const IndexMenuMethods = {
         });
         const entriesFor = (sec) => sec === 'weapon' ? weaponEntries : sec === 'boost' ? boostEntries : sec === 'evolution' ? evoEntries : enemyEntries;
 
-        // Flag state — weapons persist via progressIndex.js; boosts live only on the
-        // GameScene instance (this.flaggedBoosts) and reset every round (see create()).
+        // Flag state — both weapons and boosts live only on the GameScene instance
+        // (this.flaggedWeapons / this.flaggedBoosts) and reset every round, since
+        // create() runs fresh on every retry/next-level/restart (see create()).
         const isEntryFlagged = (entry) => entry.section === 'weapon'
-            ? isWeaponFlagged(entry.key)
+            ? !!this.flaggedWeapons?.has(entry.key)
             : entry.section === 'boost' ? !!this.flaggedBoosts?.has(entry.key) : false;
         const toggleEntryFlag = (entry) => {
-            if (entry.section === 'weapon') { toggleWeaponFlag(entry.key); return; }
-            if (!this.flaggedBoosts) this.flaggedBoosts = new Set();
-            if (this.flaggedBoosts.has(entry.key)) this.flaggedBoosts.delete(entry.key);
-            else this.flaggedBoosts.add(entry.key);
+            const set = entry.section === 'weapon'
+                ? (this.flaggedWeapons ??= new Set())
+                : (this.flaggedBoosts  ??= new Set());
+            if (set.has(entry.key)) set.delete(entry.key);
+            else set.add(entry.key);
         };
 
         const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.9).setScrollFactor(0).setDepth(depth).setInteractive();
@@ -88,6 +100,12 @@ export const IndexMenuMethods = {
             this.input.off('pointerup', gridDragEnd);
             this.events.off('update', navPollHandler);
             this.events.off('update', scrollUpdateHandler);
+            // Blocks the pause menu's "any input resumes" handlers for a moment so the
+            // click/press that closed this menu (or one shortly after) can't also
+            // immediately unpause the game underneath it. Only defined when opened from
+            // GameScene's pause menu (flaggable: true) — LevelSelectScene, the other
+            // caller of this shared module, has no pause menu and no such method.
+            this.lockPauseResume?.();
             requestAnimationFrame(() => { this._indexMenuOpen = false; });
         };
 
@@ -188,6 +206,7 @@ export const IndexMenuMethods = {
                 // starts on a card scroll the grid (see gridDragStart/Move below) instead
                 // of always opening whatever card the drag happened to start on.
                 bg.on('pointerup', (pointer) => {
+                    if (!selectionReady) return;
                     if (Phaser.Math.Distance.Between(pointer.downX, pointer.downY, pointer.x, pointer.y) < 12) {
                         zoomIdx = i; zoomTier = known ? 1 : 0; buildZoom();
                     }
@@ -469,7 +488,7 @@ export const IndexMenuMethods = {
                 if (idx === 13) { moveGridSelection(cols); return; }         // D-pad down
                 if (idx === 14) { moveGridSelection(-1, true); return; }     // D-pad left
                 if (idx === 15) { moveGridSelection(1, true); return; }      // D-pad right
-                if (idx === 0) { zoomIdx = selectedIdx; zoomTier = entriesFor(section)[selectedIdx]?.gotten > 0 ? 1 : 0; buildZoom(); return; } // A = zoom in
+                if (idx === 0) { if (!selectionReady) return; zoomIdx = selectedIdx; zoomTier = entriesFor(section)[selectedIdx]?.gotten > 0 ? 1 : 0; buildZoom(); return; } // A = zoom in
                 if (idx === 4) { cycleSection(-1); return; }                 // LB = previous category
                 if (idx === 5) { cycleSection(1); return; }                  // RB = next category
             } else {

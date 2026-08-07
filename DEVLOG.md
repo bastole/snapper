@@ -1673,3 +1673,120 @@ Same frozen-render-loop environment as recent sessions; used the audio-stub-and-
 Verified live against a real available evolution (Starved Chomp, with Bite maxed and Hungry Forager owned): within a single synchronous script (so real elapsed time stayed under 500ms), clicking UNLOCK? immediately after `showEvolutionMenu()` left the button completely untouched (still enabled, still reading "UNLOCK?", no shake). Awaiting a real 600ms inside the same script and clicking again correctly triggered the unlock flow (button disabled, shake begins) — confirming the gate blocks the early click but not a later one.
 
 **`sw.js`** — `CACHE_VERSION` bumped `v27` → `v28`.
+
+---
+
+## Session 55 — 2026-08-07
+
+### Bug fixed: knocked-back stationary enemies (especially surfaced Carrot Moles) could drift off the edge of the map forever
+
+Per report: enemies hit by a knockback attack (Steel Slam, Inflate) would sometimes go flying and never stop, slowly sliding out past the world boundary — reproducible especially with Carrot Mole, since it's stationary (`speed: 0`) for long stretches while surfaced.
+
+Root cause was in `attractCrickets()`'s (`crickets.js`) `speed === 0` branch, used by every permanently-or-temporarily-stationary enemy (Lettuce Shooter, a surfaced Carrot Mole, etc.). Every other movement branch in the function either holds a knockback's velocity for its `knockbackUntil` window and then overwrites it with fresh AI-driven `setVelocity` calls every frame, or explicitly zeroes velocity outright (`trapArmed`/`bugCaught`). The stationary branch did neither — it just returned after updating facing, never once calling `setVelocity`, on the (until now correct) assumption that a `speed: 0` enemy never needs its velocity touched. `applyKnockback()` sets `body.setVelocity()` directly, bypassing that assumption entirely: once a stationary enemy got knocked, nothing was ever left to cancel that velocity again, so it just kept sliding in that direction indefinitely — including straight through the map edge, since `collideWorldBounds` only zeroes the perpendicular component at each boundary, not the whole velocity.
+
+Fixed by giving the `speed === 0` branch the same two pieces every other branch already has: hold the knockback for its `knockbackUntil` window (`if (enemy.knockbackUntil && this.time.now < enemy.knockbackUntil) return;`), then `enemy.setVelocity(0, 0)` before the facing-flip logic once it's expired — so a stationary enemy now goes back to actually being stationary once the knock wears off, instead of drifting forever.
+
+Verified live against a real `GameScene` (audio-stub-and-`create()`-directly workaround): spawned a real stationary-flagged enemy, called the actual `applyKnockback()` with the same 400px/s Steel Slam uses, and stepped `attractCrickets()` through fake `time.now` values — confirmed velocity held at 400 mid-window, then dropped to exactly 0 the frame after `knockbackUntil` expired, and stayed at 0 on a further frame after that (not just a one-frame dip). `node --check` on the touched file.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v28` → `v29`.
+
+### Carrot Mole animation fixed: surfaced/vulnerable now shows the correct two frames, not the underground pair
+
+Per `sprites.md`, `enemy_carrot_mole.png`'s 4 frames are: 0–1 = underground-movement loop, 2–3 = surfaced/popped-out loop. All three places that spawn a Carrot Mole (the regular `spawnEnemy()` in `enemySpawn.js`, and the Carrot Scorpion boss's stinger-bury in `boss.js` and its Hand-mini-boss reprise in `handMiniBoss.js`) had this backwards for the surfaced state: they played the walk anim (frames 0–1, meant for underground) continuously while surfaced and stationary, and only showed frames 2–3 as a brief one-shot "attack" flash for 500ms right at the resurface moment before reverting back to 0–1 for the rest of the vulnerable window.
+
+Registered a new looping `carrot_mole_surface` animation (frames 2–3) alongside the existing `carrot_mole_walk` (frames 0–1) at all three spawn sites, and swapped which one plays when: `carrot_mole_surface` now plays for the entire surfaced/stationary/vulnerable phase (from spawn, and again every time it resurfaces), `carrot_mole_walk` plays for the entire underground/moving phase — removed the old 500ms revert-to-walk timer in `boss.js`/`handMiniBoss.js` since there's no longer a reason to switch back once surfaced.
+
+Verified live against a real `GameScene`: spawned a real Carrot Mole through the actual `spawnEnemy()` and confirmed it starts on `carrot_mole_surface`; manually fired its real (frozen-loop-blocked) `burrowTimer` callbacks directly and confirmed the anim switches to `carrot_mole_walk` on going underground and back to `carrot_mole_surface` on resurfacing, staying there. Repeated the same underground/resurface check against a mole spawned through the real `scorpionStingerBury()` boss path — identical result. `handMiniBoss.js`'s reprise uses the byte-identical pattern (confirmed via `node --check`), not separately live-tested given how much heavier a full Hand-fight harness would be to spin up. `node --check` on all three touched files.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v29` → `v30`.
+
+### Coriander Hydra doubled in size; no longer shrinks when it loses a head
+
+Per request. `enemySpawn.js`: doubled the Coriander Hydra's `scale` at all three spawn sites — the two main level pools (1.28 → 2.56, 1.20 → 2.40) and the Coriander Carrot minion pool (1.20 → 2.40). Its hitbox is a hardcoded absolute `body.setSize(123.75, 123.75)` rather than scale-derived, so it wouldn't have grown with the sprite on its own — doubled that too (→ 247.5), at both spawn sites (main + Coriander Carrot minion), keeping the existing hitbox-to-visual ratio unchanged.
+
+`crickets.js`'s `checkHydraPhase()` previously shrank the hydra's `scale` by a fixed amount each time it lost a head (`1.28 - (3 - heads) * 0.16`) alongside its existing speed boost. Removed the `setScale` call entirely — losing a head still speeds the hydra up and still flashes it, but no longer changes its size at any head count.
+
+Verified live against a real `GameScene`: spawned a real Coriander Hydra through the actual `spawnEnemy()` and confirmed `scaleX: 2.56` / hitbox `247.5×247.5` / display width `327.68` (exactly double the old `1.28` / `123.75` / `163.84`). Drove it through both head-loss thresholds via the real `checkHydraPhase()` — heads correctly dropped 3→2→1 and speed correctly increased at each stage (76→112→148), while `scaleX` stayed exactly `2.56` throughout. `node --check` on both touched files.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v30` → `v31`.
+
+### 500ms selection cooldown on the INDEX menu
+
+Per request. `showIndexMenu()` (`indexMenu.js`, shared by both `LevelSelectScene` and the in-game pause menu) had no protection against a reflexive click/press carrying over from whatever opened it immediately selecting (zooming into) whatever grid entry happened to be underneath — unlike the level-up screen's 1000ms card gate and the Evolutions menu's 500ms UNLOCK? gate, both already using this exact pattern. Added the same `selectionReady` flag (500ms via `setTimeout`, since `this.time` can be paused for the whole menu when opened from the pause screen): both ways of selecting an entry — a card's `pointerup` and gamepad A — now bail out silently until it's elapsed. Tab switching, closing, scrolling, and (once inside a zoomed entry) the tier/arrow/FLAG buttons are all untouched, matching how the level-up gate only blocks picking and the Evolutions gate only blocks unlocking.
+
+Verified live against a real `LevelSelectScene`: opened a real `showIndexMenu()` and, within the same synchronous script (so real elapsed time stayed under 500ms), fired a real `pointerup` on the first grid card's actual game object — the grid was untouched (all 16 cards still present, no zoom transition). Waited a real 500ms+ and fired the identical event again — this time the grid tore down and the zoom view built, confirming the gate blocks the early click but not a later one. `node --check` on the touched file.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v31` → `v32`.
+
+### 300ms cooldown before the pause menu can be unpaused after closing a submenu or touching a slider/INDEX
+
+Per request. `togglePause()` already had a real-clock guard blocking unpause for a full second right after pause *opens* (`_pauseOpenedAt`), but nothing protected the moment right after *closing* the Evolutions/INDEX menu or releasing a volume slider — the existing `_evoMenuOpen`/`_indexMenuOpen`/`_sliderInteracting` flags only protect the exact same input event that closed/released them (by design, from [Session 9](#session-9--2026-07-07)'s fix), so a follow-up click/press shortly after had nothing stopping it from immediately resuming the game underneath.
+
+Added `lockPauseResume(ms = 300)` / `isPauseResumeLocked()` to `hud.js` (real `performance.now()` timestamp, same reasoning as the existing 1s open-guard: `this.time` is paused for the whole pause screen) and a single check inside `togglePause()` itself — `if (this.isPaused && this.isPauseResumeLocked()) return;` — so every path that can trigger a resume (pause button, ESC/P, the "any key/click/gamepad-button resumes" handlers) is covered by one guard instead of needing a check at each call site. Call `lockPauseResume()` fires at:
+- **Sliders**: the knob's and track's `pointerdown` (pressing), the shared `pointerup` handler (releasing), and the gamepad D-pad left/right volume nudge.
+- **INDEX button**: its `pointerdown` (opening).
+- **Exiting either menu**: `evolutionUI.js`'s and `indexMenu.js`'s shared `closeMenu()`, both of which already existed and now also call it. `indexMenu.js` is shared with `LevelSelectScene` (no pause menu, so no `lockPauseResume` method there) — called via `this.lockPauseResume?.()` to stay a no-op there.
+
+Verified live against a real paused `GameScene`: fired a real `pointerdown` on the actual slider knob game object and confirmed an immediate `togglePause()` call afterward left `isPaused` unchanged (still `true`), then confirmed the identical call succeeded (`isPaused` → `false`) after a real 1s wait. Repeated the same immediate-vs-delayed check against a real INDEX-menu-close (via the actual `[ CLOSE ]` button's `pointerdown`) and a real Evolutions-menu-close — both blocked the immediate resume attempt. Confirmed on a fresh page load that `LevelSelectScene`'s own INDEX open/close still works with zero errors despite having no `lockPauseResume` method at all. `node --check` on all three touched files.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v32` → `v33`.
+
+### Dubia Defenders' damage rebalanced to flat, fixed values (no longer scales off Aura Farming)
+
+Per request: shield contact → **35**, the 5-hit combo explosion and bonus-shield detonation → **50** each, the outward projectile → **40**.
+
+Previously all four of Dubia Defenders' attack forms derived their damage from `dubiaShieldDamage` — Dubia Shields' own pre-evolution stat (base 20, +10 per Aura Farming pick up to 5, +20 flat on evolving), meaning Defenders' damage kept climbing with every further Aura Farming pick after evolving too. Replaced each site with the requested flat constant: `movement.js`'s contact-damage block now branches on `_dubiaDefendersActive` (35 flat once evolved, still `dubiaShieldDamage` beforehand, since pre-evolution Dubia Shields is untouched by this change), while `dubiaDefenderExplosion()`, `explodeDubiaBonusShield()`, and `evolutions.js`'s `updateDubiaDefenderShots()` — all three only ever run once evolved — just hardcode 50/50/40 directly. Removed the now-dead `dubiaShieldDamage += 20` evolution bonus in `evolveToDubiaDefenders()`, since nothing reads it anymore once evolved.
+
+Also added the requested sentence to Dubia Defenders' description, in both `upgradeContent.js` (INDEX) and `GameScene.js` (live evolutions menu): *"If an enemy is hit five times by the rotating dubias, it will trigger an explosion."*
+
+Verified live against a real `GameScene`: evolved into Dubia Defenders with `dubiaShieldDamage` deliberately set to 50 (simulating 3 Aura Farming picks) to prove the new values ignore it entirely — a real shield-vs-enemy overlap via the actual `updateDubiaShields()` dealt exactly 35; the real `dubiaDefenderExplosion()` and `explodeDubiaBonusShield()` each dealt exactly 50; and the real overlap callback registered by `updateDubiaDefenderShots()` (captured via a temporary `physics.add.overlap` wrapper, then invoked directly against a real enemy) dealt exactly 40. Confirmed the live `evolutionDefs` description text matches exactly. `node --check` on all four touched files.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v33` → `v34`.
+
+### Level 5 enemy spawns and mob cap doubled, from the start through to the boss
+
+Per request. `GameScene.js`'s spawn-rate and live-enemy-cap variables (`spawnDelay`, `spawnMinDelay`, `maxEnemies`, `maxEnemiesCap`, `maxEnemiesStep`) were flat constants shared by every level. Added a `this.level === 5` branch right after they're set (before `spawnTimer` is created, so its initial delay picks up the change) that halves both spawn-delay values and doubles all three cap values:
+
+| | Normal | Level 5 |
+|---|---|---|
+| `spawnDelay` (initial) | 2500ms | 1250ms |
+| `spawnMinDelay` (floor) | 400ms | 200ms |
+| `maxEnemies` (starting cap) | 80 | 160 |
+| `maxEnemiesCap` (ceiling) | 250 | 500 |
+| `maxEnemiesStep` (cap growth/ramp tick) | 6 | 12 |
+
+Halving both delay values doubles how often `spawnTick()` fires at every point along the existing ramp-down curve (rather than just the starting rate), and doubling all three cap values keeps the cap's own growth curve proportional. Since regular spawning already stops for good once a level's boss spawns, this naturally covers "from the start all the way to the boss" with no separate boss-spawn-time logic needed. Levels 1-4 are untouched.
+
+Verified live: a real `create({level: 1})` produced the unchanged defaults (2500/400/80/250/6, including the live `spawnTimer.delay`), while a real `create({level: 5})` produced exactly the doubled set (1250/200/160/500/12). Manually fired the real `spawnRampTimer` callback 6 times in a row on the level-5 instance and confirmed `spawnDelay` ramps down and correctly floors at 200 (not the normal 400), while `maxEnemies` climbs by 12/tick toward the doubled 500 ceiling. `node --check` on the touched file.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v34` → `v35`.
+
+### Spawn-boost feature replaced: single ×4 tier under 50 enemies, starting 5 min in (3 min for Level 5)
+
+Per request, scrapped the old three-tier emergency spawn boost (×1.5/×2.5/×4 at 10/20/40-enemy thresholds gated by 7/5/2 minutes remaining) and replaced `enemySpawn.js`'s `getSpawnBoostMultiplier()` with a single rule: quadruple the spawn rate whenever the live enemy count is under 50, once the level has run long enough — 5 minutes elapsed on every level except Level 5, which starts checking at 3 minutes elapsed. Since `this.gameTime` counts down from 600 to 0, "5 minutes elapsed" is `gameTime <= 300` and "3 minutes elapsed" is `gameTime <= 420`. Kept the existing 5-second linger behavior unchanged (boost stays active for 5s after the count rises back above 50, so it doesn't flicker at the boundary) — the old per-tier `spawnBoostMultiplier` bookkeeping was removed since there's now only one tier, always 4, during both the trigger and the linger window. `spawnTick()`, which consumes this via a fractional accumulator, needed no changes.
+
+Verified live against a real `GameScene`: confirmed level 1 stays unboosted before 5 minutes elapsed even with a low count, boosts to exactly ×4 right at the 5-minute mark with a low count, and drops back to ×1 once the count is pushed to 55; confirmed the 5s linger by triggering the boost, pushing the count back over 50, and checking the multiplier is still 4 two seconds later but back to 1 six seconds later; confirmed level 5 stays unboosted at gameTime 421 (just short of 3 minutes elapsed) and boosts at exactly gameTime 420. `node --check` on the touched file.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v35` → `v36`.
+
+### Flagged weapons now reset every round/retry too (previously persisted forever)
+
+Per request. Since [Session 54](DEVLOG.md), weapon flags persisted across every playthrough via a `localStorage`-backed `flaggedWeapons` bucket in `progressIndex.js`, while boost flags lived only on the `GameScene` instance (`this.flaggedBoosts`) and reset every round by construction (a fresh `Set` every time `create()` runs, which RETRY/next-level/restart all trigger). Made weapon flags follow the exact same pattern: added `this.flaggedWeapons = new Set()` alongside `this.flaggedBoosts` in `GameScene.js`'s `create()`, updated `indexMenu.js`'s `isEntryFlagged`/`toggleEntryFlag` and `levelUp.js`'s `isCardFlagged` to read/write `this.flaggedWeapons` instead of calling into `progressIndex.js`, and removed the now-dead `flaggedWeapons` storage bucket plus the `isWeaponFlagged`/`toggleWeaponFlag` exports from `progressIndex.js` entirely.
+
+Verified live against a real `GameScene`: flagged Bite through the actual pause-menu INDEX → zoom → FLAG button flow (real `pointerdown` events throughout) and confirmed `this.flaggedWeapons` picked it up; called the real `create({level: 1})` again (the same thing RETRY's `scene.start('GameScene', {level})` does under the hood) and confirmed both `flaggedWeapons` and `flaggedBoosts` came back empty. `node --check` on all five touched files.
+
+### Skin Shed now despawns after 10 seconds (was 1 second)
+
+Per request. `baseWeapons.js`'s `doSkinShed()` had a flat `this.time.delayedCall(1000, ...)` destroying each shed piece — also removed a stale comment ("Destroy when it exits the bottom of the camera view") that described a camera-exit check the code never actually did; it's always been a flat timer. Changed to 10000ms. The evolved form, Spike Shedder (`evolutions.js`), has its own separate 1200ms timer and was left untouched — only the base weapon was in scope.
+
+Verified live: spawned real Skin Shed pieces via the actual `doSkinShed()` and confirmed their real `time.delayedCall` destroy timers are scheduled at exactly 10000ms (via `game.time`'s pending-event list), not the old 1000ms. `node --check` on the touched file.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v36` → `v37`.
+
+### Flagged weapons/boosts now 10% more likely to appear on the level-up screen
+
+Per request. `levelUp.js`'s `pickWeighted()` already weighted already-owned weapons 1.15× more likely to be drawn (`cardWeight()`); extended it to also multiply by 1.10× when `isCardFlagged(upgrade)` is true (flagged via the pause menu's INDEX FLAG button), stacking multiplicatively with the owned bonus — a flagged weapon you've already started upgrading gets 1.15 × 1.10 = 1.265×. `isCardFlagged` was already defined earlier in the same closure (for the gold card-glow effect), so `cardWeight` just reuses it directly.
+
+Verified live against a real `GameScene`: flagged the "Angry" boost, opened a real `showLevelUp()`, and fired 10,000 real reroll `pointerdown` events (refilling `this.rerolls` before each one so `doReroll()` never silently no-ops), tallying which card titles actually got drawn each time via the real rendered text. Angry appeared at **1.124×** the average rate of every other unflagged/unowned card (target 1.10×, within sampling noise), while the pre-existing owned-weapon bonus (Bite, already at level 2) stayed unaffected at exactly **1.150×** — confirming the two bonuses compose correctly and neither broke the other. `node --check` on the touched file.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v37` → `v38`.

@@ -166,6 +166,13 @@ export const MovementMethods = {
             this.dubiaShields.forEach(shield => shield.setTint(tint));
         }
 
+        // Dubia Defenders' contact damage is a flat, fixed value rather than scaling
+        // off dubiaShieldDamage (which continues to track Aura Farming picks purely
+        // for the pre-evolution Dubia Shields weapon) — see the flat 50/40 values in
+        // dubiaDefenderExplosion()/explodeDubiaBonusShield()/updateDubiaDefenderShots()
+        // for the same reasoning applied to this weapon's other three attack forms.
+        const contactDmg = this._dubiaDefendersActive ? 35 : this.dubiaShieldDamage;
+
         this.dubiaShields.forEach(shield => {
             this.enemies.getChildren().forEach(enemy => {
                 if (!this.canDamageEnemy(enemy)) return;
@@ -174,8 +181,8 @@ export const MovementMethods = {
                 const lastHit = shield.hitCooldowns.get(enemy) ?? 0;
                 if (now - lastHit < 800) return;
                 shield.hitCooldowns.set(enemy, now);
-                this.damageDealt += this.dubiaShieldDamage;
-                enemy.health -= this.dubiaShieldDamage;
+                this.damageDealt += contactDmg;
+                enemy.health -= contactDmg;
                 this.tweens.add({ targets: enemy, alpha: 0.3, duration: 60, yoyo: true });
                 this.checkHydraPhase(enemy);
                 // Dubia Defenders: every 5th hit on the same enemy (from any shield)
@@ -199,7 +206,7 @@ export const MovementMethods = {
                     const lastHit = shield.hitCooldowns.get(this.boss) ?? 0;
                     if (now - lastHit >= 800) {
                         shield.hitCooldowns.set(this.boss, now);
-                        this.damageBoss(this.dubiaShieldDamage);
+                        this.damageBoss(contactDmg);
                     }
                 }
             }
@@ -217,7 +224,7 @@ export const MovementMethods = {
         if (!nearestShield) return;
         const ex = nearestShield.x, ey = nearestShield.y;
         const radius = 100;
-        const dmg = this.dubiaShieldDamage;
+        const dmg = 50; // flat, only ever fires while Dubia Defenders is active
 
         const expl = this.add.circle(ex, ey, radius, 0xff8800, 0.5).setDepth(15);
         this.tweens.add({ targets: expl, alpha: 0, scaleX: 1.6, scaleY: 1.6, duration: 250, onComplete: () => expl.destroy() });
@@ -271,7 +278,7 @@ export const MovementMethods = {
         this.dubiaBonusShields.forEach((s, i) => { s.bonusLayer = Math.floor(i / 5); s.bonusSlot = i % 5; });
 
         const radius = 100;
-        const dmg = this.dubiaShieldDamage;
+        const dmg = 50; // flat, only ever fires while Dubia Defenders is active
         const expl = this.add.circle(ex, ey, radius, 0xff2222, 0.55).setDepth(15);
         this.tweens.add({ targets: expl, alpha: 0, scaleX: 1.6, scaleY: 1.6, duration: 250, onComplete: () => expl.destroy() });
         this.enemies.getChildren().forEach(e => {

@@ -49,12 +49,26 @@ export const HudMethods = {
         this.updatePauseBtnGlow();
     },
 
+    // Starts (or refreshes) a short real-clock window during which "any input resumes"
+    // won't fire — called after closing the Evolutions/INDEX menu, pressing or releasing
+    // a volume slider, or pressing the INDEX button, so the same general area of clicks
+    // that did one of those things can't also immediately unpause a moment later. Uses
+    // performance.now() rather than this.time, same reasoning as the pause-open guard
+    // right below (this.time is paused for the whole pause screen).
+    lockPauseResume(ms = 300) {
+        this._pauseResumeLockedUntil = performance.now() + ms;
+    },
+    isPauseResumeLocked() {
+        return performance.now() < (this._pauseResumeLockedUntil ?? 0);
+    },
+
     togglePause(btn) {
         if (this.isLevelingUp) return;
         // Once paused, block unpausing for a full second — this.time is itself
         // paused while this.isPaused is true (so it can't be used to measure the
         // wait), hence the real-clock performance.now() timestamp.
         if (this.isPaused && performance.now() - (this._pauseOpenedAt ?? 0) < 1000) return;
+        if (this.isPaused && this.isPauseResumeLocked()) return;
         this.isPaused = !this.isPaused;
 
         if (this.isPaused) {
@@ -161,6 +175,7 @@ export const HudMethods = {
             this._pauseIndexBtn.on('pointerdown', () => {
                 if (this._pauseQuitting) return;
                 this._indexMenuOpen = true;
+                this.lockPauseResume();
                 this.showIndexMenu({ flaggable: true });
             });
             if (!this.pauseVolumeElements) this.pauseVolumeElements = [];
@@ -188,6 +203,7 @@ export const HudMethods = {
                     if (this.isPaused && !this._pauseQuitting) this.togglePause(btn);
                 });
                 this.input.on('pointerup', this._pauseSliderReleaseHandler = () => {
+                    if (this._sliderInteracting) this.lockPauseResume();
                     this._sliderInteracting = false;
                 });
                 this.input.gamepad.on('down', this._pauseGamepadHandler = (pad, button) => {
@@ -224,6 +240,7 @@ export const HudMethods = {
                     if (this._pauseSliderSelected && this._pauseSliderSelected !== 'index' && (button.index === 14 || button.index === 15)) {
                         const row = this._pauseSliderRows[this._pauseSliderSelected];
                         row.setValue(row.getValue() + (button.index === 15 ? 0.05 : -0.05));
+                        this.lockPauseResume();
                         return;
                     }
                     if (this.isPaused && button.index !== 9 && !this._pauseQuitting) this.togglePause(btn);
@@ -327,11 +344,12 @@ export const HudMethods = {
         // Set the flag on pointerdown (fires before the scene-level resume handler,
         // same technique the EVOLUTIONS button uses) so dragging/clicking the slider
         // doesn't also resume the paused game.
-        knob.on('pointerdown', () => { this._sliderInteracting = true; });
+        knob.on('pointerdown', () => { this._sliderInteracting = true; this.lockPauseResume(); });
         knob.on('drag', (pointer, dragX) => setFromX(dragX));
 
         track.on('pointerdown', (pointer) => {
             this._sliderInteracting = true;
+            this.lockPauseResume();
             setFromX(pointer.x);
         });
 

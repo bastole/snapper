@@ -446,8 +446,7 @@ export const BaseWeaponMethods = {
                 });
             }
 
-            // Destroy when it exits the bottom of the camera view
-            this.time.delayedCall(1000, () => { if (skin.active) skin.destroy(); });
+            this.time.delayedCall(10000, () => { if (skin.active) skin.destroy(); });
         }
         this.maybePolycephaly(() => this.doSkinShed());
     },

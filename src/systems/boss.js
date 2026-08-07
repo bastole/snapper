@@ -544,10 +544,13 @@ export const BossMethods = {
                     if (!this.anims.exists(mKey)) {
                         this.anims.create({ key: mKey, frames: this.anims.generateFrameNumbers('carrot_mole', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
                     }
-                    if (!this.anims.exists('carrot_mole_attack')) {
-                        this.anims.create({ key: 'carrot_mole_attack', frames: this.anims.generateFrameNumbers('carrot_mole', { start: 2, end: 3 }), frameRate: 8, repeat: -1 });
+                    // Per sprites.md, frames 2–3 are the surfaced/vulnerable loop — the mole
+                    // should stay on these the whole time it's up, not just flash them
+                    // briefly before reverting to the underground-movement frames.
+                    if (!this.anims.exists('carrot_mole_surface')) {
+                        this.anims.create({ key: 'carrot_mole_surface', frames: this.anims.generateFrameNumbers('carrot_mole', { start: 2, end: 3 }), frameRate: 8, repeat: -1 });
                     }
-                    mole.play(mKey);
+                    mole.play('carrot_mole_surface'); // starts surfaced
                     // Start the burrow cycle on this mole
                     const scheduleBurrow = () => {
                         if (!mole.active) return;
@@ -555,13 +558,13 @@ export const BossMethods = {
                             if (!mole.active) return;
                             mole.isUnderground = true;
                             mole.body.setSize(45, 33.75); mole.speed = 160;
+                            mole.play(mKey);
                             mole.burrowTimer = this.time.delayedCall(Phaser.Math.Between(3000, 5000), () => {
                                 if (!mole.active) return;
                                 mole.isUnderground = false;
                                 mole.body.setSize(67.5, 45); mole.speed = 0;
                                 if (mole.body) mole.body.setVelocity(0, 0);
-                                if (mole.active) mole.play('carrot_mole_attack');
-                                this.time.delayedCall(500, () => { if (mole.active) mole.play(mKey); });
+                                mole.play('carrot_mole_surface');
                                 scheduleBurrow();
                             });
                         });

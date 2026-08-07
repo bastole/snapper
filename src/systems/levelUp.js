@@ -1,5 +1,5 @@
 import { playSfx } from '../audio.js';
-import { recordWeaponLevel, recordBoostPick, isWeaponFlagged } from '../progressIndex.js';
+import { recordWeaponLevel, recordBoostPick } from '../progressIndex.js';
 import { registerGamepadHint } from '../inputMode.js';
 
 // Cold Glare's 4 levels (originally 7: unlock + 3 cooldown steps + 3 slow steps,
@@ -488,8 +488,8 @@ export const LevelUpMethods = {
             flagGlowEls.forEach(el => el.destroy()); flagGlowEls = [];
         };
         const isCardFlagged = (upgrade) => {
-            if (upgrade.weaponKey) return isWeaponFlagged(upgrade.weaponKey);
-            if (upgrade.boostName) return this.flaggedBoosts?.has(upgrade.boostName);
+            if (upgrade.weaponKey) return !!this.flaggedWeapons?.has(upgrade.weaponKey);
+            if (upgrade.boostName) return !!this.flaggedBoosts?.has(upgrade.boostName);
             return false;
         };
 
@@ -597,8 +597,13 @@ export const LevelUpMethods = {
 
         // Weapons the player already owns (level > 0) are weighted 15% more likely to be
         // drawn than everything else, to nudge players toward finishing upgrades they've
-        // already started rather than always chasing something new.
-        const cardWeight = (upgrade) => (upgrade.weaponKey && this.getWeaponLevel(upgrade.weaponKey) > 0) ? 1.15 : 1.0;
+        // already started rather than always chasing something new. Flagged weapons/boosts
+        // (via the pause menu's INDEX FLAG button) get a further 10% multiplicative bump on
+        // top of that, so flagging an already-started weapon stacks to 1.15 × 1.10.
+        const cardWeight = (upgrade) => {
+            const owned = (upgrade.weaponKey && this.getWeaponLevel(upgrade.weaponKey) > 0) ? 1.15 : 1.0;
+            return isCardFlagged(upgrade) ? owned * 1.10 : owned;
+        };
         const pickWeighted = (items, count) => {
             const pool = items.slice();
             const chosen = [];

@@ -68,7 +68,9 @@ export const EvolutionMethods = {
 
     evolveToDubiaDefenders() {
         this.ownedWeapons.delete('dubiashields'); this.ownedWeapons.add('dubiadefenders');
-        this.dubiaShieldDamage += 20;
+        // All of Dubia Defenders' own damage (contact, 5-hit explosion, bonus-shield
+        // detonation, projectile) is a flat fixed value from here on — dubiaShieldDamage
+        // itself is left untouched since it's still Dubia Shields' own pre-evolution stat.
         // Shields spin 1.5× faster — done by multiplying dubiaAngle increment in updateDubiaShields
         this._dubiaDefendersActive = true;
     },
@@ -589,7 +591,7 @@ export const EvolutionMethods = {
         const now = this.time.now;
         if (now - this._dubiaDefenderLastShot < 5000) return;
         this._dubiaDefenderLastShot = now;
-        const dmg = this.dubiaShieldDamage + 15;
+        const dmg = 40; // flat, only ever fires while Dubia Defenders is active
         this.dubiaShields.forEach(shield => {
             // Fire in the direction the shield is currently facing (outward from player)
             const a = Math.atan2(shield.y - this.player.y, shield.x - this.player.x);

@@ -15,11 +15,10 @@ function loadIndex() {
                 evolutions: raw.evolutions ?? {},
                 enemies:    raw.enemies    ?? {},
                 highScores: raw.highScores ?? {},
-                flaggedWeapons: raw.flaggedWeapons ?? {},
             };
         }
     } catch { /* corrupt/missing data — start fresh */ }
-    return { weapons: {}, boosts: {}, evolutions: {}, enemies: {}, highScores: {}, flaggedWeapons: {} };
+    return { weapons: {}, boosts: {}, evolutions: {}, enemies: {}, highScores: {} };
 }
 
 let index = loadIndex();
@@ -83,18 +82,4 @@ export function recordHighScore(level, score) {
 
 export function getHighScore(level) {
     return index.highScores[level] ?? 0;
-}
-
-// Weapon flags persist across every playthrough (unlike boost flags, which are
-// per-run state kept on the GameScene instance and reset every round). Flagging is
-// only offered for weapons/boosts the player has already discovered.
-export function isWeaponFlagged(weaponKey) {
-    return !!index.flaggedWeapons[weaponKey];
-}
-
-export function toggleWeaponFlag(weaponKey) {
-    if (index.flaggedWeapons[weaponKey]) delete index.flaggedWeapons[weaponKey];
-    else index.flaggedWeapons[weaponKey] = true;
-    save();
-    return !!index.flaggedWeapons[weaponKey];
 }

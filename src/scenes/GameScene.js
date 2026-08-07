@@ -185,9 +185,10 @@ export default class GameScene extends Phaser.Scene {
         this.wormboxSpawned  = 0;
         this.score               = 0;
         this.foodboxesCollected  = 0;
-        // Boost flags (unlike weapon flags, which persist across runs via
-        // progressIndex.js) are per-run state — a fresh Set every time this scene's
-        // create() runs means they always reset each round, by construction.
+        // Weapon and boost flags are both per-run state — a fresh Set every time this
+        // scene's create() runs means they always reset each round (including on
+        // RETRY/next-level, both of which restart this scene), by construction.
+        this.flaggedWeapons      = new Set();
         this.flaggedBoosts       = new Set();
         this.fullboxesCollected  = 0;
         this.treasuresCollected  = 0;
@@ -307,7 +308,7 @@ export default class GameScene extends Phaser.Scene {
             { id: 'bug_buster',            weaponKey: 'pupamines',   weaponLabel: 'Pupa Mines',            boostName: 'Bug Catcher',          evolvedName: 'Bug Buster',            desc: 'Sprays 8-12 mines lasting 45s — defeated enemies drop a Pupa Mine.',   effect() { this.evolveToBugBuster(); } },
             { id: 'spike_shedder',         weaponKey: 'skinshed',    weaponLabel: 'Skin Shed',             boostName: 'Big Fangs',            evolvedName: 'Spike Shedder',         desc: 'Drops 3 spiky skins every 8s — far more damage, heals 1 HP per 10 kills.',   effect() { this.evolveToSpikeShedder(); } },
             { id: 'shining_shells',        weaponKey: 'woodiebounce',weaponLabel: 'Woodie Bounce',         boostName: 'Shiny Scales',         evolvedName: 'Shining Shells',        desc: '3 fast-moving shells every 4s, unlimited ricochets 25s, auto-aim, kills explode.', effect() { this.evolveToShiningShells(); } },
-            { id: 'dubia_defenders',       weaponKey: 'dubiashields',weaponLabel: 'Dubia Shields',         boostName: 'Bug Bucket',           evolvedName: 'Dubia Defenders',       desc: 'Faster spinning dubias that fire projectiles; every fifteen enemies defeated by this will make a temporary extra shield.', effect() { this.evolveToDubiaDefenders(); } },
+            { id: 'dubia_defenders',       weaponKey: 'dubiashields',weaponLabel: 'Dubia Shields',         boostName: 'Bug Bucket',           evolvedName: 'Dubia Defenders',       desc: 'Faster spinning dubias that fire projectiles; every fifteen enemies defeated by this will make a temporary extra shield. If an enemy is hit five times by the rotating dubias, it will trigger an explosion.', effect() { this.evolveToDubiaDefenders(); } },
             { id: 'flashclaw',             weaponKey: 'poisonclaw',  weaponLabel: 'Poison Claw',           boostName: 'Hunter Instinct',      evolvedName: 'Flashclaw',             desc: 'Double claw strike — immobilises 1s (10s cd per enemy), poisons 6s.',        effect() { this.evolveToFlashclaw(); } },
             { id: 'log_lob',               weaponKey: 'branchthrow', weaponLabel: 'Branch Throw',          boostName: 'Aura Farming',         evolvedName: 'Log Lob',               desc: '2 logs rolling opposite ways — unbreakable 25s, high damage, knockback.',     effect() { this.evolveToLogLob(); } },
             { id: 'duststorm',             weaponKey: 'dustkick',    weaponLabel: 'Dust Kick',             boostName: 'Inflate',              evolvedName: 'Duststorm',             desc: 'Huge area — medium damage, slows all, immobilises nearest for 1.5s.',        effect() { this.evolveToDuststorm(); } },
@@ -350,11 +351,26 @@ export default class GameScene extends Phaser.Scene {
         // --- Timers ---
         this.spawnDelay    = 2500; // initial delay between each enemy spawn (ms)
         this.spawnMinDelay = 400;  // fastest it can ever get (ms)
-        this.spawnTimer    = this.time.addEvent({ delay: this.spawnDelay, callback: this.spawnTick, callbackScope: this, loop: true });
 
         this.maxEnemies     = 80;  // live enemy cap, grows over time
         this.maxEnemiesCap  = 250; // ceiling the cap can grow to
         this.maxEnemiesStep = 6;   // cap growth per ramp tick
+
+        // Level 5 (The Hand): enemy spawns and the live mob cap are doubled for the
+        // whole level, from the start through to the boss (regular spawning stops
+        // for good once the boss appears, so nothing further is needed there).
+        // Halving both spawn-delay values doubles how often spawnTick fires at every
+        // point along the existing ramp-down curve below; doubling the cap values
+        // keeps the cap's own growth curve proportional too.
+        if (this.level === 5) {
+            this.spawnDelay     *= 0.5;
+            this.spawnMinDelay  *= 0.5;
+            this.maxEnemies     *= 2;
+            this.maxEnemiesCap  *= 2;
+            this.maxEnemiesStep *= 2;
+        }
+
+        this.spawnTimer = this.time.addEvent({ delay: this.spawnDelay, callback: this.spawnTick, callbackScope: this, loop: true });
 
         // Gradually increase spawn rate (and the live enemy cap) every 10 seconds
         this.spawnRampTimer = this.time.addEvent({

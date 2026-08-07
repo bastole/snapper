@@ -1,31 +1,22 @@
 export const EnemySpawnMethods = {
 
-    // Emergency spawn-rate boost for the final stretch before the boss — if the live
-    // enemy count is too low for how close the boss is, temporarily multiplies the
-    // spawn rate so the field doesn't feel empty. Three tiers gated by time-remaining
-    // (this.gameTime counts down from 600 to 0), only the strongest currently-matching
-    // tier applies (they don't stack) — the closer to the boss, the higher the enemy
-    // count threshold that triggers it and the bigger the boost:
-    //   last 7 min, <10 enemies → +50%  (×1.5)
-    //   last 5 min, <20 enemies → +150% (×2.5)
-    //   last 2 min, <40 enemies → +300% (×4)
-    // Once triggered, the boost lingers for 5s after the trigger condition stops being
-    // true (time window ends or the count rises back over the threshold), so it doesn't
-    // flicker on/off if the count hovers right at the line.
+    // Emergency spawn-rate boost — if the live enemy count is under 50 once the level
+    // has run long enough, quadruples the spawn rate so the field doesn't feel empty.
+    // Checking starts at 5 minutes elapsed on every level except Level 5, which starts
+    // checking earlier, at 3 minutes elapsed (this.gameTime counts down from 600 to 0,
+    // so "5 minutes elapsed" is gameTime <= 300 and "3 minutes elapsed" is gameTime <=
+    // 420). Once triggered, the boost lingers for 5s after the count rises back above
+    // 50, so it doesn't flicker on/off if the count hovers right at the line.
     getSpawnBoostMultiplier() {
+        const boostStartsAt = this.level === 5 ? 420 : 300;
         const timeLeft = this.gameTime;
         const count    = this.enemies.getChildren().length;
-        let tier = 1;
-        if (timeLeft <= 120 && count < 40) tier = 4;
-        else if (timeLeft <= 300 && count < 20) tier = 2.5;
-        else if (timeLeft <= 420 && count < 10) tier = 1.5;
 
-        if (tier > 1) {
-            this.spawnBoostMultiplier = tier;
+        if (timeLeft <= boostStartsAt && count < 50) {
             this.spawnBoostUntil = this.time.now + 5000;
-            return tier;
+            return 4;
         }
-        if (this.spawnBoostUntil && this.time.now < this.spawnBoostUntil) return this.spawnBoostMultiplier;
+        if (this.spawnBoostUntil && this.time.now < this.spawnBoostUntil) return 4;
         return 1;
     },
 
@@ -99,7 +90,7 @@ export const EnemySpawnMethods = {
                 { key: 'coriander_small',  health: 30,  damage: 10, speed: 144, scale: 1.00, minTime: 0   },
                 { key: 'coriander_whip',   health: 60,  damage: 14, speed: 110, scale: 1.12, minTime: 150, whips: true },
                 { key: 'carrot_mole',      health: 75,  damage: 12, speed: 120, scale: 1.04, minTime: 240, burrowed: true },
-                { key: 'coriander_hydra',  health: 220, damage: 13, speed: 76,  scale: 1.28, minTime: 420, hydra: true },
+                { key: 'coriander_hydra',  health: 220, damage: 13, speed: 76,  scale: 2.56, minTime: 420, hydra: true },
                 { key: 'carrot_dart',      health: 40,  damage: 17, speed: 290, scale: 1.00, minTime: 480, splitsInto: 'carrot_wheel', scaleMin: 0.72, scaleMax: 1.40 },
                 { key: 'carrot_wheel',     health: 22,  damage: 9,  speed: 260, scale: 0.72, minTime: 480 },
             ],
@@ -129,7 +120,7 @@ export const EnemySpawnMethods = {
                 { key: 'lettuce_shooter', health: 90,  damage: 6,  speed: 0,   scale: 1.00, minTime: 210, shoots: true },
                 { key: 'oregano_ghost',   health: 150, damage: 12, speed: 70,  scale: 1.20, minTime: 210, emitsGas: true },
                 { key: 'oregano_fan',     health: 80,  damage: 10, speed: 100, scale: 1.00, minTime: 210, fanAI: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 2.24, poisonous: true },
-                { key: 'coriander_hydra', health: 220, damage: 13, speed: 76,  scale: 1.20, minTime: 210, hydra: true },
+                { key: 'coriander_hydra', health: 220, damage: 13, speed: 76,  scale: 2.40, minTime: 210, hydra: true },
                 { key: 'carrot_wheel',    health: 22,  damage: 9,  speed: 260, scale: 0.72, minTime: 210 },
                 { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 96,  scale: 1.12, minTime: 210, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 2.08, snakeWhip: true },
                 // 5:00 — dragonfly droppers
@@ -196,12 +187,27 @@ export const EnemySpawnMethods = {
         // Oregano Skunk's art faces the opposite way from every other enemy's default —
         // invert the shared left/right facing logic in crickets.js just for this type.
         enemy.flipInverted  = def.key === 'oregano_skunk';
-        if (enemy.hydra) { enemy.hydraHeads = 3; enemy.body.setSize(123.75, 123.75); }
+        if (enemy.hydra) { enemy.hydraHeads = 3; enemy.body.setSize(247.5, 247.5); }
         if (enemy.burrowed) {
             // Carrot Mole: alternates surfaced (stationary, vulnerable) and burrowed (moving, invulnerable)
             // Starts surfaced
             enemy.isUnderground = false;
             enemy.speed = 0; // stationary while surfaced
+            // Per sprites.md, frames 0–1 are the underground-movement loop and frames 2–3
+            // are the surfaced/vulnerable loop — surfaced should never show the underground
+            // frames. `${type}_walk` (0–1) is created generically further down in this
+            // function; register the surfaced loop here so both are ready before the burrow
+            // cycle's delayed callbacks need to switch between them.
+            const moleWalkKey   = `${type}_walk`;
+            const moleSurfaceKey = `${type}_surface`;
+            if (!this.anims.exists(moleSurfaceKey)) {
+                this.anims.create({
+                    key: moleSurfaceKey,
+                    frames: this.anims.generateFrameNumbers(type, { start: 2, end: 3 }),
+                    frameRate: 8,
+                    repeat: -1,
+                });
+            }
             const scheduleBurrow = () => {
                 if (!enemy.active) return;
                 // Surface phase: 3–10s, then burrow
@@ -211,6 +217,7 @@ export const EnemySpawnMethods = {
                     enemy.isUnderground = true;
                     enemy.body.setSize(45, 33.75);
                     enemy.speed = 160;
+                    enemy.play(moleWalkKey);
                     // Move toward player while underground for 3–5s
                     const burrowDur = Phaser.Math.Between(3000, 5000);
                     enemy.burrowTimer = this.time.delayedCall(burrowDur, () => {
@@ -220,6 +227,7 @@ export const EnemySpawnMethods = {
                         enemy.body.setSize(67.5, 45);
                         enemy.speed = 0;
                         if (enemy.body) enemy.body.setVelocity(0, 0);
+                        enemy.play(moleSurfaceKey);
                         scheduleBurrow();
                     });
                 });
@@ -558,7 +566,7 @@ export const EnemySpawnMethods = {
             const spawnStats = {
                 coriander_small: { health: 30,  damage: 10, speed: 144, scale: 1.00 },
                 coriander_whip:  { health: 60,  damage: 14, speed: 110, scale: 1.00 },
-                coriander_hydra: { health: 220, damage: 13, speed: 76,  scale: 1.20 },
+                coriander_hydra: { health: 220, damage: 13, speed: 76,  scale: 2.40 },
                 carrot_mole:     { health: 75,  damage: 12, speed: 120, scale: 1.00 },
                 carrot_dart:     { health: 40,  damage: 17, speed: 290, scale: 1.00 },
                 carrot_wheel:    { health: 22,  damage: 9,  speed: 260, scale: 0.72 },
@@ -584,7 +592,7 @@ export const EnemySpawnMethods = {
                         mini.bomb = false; mini.sweeps = false; mini.phantom = false;
                         mini.spawnsCarrotCori = false; mini.spawnsAnySpinach = false; mini.vineWhip = false; mini.spawnsMinion = null;
                         mini.isWanderer = false;
-                        if (mini.hydra) { mini.hydraHeads = 3; mini.body.setSize(123.75, 123.75); }
+                        if (mini.hydra) { mini.hydraHeads = 3; mini.body.setSize(247.5, 247.5); }
                         if (mini.burrowed) {
                             mini.isUnderground = false; mini.speed = 0;
                             const sb = () => {
@@ -722,6 +730,10 @@ export const EnemySpawnMethods = {
             });
         }
         enemy.play(animKey);
+        // Carrot Mole starts surfaced (isUnderground = false, set above) — show the
+        // surfaced loop (frames 2–3) from the very first frame instead of the
+        // underground-movement loop the generic play() call just started.
+        if (enemy.burrowed) enemy.play(`${type}_surface`);
         this.enemies.add(enemy);
 
         // Move toward player every frame via physics

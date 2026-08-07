@@ -157,6 +157,10 @@ export const EvolutionUIMethods = {
             this.input.off('pointerup', gridDragEnd);
             this.events.off('update', scrollUpdateHandler);
             this.events.off('update', navPollHandler);
+            // Blocks the pause menu's "any input resumes" handlers for a moment so the
+            // click/press that closed this menu (or one shortly after) can't also
+            // immediately unpause the game underneath it.
+            this.lockPauseResume();
             requestAnimationFrame(() => { this._evoMenuOpen = false; });
         };
 

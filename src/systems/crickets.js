@@ -37,11 +37,21 @@ export const CricketMethods = {
             if (enemy.isCharging) return;
             if (enemy.fanAI) { this.updateOreganoFanAI(enemy); return; }
             if (enemy.speed === 0) {
-                // Stationary enemies (Lettuce Shooter, Oregano Fan, a surfaced Carrot Mole,
-                // etc.) never move, but should still visually track which side the player is
-                // on rather than freeze facing whichever way they happened to spawn. Skipped
-                // for enemies currently immobilised (bugCaught) — those keep holding their
-                // last facing, same as before. (trapArmed already returned above.)
+                // Stationary enemies (Lettuce Shooter, a surfaced Carrot Mole, etc.) never
+                // move under their own power, but a knockback attack (Steel Slam, Inflate)
+                // still slams a velocity burst directly into their body. Every other branch
+                // below either holds that burst for its short knockbackUntil window and then
+                // overwrites it with fresh AI-driven velocity, or explicitly zeroes it — this
+                // branch used to do neither, so a knocked stationary enemy kept drifting in
+                // that direction forever (nothing ever called setVelocity again) until it
+                // slid clean off the edge of the world. Hold the knock, then re-zero once it
+                // expires so it actually stays put like a stationary enemy should.
+                if (enemy.knockbackUntil && this.time.now < enemy.knockbackUntil) return;
+                enemy.setVelocity(0, 0);
+                // Still visually track which side the player is on rather than freeze facing
+                // whichever way they happened to spawn. Skipped for enemies currently
+                // immobilised (bugCaught) — those keep holding their last facing, same as
+                // before. (trapArmed already returned above.)
                 if (!enemy.bugCaught) {
                     const facingRight = this.player.x > enemy.x;
                     enemy.setFlipX(enemy.flipInverted ? facingRight : !facingRight);
@@ -220,10 +230,8 @@ export const CricketMethods = {
         const heads = pct > 2/3 ? 3 : pct > 1/3 ? 2 : 1;
         if (heads < enemy.hydraHeads) {
             enemy.hydraHeads = heads;
-            // Speed increases and shrinks slightly as heads are lost
+            // Speed increases as heads are lost; size stays fixed
             enemy.speed += 36;
-            const newScale = 1.28 - (3 - heads) * 0.16;
-            enemy.setScale(newScale);
             this.tweens.add({ targets: enemy, alpha: 0.1, duration: 120, yoyo: true, repeat: 2 });
         }
     },
