@@ -100,9 +100,21 @@ export default class GameScene extends Phaser.Scene {
 
         const isBlocked = () => this.isPaused || this.isCountdown || this.isLevelingUp || this.isLevelClear || this.isGameOver;
 
-        // U — open an upgrade screen immediately
+        // U — open an upgrade screen immediately. Setting fastUpgrade (the same flag
+        // the F cheat below already uses for its 29-screen chain) makes whichever card
+        // gets picked skip the post-upgrade 3-2-1 countdown entirely — beginCountdown()
+        // (levelUp.js) reads it to jump straight to a 0-delay resume instead of the
+        // normal 1500ms wait. Without this, U opened the screen instantly but picking a
+        // card still sat through the full countdown same as a real level-up, which
+        // defeats the point of a rapid-iteration debug key. While the countdown is
+        // already running (e.g. from a real level-up, or a previous U press), U instead
+        // skips straight to the end of it (this.skipCountdown, set by beginCountdown())
+        // rather than being blocked like every other state below — countdown isn't a
+        // "can't act" state so much as a timer to wait out.
         this.input.keyboard.on('keydown-U', () => {
+            if (this.isCountdown) { this.skipCountdown?.(); return; }
             if (isBlocked()) return;
+            this.fastUpgrade = true;
             this.showLevelUp();
         });
 
@@ -169,6 +181,16 @@ export default class GameScene extends Phaser.Scene {
             this.xpFrozen = !this.xpFrozen;
         });
 
+        // J — opens the INDEX directly (no pause screen underneath), freezing the game
+        // exactly like a real pause for as long as it's open. Passing spawnable: true
+        // lets clicking a non-boss enemy entry spawn it in near the player instead of
+        // zooming in on it; pauseGame: true tells showIndexMenu/closeMenu (indexMenu.js)
+        // to pause/resume the game itself, since there's no pause screen to fall back to.
+        this.input.keyboard.on('keydown-J', () => {
+            if (isBlocked()) return;
+            this.showIndexMenu({ flaggable: true, spawnable: true, pauseGame: true });
+        });
+
         // 1–9 and 0 — deal N/10ths of the boss's max HP (0 = 10/10, i.e. a kill).
         // damageBoss() halves whatever amount it's given ("bosses take half damage"),
         // so passing fraction × maxHealth × 2 makes the actual HP loss come out to
@@ -230,6 +252,7 @@ export default class GameScene extends Phaser.Scene {
         this.magnetRange    = 64;
         this.isLevelingUp   = false;
         this.isCountdown    = false;
+        this.skipCountdown  = null; // set while isCountdown is true — see keydown-U below
         this.isLevelClear   = false;
         this.isGameOver     = false;
         this.pendingLevelUps = 0;
@@ -238,6 +261,10 @@ export default class GameScene extends Phaser.Scene {
         this.kills          = 0;
         this.damageDealt    = 0;
         this.rerolls        = 0;
+        // Rolling 1s window of real (non-silent) kill timestamps, used to derive the
+        // current kills/sec for Enraged enemy spawning — see enemySpawn.js's
+        // getKillsPerSecond()/getEnragedSpawnChance().
+        this.killTimestamps = [];
         this.nextRerollAt   = 300;
         this.wormboxSpawned  = 0;
         this.score               = 0;
@@ -368,7 +395,7 @@ export default class GameScene extends Phaser.Scene {
             { id: 'flashclaw',             weaponKey: 'poisonclaw',  weaponLabel: 'Poison Claw',           boostName: 'Hunter Instinct',      evolvedName: 'Flashclaw',             desc: 'Double claw strike — immobilises 1s (10s cd per enemy), poisons 6s.',        effect() { this.evolveToFlashclaw(); } },
             { id: 'log_lob',               weaponKey: 'branchthrow', weaponLabel: 'Branch Throw',          boostName: 'Aura Farming',         evolvedName: 'Log Lob',               desc: '2 logs rolling opposite ways — unbreakable 25s, high damage, knockback.',     effect() { this.evolveToLogLob(); } },
             { id: 'duststorm',             weaponKey: 'dustkick',    weaponLabel: 'Dust Kick',             boostName: 'Inflate',              evolvedName: 'Duststorm',             desc: 'Huge area — medium damage, slows all, immobilises nearest for 1.5s.',        effect() { this.evolveToDuststorm(); } },
-            { id: 'lucky_thrash',          weaponKey: 'scratch',     weaponLabel: 'Lucky Scratch',         boostName: 'Hyperactivity',        evolvedName: 'Lucky Thrash',          desc: 'Many scratches in a huge radius — greatly raises item drop chance + Fullbox.', effect() { this.evolveToLuckyThrash(); } },
+            { id: 'lucky_thrash',          weaponKey: 'scratch',     weaponLabel: 'Lucky Scratch',         boostName: 'Hyperactivity',        evolvedName: 'Lucky Thrash',          desc: 'Many scratches in a huge radius — high damage, inflicts a random ailment on every enemy hit.', effect() { this.evolveToLuckyThrash(); } },
             { id: 'four_chills',           weaponKey: 'coldglare',   weaponLabel: 'Cold Glare',            boostName: 'Polycephaly',          evolvedName: 'Four Chills',           desc: 'Huge ring — slows all 8s, immobilises closest 8s, heavy damage tapering with distance.', effect() { this.evolveToFourChills(); } },
         ];
         this.appliedEvolutions = new Set();

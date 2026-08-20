@@ -1,3 +1,12 @@
+// A handful of ENEMY_LIST entries (upgradeContent.js) never appear in spawnEnemy()'s
+// per-level `pools` below because they're only ever hand-spawned elsewhere — currently
+// just Carrot Thug, spawned exclusively by Carrot Scorpion's (and its Hand mini-boss
+// reprise's) stinger-bury attack (see boss.js/handMiniBoss.js). Stats mirror that spawn
+// site exactly, so spawnEnemyNearPlayer() below has somewhere to look them up.
+const OFF_POOL_ENEMY_DEFS = {
+    carrot_thug: { key: 'carrot_thug', health: 300, damage: 15, speed: 360, scale: 1.20 },
+};
+
 export const EnemySpawnMethods = {
 
     // Emergency spawn-rate boost — if the live enemy count is under 50 once the level
@@ -20,6 +29,27 @@ export const EnemySpawnMethods = {
         return 1;
     },
 
+    // Real-time kills/sec — prunes this.killTimestamps (pushed in enemyDeath.js's
+    // killEnemy(), only for real/non-silent kills) down to the trailing 1000ms window
+    // and returns how many are left. Drives Enraged enemy spawning below: reactive both
+    // ways, since a quiet second immediately drops old timestamps back out of the window.
+    getKillsPerSecond() {
+        const cutoff = this.time.now - 1000;
+        while (this.killTimestamps.length && this.killTimestamps[0] < cutoff) this.killTimestamps.shift();
+        return this.killTimestamps.length;
+    },
+
+    // Enraged enemies only start appearing once kills/sec exceeds 20, at a base 1/30
+    // chance — and that chance doubles for every further 10 kills/sec gained (30 → 2/30,
+    // 40 → 4/30, etc.), sliding back down immediately as kills/sec falls since it's
+    // recomputed fresh from getKillsPerSecond() on every roll rather than latched.
+    getEnragedSpawnChance() {
+        const kps = this.getKillsPerSecond();
+        if (kps <= 20) return 0;
+        const tier = Math.floor((kps - 20) / 10);
+        return Math.min(1, (1 / 30) * Math.pow(2, tier));
+    },
+
     // Fired by spawnTimer instead of spawnEnemy() directly — applies the boost above by
     // spawning extra enemies in the same tick via a fractional accumulator, so e.g. a
     // ×1.5 multiplier averages out to one extra enemy every other tick rather than
@@ -33,35 +63,44 @@ export const EnemySpawnMethods = {
     },
 
     // ─── Step 2: Enemy spawning ───────────────────────────────────────────────────
-    spawnEnemy() {
-        if (this.enemies.getChildren().length >= this.maxEnemies) return;
+    // opts.x/opts.y — spawn at an exact world position instead of picking one just
+    // off-camera. opts.forceKey — spawn this exact enemy key instead of rolling the
+    // current level's pool. Both used by spawnEnemyNearPlayer() (the INDEX menu's
+    // spawn-on-click debug feature); neither is passed by the normal random spawnTick().
+    spawnEnemy(opts = {}) {
+        if (!opts.forceKey && this.enemies.getChildren().length >= this.maxEnemies) return;
 
         const cam    = this.cameras.main;
         const margin = 160;
         let x, y;
 
-        const side = Phaser.Math.Between(0, 3);
-        if (side === 0) {
-            // Top edge — clamp X along edge, keep Y strictly above camera
-            x = Phaser.Math.Clamp(Phaser.Math.Between(cam.scrollX, cam.scrollX + cam.width), 128, 6272);
-            y = Math.max(128, cam.scrollY - margin);
-        } else if (side === 1) {
-            // Bottom edge — clamp X along edge, keep Y strictly below camera
-            x = Phaser.Math.Clamp(Phaser.Math.Between(cam.scrollX, cam.scrollX + cam.width), 128, 6272);
-            y = Math.min(6272, cam.scrollY + cam.height + margin);
-        } else if (side === 2) {
-            // Left edge — keep X strictly left of camera, clamp Y along edge
-            x = Math.max(128, cam.scrollX - margin);
-            y = Phaser.Math.Clamp(Phaser.Math.Between(cam.scrollY, cam.scrollY + cam.height), 128, 6272);
+        if (opts.x !== undefined && opts.y !== undefined) {
+            x = opts.x;
+            y = opts.y;
         } else {
-            // Right edge — keep X strictly right of camera, clamp Y along edge
-            x = Math.min(6272, cam.scrollX + cam.width + margin);
-            y = Phaser.Math.Clamp(Phaser.Math.Between(cam.scrollY, cam.scrollY + cam.height), 128, 6272);
-        }
+            const side = Phaser.Math.Between(0, 3);
+            if (side === 0) {
+                // Top edge — clamp X along edge, keep Y strictly above camera
+                x = Phaser.Math.Clamp(Phaser.Math.Between(cam.scrollX, cam.scrollX + cam.width), 128, 6272);
+                y = Math.max(128, cam.scrollY - margin);
+            } else if (side === 1) {
+                // Bottom edge — clamp X along edge, keep Y strictly below camera
+                x = Phaser.Math.Clamp(Phaser.Math.Between(cam.scrollX, cam.scrollX + cam.width), 128, 6272);
+                y = Math.min(6272, cam.scrollY + cam.height + margin);
+            } else if (side === 2) {
+                // Left edge — keep X strictly left of camera, clamp Y along edge
+                x = Math.max(128, cam.scrollX - margin);
+                y = Phaser.Math.Clamp(Phaser.Math.Between(cam.scrollY, cam.scrollY + cam.height), 128, 6272);
+            } else {
+                // Right edge — keep X strictly right of camera, clamp Y along edge
+                x = Math.min(6272, cam.scrollX + cam.width + margin);
+                y = Phaser.Math.Clamp(Phaser.Math.Between(cam.scrollY, cam.scrollY + cam.height), 128, 6272);
+            }
 
-        // Safety: if world edge forces the enemy inside the camera, nudge it out
-        if (x > cam.scrollX && x < cam.scrollX + cam.width && y > cam.scrollY && y < cam.scrollY + cam.height) {
-            x = cam.scrollX - margin;
+            // Safety: if world edge forces the enemy inside the camera, nudge it out
+            if (x > cam.scrollX && x < cam.scrollX + cam.width && y > cam.scrollY && y < cam.scrollY + cam.height) {
+                x = cam.scrollX - margin;
+            }
         }
 
         // elapsed = seconds since level started
@@ -139,16 +178,32 @@ export const EnemySpawnMethods = {
                 { key: 'mulberry_monstrosity', health: 350, damage: 15, speed: 280, scale: 3.20, minTime: 420, vineWhip: true, spawnsMinion: 'mulberry_bat' },
             ],
         };
-        let typePool = (pools[this.level] ?? pools[1]).filter(t => elapsed >= t.minTime && (!t.rare || Math.random() < 0.2));
-        if (typePool.length === 0) typePool = (pools[this.level] ?? pools[1]).filter(t => elapsed >= t.minTime && !t.rare);
-
-        const def  = Phaser.Utils.Array.GetRandom(typePool);
+        let def;
+        if (opts.forceKey) {
+            def = (pools[this.level] ?? pools[1]).find(t => t.key === opts.forceKey)
+                ?? Object.values(pools).flat().find(t => t.key === opts.forceKey)
+                ?? OFF_POOL_ENEMY_DEFS[opts.forceKey];
+            if (!def) return; // not a real enemy key — shouldn't happen from the INDEX menu
+        } else {
+            let typePool = (pools[this.level] ?? pools[1]).filter(t => elapsed >= t.minTime && (!t.rare || Math.random() < 0.2));
+            if (typePool.length === 0) typePool = (pools[this.level] ?? pools[1]).filter(t => elapsed >= t.minTime && !t.rare);
+            def = Phaser.Utils.Array.GetRandom(typePool);
+        }
         const type = def.key;
 
+        // Enraged — a 1-in-30-and-up chance (see getEnragedSpawnChance()) for a natural
+        // spawn to come in twice the size with all stats doubled except health, which is
+        // ×8 instead. Never rolled for a forced spawn (opts.forceKey, e.g. the INDEX
+        // menu's debug spawn-on-click) — only spawnEnemy()'s own random-pool pick counts
+        // as "naturally spawning" for this and for the guaranteed Treasure drop on kill
+        // (enemyDeath.js's killEnemy()).
+        const enraged = !opts.forceKey && Math.random() < this.getEnragedSpawnChance();
+        const statMult = enraged ? 2 : 1;
+
         const enemy = this.physics.add.sprite(x, y, type);
-        const spawnScale = (def.scaleMin !== undefined)
+        const spawnScale = ((def.scaleMin !== undefined)
             ? Phaser.Math.FloatBetween(def.scaleMin, def.scaleMax)
-            : def.scale;
+            : def.scale) * statMult;
         enemy.setScale(spawnScale);
         enemy.spawnScale = spawnScale;
         enemy.setDepth(5);
@@ -158,11 +213,13 @@ export const EnemySpawnMethods = {
         // below with their own explicit body.setSize(...) apply the same ×0.75 to their
         // own old literal pixel values for the same reason.
         enemy.body.setSize(enemy.body.width * 0.5625, enemy.body.height * 0.5625);
-        enemy.health        = def.health;
-        enemy.maxHealth     = def.health;
-        enemy.damage        = def.damage;
-        enemy.speed         = def.speed;
+        enemy.enraged       = enraged;
+        enemy.health        = def.health * (enraged ? 8 : 1);
+        enemy.maxHealth     = enemy.health;
+        enemy.damage        = def.damage * statMult;
+        enemy.speed         = def.speed * statMult;
         enemy.lastHitTime   = 0;
+        if (enraged) this.addStatusTint(enemy, 'enraged', 0xff0000);
         enemy.splits        = def.splits       ?? false;
         enemy.shoots        = def.shoots       ?? false;
         enemy.fanAI         = def.fanAI        ?? false;
@@ -174,9 +231,9 @@ export const EnemySpawnMethods = {
         enemy.snakeWhip     = def.snakeWhip    ?? false;
         enemy.trap             = def.trap             ?? false;
         enemy.trapArmed        = def.trap             ?? false;
-        enemy.snapDamage       = def.snapDamage       ?? 0;
+        enemy.snapDamage       = (def.snapDamage    ?? 0) * statMult;
         enemy.bomb             = def.bomb             ?? false;
-        enemy.explodeDamage    = def.explodeDamage    ?? 0;
+        enemy.explodeDamage    = (def.explodeDamage ?? 0) * statMult;
         enemy.sweeps           = def.sweeps           ?? false;
         enemy.phantom          = def.phantom          ?? false;
         enemy.spawnsCarrotCori = def.spawnsCarrotCori ?? false;
@@ -743,6 +800,17 @@ export const EnemySpawnMethods = {
 
         // Move toward player every frame via physics
         this.physics.moveToObject(enemy, this.player, enemy.speed);
+    },
+
+    // Debug/cheat feature — spawns a specific enemy key at a random point 220–380px from
+    // the player (clamped to the world bounds), used by the INDEX menu's click-to-spawn
+    // (see indexMenu.js's `spawnable` option, opened via GameScene's J key).
+    spawnEnemyNearPlayer(key) {
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const dist  = Phaser.Math.Between(220, 380);
+        const x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 128, 6272);
+        const y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 128, 6272);
+        this.spawnEnemy({ x, y, forceKey: key });
     },
 
     // Fires a projectile from `enemy` toward the player, but only if the enemy is

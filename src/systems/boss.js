@@ -619,7 +619,14 @@ export const BossMethods = {
         boss.anims.stop();
         boss.setFrame(2);
 
-        // Stay still and slowly fade out before going invisible
+        // The boss is still hittable here (body.enable only turns off once this fade
+        // finishes below), so a hit landing mid-fade starts damageBoss()'s own alpha
+        // tween concurrently with this one — two tweens racing on the same property can
+        // leave alpha stuck on whichever one happens to write last, which is the
+        // "sometimes transparent between vanishes" bug. Killing any tween already on the
+        // boss before starting this one means only this fade is ever in control of alpha.
+        this.tweens.killTweensOf(boss);
+        boss.setAlpha(1);
         this.tweens.add({ targets: boss, alpha: 0, duration: 1000, onComplete: () => {
             if (!this.boss) return;
             boss.setActive(false).setVisible(false);
@@ -649,7 +656,10 @@ export const BossMethods = {
         boss.body.enable = true;
         boss.mantisVanishing = false;
 
-        // Flash in
+        // Flash in — see mantisVanish()'s comment on killTweensOf: re-enabling the body
+        // right above means it can be hit (and get its own hit-flash tween) the instant
+        // it reappears, before this fade-in has finished.
+        this.tweens.killTweensOf(boss);
         this.tweens.add({ targets: boss, alpha: 1, duration: 150, onComplete: () => {
             if (!this.boss) return;
             // Wait 400ms then strike
@@ -688,7 +698,8 @@ export const BossMethods = {
         // rest) — precomputed here so the post-strike frame choice below can use it.
         const entersPhase2VanishRest = boss.mantisPhase === 2 && (boss.mantisVanishCycles + 1) < boss.mantisChaseThreshold;
 
-        // Red flash warning
+        // Red flash warning — killTweensOf first, same reasoning as mantisVanish/Reappear.
+        this.tweens.killTweensOf(boss);
         this.tweens.add({ targets: boss, alpha: { from: 1, to: 0.2 }, duration: 80, yoyo: true, repeat: 1 });
         // Hold the 4th frame (attack) for the strike, then return to idle. Phase 1's
         // updateMulberryMantisAI() would otherwise keep chasing the player during this
@@ -895,7 +906,7 @@ export const BossMethods = {
         this.handMiniBossArray?.forEach(b => {
             if (!b.active) return;
             this.cleanupMiniBossTimers(b);
-            b.hpBarBg?.destroy(); b.hpBar?.destroy(); b.hpLabel?.destroy(); b.phaseLine?.destroy();
+            b.hpBarBg?.destroy(); b.hpBar?.destroy(); b.phaseLine?.destroy();
             b.destroy();
         });
         this.handMiniBossArray = [];

@@ -10,14 +10,13 @@ export const HandBossMethods = {
         this.handMiniBossArray?.forEach(mb => {
             if (!mb.active) return;
             if (mb.hpBarBg) {
-                mb.hpBarBg.setPosition(mb.x, mb.y + 60);
+                mb.hpBarBg.setPosition(mb.x, mb.y + 80);
                 mb.hpBar.x = mb.x - 60;
-                mb.hpBar.y = mb.y + 60;
+                mb.hpBar.y = mb.y + 80;
                 mb.hpBar.width = 120 * Math.max(0, mb.health / mb.maxHealth);
-                mb.hpLabel.setPosition(mb.x, mb.y - 88);
                 if (mb.phaseLine) {
                     const f = mb.phaseBoundaries[0] / mb.maxHealth;
-                    mb.phaseLine.setPosition(mb.x - 60 + f * 120, mb.y + 60);
+                    mb.phaseLine.setPosition(mb.x - 60 + f * 120, mb.y + 80);
                 }
             }
         });
@@ -195,6 +194,10 @@ export const HandBossMethods = {
             const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_calcium');
             proj.setScale(1.44).setDepth(7);
             proj.setVelocity(Math.cos(a) * 440, Math.sin(a) * 440);
+            // Calcium spins clockwise; the vitamin rings (fireRing/doHandPhase4Rings
+            // below) spin counter-clockwise, so the two projectile types read as
+            // visually distinct at a glance. 3.5 rotations/sec = 1260 deg/sec.
+            proj.setAngularVelocity(1260);
             proj.damage = 15;
             this.physics.add.overlap(proj, this.player, () => {
                 if (!proj.active || this.player.reviveInvincible) return;
@@ -485,12 +488,11 @@ export const HandBossMethods = {
             this.anims.create({ key: attackKey, frames: this.anims.generateFrameNumbers(cfg.key, { start: 2, end: 3 }), frameRate: 8, repeat: -1 });
         mb.play(animKey);
 
-        // World-space health bar under the mini-boss sprite
-        mb.hpBarBg = this.add.rectangle(sx, sy + 60, 120, 16, 0x222222).setDepth(9);
-        mb.hpBar   = this.add.rectangle(sx - 60, sy + 60, 120, 12, 0xff2222).setDepth(10).setOrigin(0, 0.5);
-        mb.hpLabel = this.add.text(sx, sy - 88, cfg.key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), {
-            fontSize: '18px', fontFamily: 'Arial Black, Arial', color: '#ff8888',
-        }).setDepth(10).setOrigin(0.5);
+        // World-space health bar under the mini-boss sprite — no name tag; exclusive to
+        // minibosses (main bosses only show on the top-of-screen bar), moved down
+        // slightly from its original y+60 so it sits clear of the sprite itself.
+        mb.hpBarBg = this.add.rectangle(sx, sy + 80, 120, 16, 0x222222).setDepth(9);
+        mb.hpBar   = this.add.rectangle(sx - 60, sy + 80, 120, 12, 0xff2222).setDepth(10).setOrigin(0, 0.5);
 
         this.enemies.add(mb);
         this.handMiniBossArray = this.handMiniBossArray || [];
@@ -545,16 +547,19 @@ export const HandBossMethods = {
         if (!boss?.active) return;
 
         if (Math.random() < 0.5) {
-            // Enemy ring: 30 L5-exclusive enemies around boss
+            // Enemy ring: 30 L5-exclusive enemies around boss. Scale values match
+            // enemySpawn.js's pool[5] entries for these same 7 keys (doubled in Session
+            // 56) — this table used to carry the pre-doubling values, which is why these
+            // enemies looked "very small" compared to the same enemies spawned normally.
             const keys = ['lettuce_trap', 'basil_bomb', 'rocket_bustersword', 'oregano_phantom', 'coriander_carrot', 'spinach_tempest', 'mulberry_monstrosity'];
             const statMap = {
-                lettuce_trap:        { health: 180, damage: 10, speed: 140, scale: 1.12 },
-                basil_bomb:          { health: 80,  damage: 0,  speed: 380, scale: 1.00 },
-                rocket_bustersword:  { health: 90,  damage: 22, speed: 400, scale: 1.40 },
-                oregano_phantom:      { health: 250, damage: 25, speed: 100, scale: 1.40 },
-                coriander_carrot:     { health: 500, damage: 30, speed: 40,  scale: 1.20 },
-                spinach_tempest:      { health: 500, damage: 25, speed: 320, scale: 1.60 },
-                mulberry_monstrosity: { health: 350, damage: 15, speed: 280, scale: 1.60 },
+                lettuce_trap:        { health: 180, damage: 10, speed: 140, scale: 2.24 },
+                basil_bomb:          { health: 80,  damage: 0,  speed: 380, scale: 2.00 },
+                rocket_bustersword:  { health: 90,  damage: 22, speed: 400, scale: 2.80 },
+                oregano_phantom:      { health: 250, damage: 25, speed: 100, scale: 2.80 },
+                coriander_carrot:     { health: 500, damage: 30, speed: 40,  scale: 2.40 },
+                spinach_tempest:      { health: 500, damage: 25, speed: 320, scale: 3.20 },
+                mulberry_monstrosity: { health: 350, damage: 15, speed: 280, scale: 3.20 },
             };
             for (let i = 0; i < 30; i++) {
                 const a    = (i / 30) * Math.PI * 2;
@@ -593,6 +598,10 @@ export const HandBossMethods = {
                     const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
                     proj.setScale(1.44).setDepth(7);
                     proj.setVelocity(Math.cos(a) * 500, Math.sin(a) * 500);
+                    // Counter-clockwise — opposite the calcium ring's spin (see
+                    // doHandPhase4Projectiles) so the two projectile types are visually
+                    // distinct. 3.5 rotations/sec = 1260 deg/sec.
+                    proj.setAngularVelocity(-1260);
                     proj.damage = 15;
                     this.physics.add.overlap(proj, this.player, () => {
                         if (!proj.active || this.player.reviveInvincible) return;
@@ -636,6 +645,8 @@ export const HandBossMethods = {
                 const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
                 proj.setScale(1.60).setDepth(7);
                 proj.setVelocity(Math.cos(a) * 400, Math.sin(a) * 400);
+                // Counter-clockwise, same as the other vitamin ring above.
+                proj.setAngularVelocity(-1260);
                 this.physics.add.overlap(proj, this.player, () => {
                     if (!proj.active || this.player.reviveInvincible) return;
                     this.playerHealth = Math.floor(this.playerHealth / 2);
@@ -704,7 +715,10 @@ export const HandBossMethods = {
                 ...this.enemies.getChildren().slice().filter(e => e.active && !e.isBossMini),
                 ...(this.handMiniBossArray?.slice().filter(b => b.active) ?? []),
             ];
-            toKill.forEach(e => this.killEnemy(e));
+            // silent: true — this is The Hand's own attack wiping the field, not the
+            // player's kill, so it shouldn't grant kill count/score/reroll progress/heal
+            // procs/item drops (see killEnemy()'s opts.silent in enemyDeath.js).
+            toKill.forEach(e => this.killEnemy(e, { silent: true }));
 
             // Screenshake
             this.cameras.main.shake(600, 0.04);

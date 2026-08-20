@@ -1,4 +1,11 @@
 import { playSfx } from '../audio.js';
+
+// Basil Bomb: distance at which it stops chasing and starts arming (see
+// updateBasilBombArming below) — bigger than the explosion radius itself
+// (enemyDeath.js's bombRadius, ~93px) so the player has room to notice the
+// shake/grow and back off before it's actually committed.
+const BASIL_BOMB_ARM_RADIUS = 150;
+
 export const CricketMethods = {
 
     // ─── Step 4: Cricket collection + XP bar ─────────────────────────────────────
@@ -73,6 +80,9 @@ export const CricketMethods = {
                 return;
             }
             if (enemy.trapArmed || enemy.bugCaught) { enemy.setVelocity(0, 0); return; }
+            // Basil Bomb: stationary once armed/primed (see updateBasilBombArming) — only
+            // falls through to the normal chase movement below while still out of range.
+            if (enemy.bomb && this.updateBasilBombArming(enemy)) return;
             if (enemy.knockbackUntil && this.time.now < enemy.knockbackUntil) return;
 
             // Give each enemy a fixed personal approach-angle bias plus a slow wobble, so a
@@ -157,6 +167,73 @@ export const CricketMethods = {
         enemy.setVelocity(vx, Math.sin(angle) * speed);
         const movingRight = vx > 0;
         if (vx !== 0) enemy.setFlipX(enemy.flipInverted ? movingRight : !movingRight);
+    },
+
+    // Basil Bomb's arm/detonate state machine. Returns true if the bomb should hold
+    // still this frame (armed or primed — attractCrickets() skips its normal chase
+    // movement in that case), false if it's still out of range and should keep chasing
+    // normally. Once primed (frame 3 held), the countdown to detonation is unstoppable —
+    // only the shake/grow "armed" stage can be reverted by the player backing off.
+    updateBasilBombArming(enemy) {
+        if (enemy.bombPrimed) { enemy.setVelocity(0, 0); return true; }
+        const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+        const inRange = dist <= BASIL_BOMB_ARM_RADIUS;
+        if (inRange && !enemy.bombArmed) this.armBasilBomb(enemy);
+        else if (!inRange && enemy.bombArmed) this.disarmBasilBomb(enemy);
+        if (enemy.bombArmed) { enemy.setVelocity(0, 0); return true; }
+        return false;
+    },
+
+    // Stops moving, then shakes in place while growing 20% over 500ms. If it's still
+    // armed (not reverted) when the grow tween completes, primeBasilBomb() takes over.
+    armBasilBomb(enemy) {
+        enemy.bombArmed = true;
+        enemy.setVelocity(0, 0);
+        enemy.bombBaseScale = enemy.spawnScale ?? enemy.scaleX;
+        enemy.bombBaseX = enemy.x;
+        enemy.bombBaseY = enemy.y;
+        enemy.bombGrowTween = this.tweens.add({
+            targets: enemy, scaleX: enemy.bombBaseScale * 1.2, scaleY: enemy.bombBaseScale * 1.2,
+            duration: 500, ease: 'Sine.easeOut',
+            onComplete: () => { if (enemy.active && enemy.bombArmed) this.primeBasilBomb(enemy); },
+        });
+        // Violent jitter around its resting spot for the same 500ms — a value-only
+        // counter tween rather than reading/writing a running total, so it can't drift.
+        enemy.bombShakeTween = this.tweens.addCounter({
+            from: 0, to: 1, duration: 500, ease: 'Linear',
+            onUpdate: () => {
+                if (!enemy.active) return;
+                enemy.x = enemy.bombBaseX + Phaser.Math.Between(-8, 8);
+                enemy.y = enemy.bombBaseY + Phaser.Math.Between(-8, 8);
+            },
+            onComplete: () => { if (enemy.active) { enemy.x = enemy.bombBaseX; enemy.y = enemy.bombBaseY; } },
+        });
+    },
+
+    // Only reachable before priming — the player stepped back out of BASIL_BOMB_ARM_RADIUS
+    // in time. Cancels the shake/grow and restores its exact pre-arm scale/position so it
+    // can resume chasing from updateBasilBombArming()'s next "not in range" frame.
+    disarmBasilBomb(enemy) {
+        enemy.bombArmed = false;
+        enemy.bombGrowTween?.stop();  enemy.bombGrowTween = null;
+        enemy.bombShakeTween?.stop(); enemy.bombShakeTween = null;
+        if (enemy.bombBaseScale !== undefined) enemy.setScale(enemy.bombBaseScale);
+        if (enemy.bombBaseX !== undefined) { enemy.x = enemy.bombBaseX; enemy.y = enemy.bombBaseY; }
+    },
+
+    // The point of no return — holds the 3rd frame (index 2, otherwise unused by the
+    // walk animation's 2-frame loop) for 200ms then detonates via the normal killEnemy()
+    // death path, same as an unarmed bomb walking straight into the player.
+    primeBasilBomb(enemy) {
+        enemy.bombPrimed = true;
+        enemy.bombShakeTween?.stop(); enemy.bombShakeTween = null;
+        if (enemy.bombBaseX !== undefined) { enemy.x = enemy.bombBaseX; enemy.y = enemy.bombBaseY; }
+        enemy.anims.stop();
+        enemy.setFrame(2);
+        enemy.bombDetonateTimer = this.time.delayedCall(200, () => {
+            if (!enemy.active) return;
+            this.killEnemy(enemy);
+        });
     },
 
     collectCricket(player, cricket) {

@@ -847,9 +847,12 @@ export const BaseWeaponMethods = {
                 this.damageDealt += dmg; enemy.health -= dmg;
                 this.playEnemyHurtSfx();
                 this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
-                // Tag this specific enemy for boosted drops
-                enemy._scratchFoodbox  = (enemy._scratchFoodbox  ?? 0) + 0.12;
-                if (this.scratchLevel >= 2) enemy._scratchTreasure = (enemy._scratchTreasure ?? 0) + 0.05;
+                // Tag this specific enemy for boosted drops. Tier 3 jumps both boosts up
+                // to match Lucky Thrash's own per-hit amounts exactly (that evolution no
+                // longer boosts drops itself — see doLuckyThrash() — so this is now the
+                // only place these bigger numbers live).
+                enemy._scratchFoodbox  = (enemy._scratchFoodbox  ?? 0) + (this.scratchLevel >= 3 ? 0.25 : 0.12);
+                if (this.scratchLevel >= 2) enemy._scratchFullbox = (enemy._scratchFullbox ?? 0) + (this.scratchLevel >= 3 ? 0.08 : 0.05);
                 if (enemy.health <= 0) this.killEnemy(enemy);
             }
         });

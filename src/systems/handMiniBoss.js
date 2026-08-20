@@ -357,14 +357,19 @@ export const HandMiniBossMethods = {
         mb.anims.stop();
         mb.setFrame(2);
 
-        // Stay still and slowly fade out before going invisible
+        // Still hittable here (body.enable only turns off once this fade finishes), and
+        // every weapon's own hit-flash tween on this target is unanchored (implicit
+        // "from") — racing one against this fade can leave alpha stuck on whichever
+        // wrote last, i.e. the "sometimes transparent between vanishes" bug. Killing any
+        // tween already on mb before starting this one keeps this fade in sole control.
+        this.tweens.killTweensOf(mb);
+        mb.setAlpha(1);
         this.tweens.add({ targets: mb, alpha: 0, duration: 1000, onComplete: () => {
             if (!mb.active) return;
             mb.setVisible(false);
             mb.body.enable = false;
             mb.hpBarBg?.setVisible(false);
             mb.hpBar?.setVisible(false);
-            mb.hpLabel?.setVisible(false);
 
             const hideDuration = Phaser.Math.Between(3000, 5000);
             this.time.delayedCall(hideDuration, () => {
@@ -389,8 +394,10 @@ export const HandMiniBossMethods = {
 
         mb.hpBarBg?.setVisible(true);
         mb.hpBar?.setVisible(true);
-        mb.hpLabel?.setVisible(true);
 
+        // See miniMantisVanish()'s comment — re-enabling the body above means it can be
+        // hit again (and get its own hit-flash tween) before this fade-in finishes.
+        this.tweens.killTweensOf(mb);
         this.tweens.add({ targets: mb, alpha: 1, duration: 150, onComplete: () => {
             if (!mb.active) return;
             this.time.delayedCall(400, () => {
@@ -440,7 +447,10 @@ export const HandMiniBossMethods = {
                 mb.play('mulberry_mantis_walk');
             }
         });
-        this.tweens.add({ targets: mb, alpha: 0.2, duration: 80, yoyo: true, repeat: 1 });
+        // Explicit from:1 (matches the main boss's mantisStrike) plus killTweensOf first
+        // — same reasoning as miniMantisVanish/Reappear above.
+        this.tweens.killTweensOf(mb);
+        this.tweens.add({ targets: mb, alpha: { from: 1, to: 0.2 }, duration: 80, yoyo: true, repeat: 1 });
 
         const dist = Phaser.Math.Distance.Between(mb.x, mb.y, this.player.x, this.player.y);
         if (dist < 160) {

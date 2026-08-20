@@ -121,8 +121,8 @@ export const WEAPON_CONTENT = {
         label: 'Lucky Scratch',
         tiers: [
             { desc: 'Scratch mark near you — damaged enemies have a higher Foodbox drop chance.' },
-            { desc: 'Damaged enemies also have a higher Treasure drop chance.' },
-            { desc: 'Bigger scratch, larger area.' },
+            { desc: 'Damaged enemies also have a higher Fullbox drop chance.' },
+            { desc: 'Bigger scratch, larger area — Foodbox/Fullbox drop chance boosted further.' },
         ],
     },
     coldglare: {
@@ -206,7 +206,7 @@ export const BOOST_CONTENT = {
     },
     'Vitamin Supplements': {
         label: 'Vitamin Supplements',
-        tiers: [1, 2, 3, 4].map(() => ({ desc: 'Higher chance of Foodbox and Treasure drops (+1%).' })),
+        tiers: [1, 2, 3, 4].map(() => ({ desc: 'Higher chance of Foodbox drops (+1%).' })),
     },
     'Big Fangs': {
         label: 'Big Fangs',
@@ -253,7 +253,7 @@ export const EVOLUTION_LIST = [
     { id: 'flashclaw',       weaponKey: 'poisonclaw',   weaponLabel: 'Poison Claw',     boostName: 'Hunter Instinct',    evolvedName: 'Flashclaw',       desc: 'Double claw strike — immobilises 1s (10s cd per enemy), poisons 6s.' },
     { id: 'log_lob',         weaponKey: 'branchthrow',  weaponLabel: 'Branch Throw',    boostName: 'Aura Farming',       evolvedName: 'Log Lob',         desc: '2 logs rolling opposite ways — unbreakable 25s, high damage, knockback.' },
     { id: 'duststorm',       weaponKey: 'dustkick',     weaponLabel: 'Dust Kick',       boostName: 'Inflate',            evolvedName: 'Duststorm',       desc: 'Huge area — medium damage, slows all, immobilises nearest for 1.5s.' },
-    { id: 'lucky_thrash',    weaponKey: 'scratch',      weaponLabel: 'Lucky Scratch',   boostName: 'Hyperactivity',      evolvedName: 'Lucky Thrash',    desc: 'Many scratches in a huge radius — greatly raises item drop chance + Fullbox.' },
+    { id: 'lucky_thrash',    weaponKey: 'scratch',      weaponLabel: 'Lucky Scratch',   boostName: 'Hyperactivity',      evolvedName: 'Lucky Thrash',    desc: 'Many scratches in a huge radius — high damage, inflicts a random ailment on every enemy hit.' },
     { id: 'four_chills',     weaponKey: 'coldglare',    weaponLabel: 'Cold Glare',      boostName: 'Polycephaly',        evolvedName: 'Four Chills',     desc: 'Huge ring — slows all 8s, immobilises closest 8s, heavy damage tapering with distance.' },
 ];
 

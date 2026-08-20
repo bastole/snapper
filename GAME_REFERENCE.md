@@ -9,8 +9,9 @@
 3. [Evolutions](#evolutions)
 4. [Levels & Enemies](#levels--enemies)
 5. [Bosses](#bosses)
-6. [Items & Drops](#items--drops)
-7. [INDEX Menu](#index-menu)
+6. [Enraged Enemies](#enraged-enemies)
+7. [Items & Drops](#items--drops)
+8. [INDEX Menu](#index-menu)
 
 ---
 
@@ -206,8 +207,8 @@ A random X-shaped scratch mark within 80px of Snapper. Hit enemies gain a bonus 
 | Level | Damage | Radius | Drop Bonus | Cooldown |
 |---|---|---|---|---|
 | 1 | 15–25 | 60 | +12% Foodbox | 12000ms |
-| 2 | 15–25 | 60 | +12% Foodbox, +5% Treasure | 12000ms |
-| 3 | 15–25 | 80 | +12% Foodbox, +5% Treasure | 12000ms |
+| 2 | 15–25 | 60 | +12% Foodbox, +5% Fullbox | 12000ms |
+| 3 | 15–25 | 80 | +25% Foodbox, +8% Fullbox | 12000ms |
 
 Max level: **3**
 
@@ -245,7 +246,7 @@ Passives stack with each pick up to their cap.
 | **Hard Scales** | 4 | −2 contact damage from all enemies (min 1) |
 | **Polycephaly** | 4 | +10% chance per attack to fire a second time (10→20→30→40%); re-entrancy guarded — no chains |
 | **Venom** | 3 | Pick 1: 15% poison chance, 2.0s. Pick 2: 25%, 2.5s. Pick 3: 35%, 3.0s — also ignites for 3s. Poison ticks 3 dmg/500ms, fire ticks 6 dmg/300ms |
-| **Vitamin Supplements** | 4 | +2% to base Foodbox/Treasure drop chance per pick |
+| **Vitamin Supplements** | 4 | +1% to base Foodbox drop chance per pick |
 | **Big Fangs** | 4 | Chance to heal on kill. Pick 1: 5%/5% max HP. Pick 2: 9%/8%. Pick 3: 14%/14%. Pick 4: 18%/20% |
 | **Hyperactivity** | 3 | Pick 1: +25 speed for 5s every 70 kills. Pick 2: +50 speed for 12s every 40 kills. Pick 3: +75 speed for 20s every 24 kills |
 | **Bug Catcher** | 3 | Chance to immobilize an enemy that hits you. Pick 1: 10%/2s. Pick 2: 17%/6s. Pick 3: 25%/10s |
@@ -272,7 +273,7 @@ An evolution permanently replaces a weapon with a more powerful form. **Requirem
 | **Flashclaw** | Poison Claw ×4 | Hunter Instinct | Double strike (second fires 200ms later); 50 dmg per strike (100 total); poisons 6s; immobilises 1s (10s cooldown per enemy) |
 | **Log Lob** | Branch Throw ×4 | Aura Farming | 2 logs rolling in opposite perpendicular directions; 50 dmg every 300ms an enemy stays in contact with a log; unbreakable for 25s; slight knockback (60px/s) keeps the enemy bouncing back into the log for repeat hits |
 | **Duststorm** | Dust Kick ×3 | Inflate | Width 100, length ×1.6; 60 dmg; slows 50% for 3s; immobilises enemies within 80px for 1.5s (12s cooldown per enemy) |
-| **Lucky Thrash** | Lucky Scratch ×3 | Hyperactivity | 8–14 scratch marks per cast, radius 90, dmg 10–250 (wide random swing per mark, true to "Lucky"); hit enemies gain +25% Foodbox, +15% Treasure, +8% Fullbox drop boost |
+| **Lucky Thrash** | Lucky Scratch ×3 | Hyperactivity | 8–14 scratch marks per cast, radius 180, dmg 10–250 (wide random swing per mark, true to "Lucky"); every enemy hit is also inflicted with one random ailment (poison/fire/slow/immobilize) for 2–4s |
 | **Four Chills** | Cold Glare ×4 | Polycephaly | 350px range every 25s; slows all to 15% for 8s; 130 dmg at the center, tapering linearly to 0 at the edge, to everything in range including the boss; the 8 closest enemies are also immobilised (15s cooldown per enemy) |
 
 ---
@@ -451,6 +452,22 @@ All bosses take half damage from every source (applied centrally in `damageBoss(
 
 ---
 
+## Enraged Enemies
+
+A rare, buffed variant of any regular (non-boss) enemy that can spawn in place of a normal one during a level's ambient spawning. Only rolled for a *naturally* spawned enemy — never for a forced/debug spawn (e.g. the INDEX menu's spawn-on-click).
+
+**Spawn chance** — gated on kills/sec (a rolling 1-second window of the player's own kills):
+- **≤ 20 kills/sec**: 0% — Enraged enemies can't appear at all.
+- **> 20 kills/sec**: base **1/30** chance per natural spawn.
+- Every further **10 kills/sec** gained **doubles** the chance (30 → 2/30, 40 → 4/30, 50 → 8/30, …), capped at 100%.
+- Falls right back down as kills/sec drops — recomputed fresh on every spawn roll, not latched to a past peak.
+
+**Stats**: 2× scale, 2× damage, 2× speed — health is **×8** instead. Tinted red (composited through the same multi-effect tint system as poison/fire/slow/immobilize, so it flashes between colors rather than being hidden if the enemy also picks up a status effect).
+
+**Treasure**: killing a naturally-spawned Enraged enemy guarantees a Treasure drop. This is the *only* way Treasure can appear — see [Special Item Drops](#special-item-drops-on-enemy-death) below.
+
+---
+
 ## Items & Drops
 
 ### XP Insects
@@ -471,17 +488,18 @@ Collected by walking over them (base magnet range 32px, +80 per Hungry Forager p
 
 ### Special Item Drops (on enemy death)
 
-Base chance to roll a special drop: **3%** + 2% per Vitamin Supplements pick + any per-enemy Lucky Scratch/Thrash bonus.
+Base chance to roll a Foodbox/Fullbox special drop: **3%** + 1% per Vitamin Supplements pick + any per-enemy Lucky Scratch/Thrash bonus.
 
 When a special drop triggers, the type is determined as follows:
 
 | Item | Rarity | Effect |
 |---|---|---|
 | **Fullbox** | 1 in 8 special drops | Heals player to full HP. Drops even during boss fight. Pink off-screen arrow when out of view |
-| **Treasure** | 1 in 20 of remaining drops | Instant level-up. Does NOT drop during boss fight. Gold off-screen arrow |
 | **Foodbox** | Remainder | Heals 50% of max HP. Drops during boss fight. Red off-screen arrow |
 
-XP insects and Treasures are despawned when the boss spawns. Foodboxes and Fullboxes persist throughout the boss fight.
+**Treasure** doesn't roll here at all — it's a guaranteed drop from killing a naturally-spawned [Enraged enemy](#enraged-enemies) and can't appear any other way. Instant level-up. Gold off-screen arrow.
+
+XP insects and any uncollected Treasure are despawned when the boss spawns. Foodboxes and Fullboxes persist throughout the boss fight.
 
 ---
 

@@ -13,11 +13,21 @@ export const IndexMenuMethods = {
     // FLAG/UNFLAG button on weapon/boost entries ─────────────────────────────────────
     showIndexMenu(opts = {}) {
         const flaggable = !!opts.flaggable;
+        // spawnable — only passed true by GameScene's J key (see openIndexPaused below).
+        // Clicking a discovered, non-boss enemy entry spawns it near the player instead
+        // of zooming in. pauseGame (also J-only) makes this menu freeze/unfreeze the
+        // game itself, since J opens it directly with no pause screen underneath it.
+        const spawnable = !!opts.spawnable;
         const W = this.cameras.main.width;
         const H = this.cameras.main.height;
         const depth = 300;
 
         this._indexMenuOpen = true;
+        if (opts.pauseGame) {
+            this.isPaused = true;
+            this.physics.pause();
+            this.time.paused = true;
+        }
         const progress = getProgressIndex();
 
         // Blocks selecting (zooming into) an entry for 500ms after the menu opens, so a
@@ -66,6 +76,17 @@ export const IndexMenuMethods = {
             else set.add(entry.key);
         };
 
+        // Spawn-on-click (spawnable only) — bosses are excluded since boss spawning is
+        // its own level-specific system (spawnBoss() in boss.js) with no generic
+        // "spawn this exact boss type nearby" equivalent. Returns whether it handled the
+        // press, so the caller can skip its normal zoom-in behavior.
+        const trySpawnEntry = (entry, card) => {
+            if (!spawnable || entry.section !== 'enemy' || entry.isBoss) return false;
+            this.spawnEnemyNearPlayer(entry.key);
+            if (card) this.tweens.add({ targets: card, scaleX: 1.08, scaleY: 1.08, duration: 90, yoyo: true });
+            return true;
+        };
+
         const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.9).setScrollFactor(0).setDepth(depth).setInteractive();
         const titleBaseY = 36;
         const tabBaseY = 96;
@@ -102,12 +123,20 @@ export const IndexMenuMethods = {
             this.input.off('pointerup', gridDragEnd);
             this.events.off('update', navPollHandler);
             this.events.off('update', scrollUpdateHandler);
-            // Blocks the pause menu's "any input resumes" handlers for a moment so the
-            // click/press that closed this menu (or one shortly after) can't also
-            // immediately unpause the game underneath it. Only defined when opened from
-            // GameScene's pause menu (flaggable: true) — LevelSelectScene, the other
-            // caller of this shared module, has no pause menu and no such method.
-            this.lockPauseResume?.();
+            if (opts.pauseGame) {
+                // J opened this menu directly with no pause screen underneath it, so
+                // closing it has to resume the game itself rather than fall back to one.
+                this.physics.resume();
+                this.time.paused = false;
+                this.isPaused = false;
+            } else {
+                // Blocks the pause menu's "any input resumes" handlers for a moment so the
+                // click/press that closed this menu (or one shortly after) can't also
+                // immediately unpause the game underneath it. Only defined when opened from
+                // GameScene's pause menu (flaggable: true) — LevelSelectScene, the other
+                // caller of this shared module, has no pause menu and no such method.
+                this.lockPauseResume?.();
+            }
             requestAnimationFrame(() => { this._indexMenuOpen = false; });
         };
 
@@ -215,6 +244,7 @@ export const IndexMenuMethods = {
                 bg.on('pointerup', (pointer) => {
                     if (!selectionReady) return;
                     if (Phaser.Math.Distance.Between(pointer.downX, pointer.downY, pointer.x, pointer.y) < 12) {
+                        if (trySpawnEntry(entry, bg)) return;
                         zoomIdx = i; zoomTier = known ? 1 : 0; buildZoom();
                     }
                 });
@@ -259,9 +289,10 @@ export const IndexMenuMethods = {
             closeBtn.on('pointerdown', () => closeMenu());
             modeItems.push(closeBtn);
 
+            const aHint = (spawnable && section === 'enemy') ? 'A Spawn' : 'A Zoom In';
             modeItems.push(registerGamepadHint(this.add.text(W / 2, H - 8, maxScroll > 0
-                ? '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   LB/RB Category   •   RS Scroll'
-                : '🎮  D-Pad/LS Navigate   A Zoom In   B Close   •   LB/RB Category', {
+                ? `🎮  D-Pad/LS Navigate   ${aHint}   B Close   •   LB/RB Category   •   RS Scroll`
+                : `🎮  D-Pad/LS Navigate   ${aHint}   B Close   •   LB/RB Category`, {
                 fontSize: '18px', fontFamily: 'Arial', color: '#888888',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5, 1)));
 
@@ -499,7 +530,13 @@ export const IndexMenuMethods = {
                 if (idx === 13) { moveGridSelection(cols); return; }         // D-pad down
                 if (idx === 14) { moveGridSelection(-1, true); return; }     // D-pad left
                 if (idx === 15) { moveGridSelection(1, true); return; }      // D-pad right
-                if (idx === 0) { if (!selectionReady) return; zoomIdx = selectedIdx; zoomTier = entriesFor(section)[selectedIdx]?.gotten > 0 ? 1 : 0; buildZoom(); return; } // A = zoom in
+                if (idx === 0) { // A = zoom in (or spawn, in spawnable mode, for a non-boss enemy)
+                    if (!selectionReady) return;
+                    const entry = entriesFor(section)[selectedIdx];
+                    if (trySpawnEntry(entry, selectionOutline)) return;
+                    zoomIdx = selectedIdx; zoomTier = entry?.gotten > 0 ? 1 : 0; buildZoom();
+                    return;
+                }
                 if (idx === 4) { cycleSection(-1); return; }                 // LB = previous category
                 if (idx === 5) { cycleSection(1); return; }                  // RB = next category
             } else {

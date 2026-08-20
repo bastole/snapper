@@ -137,8 +137,9 @@ export const EvolutionUIMethods = {
         let unlocking = false;
         let currentUnlockTrigger = null; // set by buildZoom(), used by the gamepad A handler
 
-        // An evolution can't actually be selected (UNLOCK?) until 500ms after this menu
-        // opens, so a reflexive click/press right as it appears can't blow past it unread.
+        // Nothing can be selected for 500ms after this menu opens — neither zooming into
+        // a card from the grid (openZoom, below) nor pressing UNLOCK? once zoomed in — so
+        // a reflexive click/press right as it appears can't blow past either unread.
         // Uses setTimeout rather than this.time.delayedCall since this menu only opens
         // from the pause menu (this.time.paused = true), same reasoning as the shake
         // tween above and the level-up screen's own 1000ms card-selection gate.
@@ -367,7 +368,7 @@ export const EvolutionUIMethods = {
         // UNLOCK? button that's only live when the evolution is actually available ──
         const zoomCx = W / 2, zoomCy = 300, zoomCardW = 960, zoomCardH = 400;
 
-        const openZoom = (i) => { if (unlocking) return; zoomIdx = i; buildZoom(); };
+        const openZoom = (i) => { if (unlocking || !selectionReady) return; zoomIdx = i; buildZoom(); };
         const zoomStep = (delta) => { if (unlocking) return; zoomIdx = (zoomIdx + delta + evos.length) % evos.length; buildZoom(); };
         const backToGrid = () => { if (unlocking) return; selectedIdx = zoomIdx; buildGrid(); };
 

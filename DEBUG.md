@@ -8,10 +8,14 @@ Shows the collision bodies for the player, all enemies, bosses, and every
 projectile. Press again to hide and clear the overlay.
 
 ### U key — instant upgrade screen (in-game)
-Opens an upgrade card screen immediately, same as leveling up normally.
-Can be pressed repeatedly to stack upgrade picks. Blocked while paused,
-mid-countdown, in a level-up screen, at the level-clear screen, or on the
-game-over overlay.
+Opens an upgrade card screen immediately, same as leveling up normally, and
+whichever card gets picked skips the post-upgrade 3-2-1 countdown entirely
+(0-delay resume) instead of sitting through the normal 1.5s wait. Can be
+pressed repeatedly to stack upgrade picks. Blocked while paused, in a
+level-up screen, at the level-clear screen, or on the game-over overlay.
+While a countdown is already running (from a real level-up, or a previous U
+press), U instead skips straight to the end of it and resumes play
+immediately, rather than being blocked.
 
 ### F key — full loadout cheat (in-game)
 - Spawns the boss immediately (if not already spawned)
@@ -46,6 +50,18 @@ boss has already spawned. Blocked in the same states as U/F.
 While a boss is active, pressing a number key deals that many tenths of the
 boss's max HP as damage — e.g. `3` deals 3/10 of max HP, `0` deals 10/10 (a
 kill). No-ops if no boss is currently active/spawned. Blocked in the same
+states as U/F.
+
+### J key — open the INDEX and spawn enemies (in-game)
+Opens the INDEX menu directly (no pause screen underneath it) and freezes
+the game for as long as it's open, exactly like a real pause. While it's
+open, clicking (or pressing A on a gamepad-selected) any non-boss enemy
+entry — discovered or not — spawns that exact enemy 220–380px from the
+player instead of zooming in on it. Weapons/boosts/evolutions still zoom in
+as normal, and weapon/boost entries can still be flagged, same as the
+pause menu's INDEX. Boss entries always zoom in — there's no generic
+"spawn this boss" equivalent, since real boss spawning is level-specific.
+Closing the menu (CLOSE/B/Escape) resumes the game. Blocked in the same
 states as U/F.
 
 ### 🧪 ALL LEVELS — Level Select screen

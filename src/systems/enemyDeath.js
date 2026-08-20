@@ -2,7 +2,7 @@ import { playSfx } from '../audio.js';
 import { recordEnemyKill } from '../progressIndex.js';
 export const EnemyDeathMethods = {
 
-    killEnemy(enemy) {
+    killEnemy(enemy, opts = {}) {
         if (enemy.texture?.key) recordEnemyKill(enemy.texture.key);
         // Hand mini-bosses: just drop a dragonfly and clean up
         if (enemy.isBossMini) {
@@ -17,16 +17,28 @@ export const EnemyDeathMethods = {
             if (enemy.shootTimer)  enemy.shootTimer.remove();
             if (enemy.whipTimer)   enemy.whipTimer.remove();
             if (enemy.burrowTimer) enemy.burrowTimer.remove();
+            if (enemy.fireBlinkTimer)    enemy.fireBlinkTimer.remove();
+            if (enemy.fireParticleTimer) enemy.fireParticleTimer.remove();
             this.cleanupMiniBossTimers(enemy);
             enemy.hpBarBg?.destroy();
             enemy.hpBar?.destroy();
-            enemy.hpLabel?.destroy();
             enemy.phaseLine?.destroy();
             enemy.destroy();
             return;
         }
+        // Everything below through the item-drop block is the "player defeated this
+        // enemy" reward path — kill count, score, passive heal/speed procs, reroll
+        // progress, and rare-item drops. opts.silent skips all of it (but still runs the
+        // death-effect logic further down — splits, Carrot Dart, Basil Bomb, Phantom —
+        // since those are consequences of dying, not of the player having done it) for
+        // kills that aren't actually the player's doing, e.g. The Hand's vacuum
+        // super-move sweeping up and killing every enemy on the field itself.
+        if (!opts.silent) {
         this.kills++;
         this.updateScore();
+        // Rolling window feeding getKillsPerSecond() (enemySpawn.js) — pruned lazily
+        // there rather than here, so a long gap between kills doesn't need its own timer.
+        this.killTimestamps.push(this.time.now);
 
         // Spike Shedder — heals 1 HP per 10 kills
         if (this.ownedWeapons.has('spikeshedder')) {
@@ -63,14 +75,24 @@ export const EnemyDeathMethods = {
             this.rerolls++;
             this.nextRerollAt += 300;
         }
+        // Treasure is exclusively an Enraged-kill reward now (see enemySpawn.js's
+        // getEnragedSpawnChance()) — guaranteed here rather than any chance-based roll,
+        // and enemy.enraged is only ever true for a naturally-spawned enemy (only
+        // spawnEnemy()'s own random-pool roll ever sets it — split/summoned/ring-attack
+        // enemies never do), so this can't fire for anything but exactly that.
+        if (enemy.enraged) {
+            const item = this.physics.add.image(enemy.x, enemy.y, 'treasure');
+            item.setScale(2.20).setDepth(4);
+            item.body.setSize(item.body.width * 0.5, item.body.height * 0.5, true);
+            item.xpValue = 0;
+            item.specialType = 'treasure';
+            this.tweens.add({ targets: item, scaleX: 2.60, scaleY: 2.60, duration: 250, yoyo: true, loop: -1 });
+            this.crickets.add(item);
+        } else
         // Rare special item check. A Foodbox is the "base" rare drop; whenever one
-        // would drop, it has a 1-in-8 chance of being upgraded into a Fullbox and,
-        // failing that, a 1-in-20 chance of being upgraded into a Treasure — instead
-        // of Treasure being its own independent roll capped at 2 per game (which used
-        // to make it fire twice in the first minute, then never again).
-        const rand = Math.random();
-        const foodboxChance = 0.03 + (this.vitaminBonus ?? 0) + (enemy._scratchFoodbox ?? 0) + (enemy._scratchFullbox ?? 0) + (enemy._scratchTreasure ?? 0);
-        if (rand < foodboxChance) {
+        // would drop, it has a 1-in-8 chance of being upgraded into a Fullbox (Treasure
+        // no longer rolls here — see the enemy.enraged branch above).
+        if (Math.random() < 0.03 + (this.vitaminBonus ?? 0) + (enemy._scratchFoodbox ?? 0) + (enemy._scratchFullbox ?? 0)) {
             if (Math.random() < 0.125) {
                 // Fullbox — 1 in 8 chance to replace a Foodbox; heals to full. Always
                 // drops, even during the boss fight.
@@ -80,16 +102,6 @@ export const EnemyDeathMethods = {
                 item.xpValue = 0;
                 item.specialType = 'fullbox';
                 this.tweens.add({ targets: item, scaleX: 2.88, scaleY: 2.88, duration: 250, yoyo: true, loop: -1 });
-                this.crickets.add(item);
-            } else if (!this.bossSpawned && Math.random() < 0.05) {
-                // Treasure — 1 in 20 chance to replace a Foodbox; instant level-up.
-                // Never drops during the boss fight.
-                const item = this.physics.add.image(enemy.x, enemy.y, 'treasure');
-                item.setScale(2.20).setDepth(4);
-                item.body.setSize(item.body.width * 0.5, item.body.height * 0.5, true);
-                item.xpValue = 0;
-                item.specialType = 'treasure';
-                this.tweens.add({ targets: item, scaleX: 2.60, scaleY: 2.60, duration: 250, yoyo: true, loop: -1 });
                 this.crickets.add(item);
             } else {
                 // Foodbox — always drops, even during the boss fight
@@ -133,22 +145,30 @@ export const EnemyDeathMethods = {
             const drop = dropTable[enemy.texture?.key] ?? { xpValue: 1, scale: 1.00 };
 
             if (enemy._killedByStarvedChomp) {
-                // Instant doubled XP, no cricket spawned
-                const xpGain = (drop.xpValue ?? 1) * 2;
-                this.xp += xpGain;
-                this.updateXPBar();
-                const t = this.add.text(enemy.x, enemy.y - 20, `+${xpGain} XP`, {
-                    fontSize: '20px', fontFamily: 'Arial', color: '#ffff44',
-                }).setDepth(25).setOrigin(0.5);
-                this.tweens.add({ targets: t, y: t.y - 56, alpha: 0, duration: 600, onComplete: () => t.destroy() });
-                while (this.xp >= this.xpToNext) {
-                    this.xp -= this.xpToNext;
-                    this.xpToNext = Math.floor(this.xpToNext * 1.2);
-                    this.playerLevel++;
-                    this.updateScore();
-                    playSfx(this, 'sfx_levelup');
+                // Instant doubled XP, no cricket spawned. M-key debug freeze: unlike every
+                // other XP-granting path (the normal insect pickup and Treasure below),
+                // this one never checked this.xpFrozen at all — a completely separate gap
+                // from the ones the M key was written to plug, which is exactly why it
+                // could look "not properly" immune to further upgrades with this evolution
+                // equipped. Matches the frozen-insect path above: no XP text, no XP gain,
+                // no level-up loop when frozen.
+                if (!this.xpFrozen) {
+                    const xpGain = (drop.xpValue ?? 1) * 2;
+                    this.xp += xpGain;
                     this.updateXPBar();
-                    this.showLevelUp();
+                    const t = this.add.text(enemy.x, enemy.y - 20, `+${xpGain} XP`, {
+                        fontSize: '20px', fontFamily: 'Arial', color: '#ffff44',
+                    }).setDepth(25).setOrigin(0.5);
+                    this.tweens.add({ targets: t, y: t.y - 56, alpha: 0, duration: 600, onComplete: () => t.destroy() });
+                    while (this.xp >= this.xpToNext) {
+                        this.xp -= this.xpToNext;
+                        this.xpToNext = Math.floor(this.xpToNext * 1.2);
+                        this.playerLevel++;
+                        this.updateScore();
+                        playSfx(this, 'sfx_levelup');
+                        this.updateXPBar();
+                        this.showLevelUp();
+                    }
                 }
             } else if (enemy._killedByBugBuster) {
                 // Drop a live, regular (non-evolved) Pupa Mine right where the enemy died —
@@ -165,6 +185,7 @@ export const EnemyDeathMethods = {
                 cricket.xpValue = drop.xpValue;
                 this.crickets.add(cricket);
             }
+        }
         }
 
         // Lettuce Hopper splits into 2 Small Lettuces
@@ -209,12 +230,17 @@ export const EnemyDeathMethods = {
             }
         }
 
-        // Basil Bomb: explodes in a ~47px radius on death (1/3 of pupa mine diameter)
+        // Basil Bomb: explodes in a ~47px radius on death (1/3 of pupa mine diameter).
+        // Uses add.circle() (not add.graphics()+fillCircle at the enemy's world x/y)
+        // because a Graphics object's own transform defaults to (0,0) — scaling it via
+        // a tween then scales the whole drawing around that (0,0) origin, not around
+        // the circle's own center, so at these large world coordinates the "explosion"
+        // visibly rockets off toward/away from the corner of the map as it grows. A
+        // Circle game object is positioned at the enemy's x/y itself, so it scales
+        // around its own center correctly and just grows and fades in place.
         if (enemy.bomb) {
             const bombRadius = Math.round(this.pupaRadius * 2 / 3);
-            const g = this.add.graphics().setDepth(20);
-            g.fillStyle(0xff6600, 0.65);
-            g.fillCircle(enemy.x, enemy.y, bombRadius);
+            const g = this.add.circle(enemy.x, enemy.y, bombRadius, 0xff6600, 0.65).setDepth(20);
             this.tweens.add({ targets: g, alpha: 0, scaleX: 1.4, scaleY: 1.4, duration: 300, onComplete: () => g.destroy() });
             if (!this.player.reviveInvincible) {
                 const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
@@ -283,6 +309,11 @@ export const EnemyDeathMethods = {
         if (enemy.spawnTimer)   enemy.spawnTimer.remove();
         if (enemy.fanPhaseTimer) enemy.fanPhaseTimer.remove();
         if (enemy.fanShotTimer)  enemy.fanShotTimer.remove();
+        if (enemy.bombGrowTween)     enemy.bombGrowTween.stop();
+        if (enemy.bombShakeTween)    enemy.bombShakeTween.stop();
+        if (enemy.bombDetonateTimer) enemy.bombDetonateTimer.remove();
+        if (enemy.fireBlinkTimer)    enemy.fireBlinkTimer.remove();
+        if (enemy.fireParticleTimer) enemy.fireParticleTimer.remove();
         enemy.destroy();
     },
 

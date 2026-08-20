@@ -255,11 +255,37 @@ export const EvolutionMethods = {
         this.maybePolycephaly(() => this.doToxicOcean());
     },
 
-    // Sets an enemy on fire for `duration` ms (red tint, 6 dmg every 300ms). No-ops if
-    // already burning. Used both by Sunbaked Ambers' direct hit and by burn-on-contact spread.
+    // Sets an enemy on fire for `duration` ms — a rapid orange blink plus small shrinking
+    // orange square particles sweating off it, on top of the existing 6 dmg every 300ms.
+    // No-ops if already burning. Used both by Sunbaked Ambers' direct hit and by
+    // burn-on-contact spread.
     igniteEnemy(enemy, duration) {
         if (!enemy.active || enemy.burned) return;
-        enemy.burned = true; this.addStatusTint(enemy, 'fire', 0xff2200);
+        enemy.burned = true;
+
+        // Rapid blink — toggles the 'fire' key in/out of the shared status-tint dictionary
+        // every 80ms instead of setting it once, so it reads as urgent even layered under
+        // a slower-flashing poison/slow/immobilize tint (see addStatusTint/_refreshStatusTint
+        // in baseWeapons.js) rather than just adding a 4th steady color to their own cycle.
+        let fireBlinkOn = true;
+        this.addStatusTint(enemy, 'fire', 0xff8800);
+        enemy.fireBlinkTimer = this.time.addEvent({ delay: 80, loop: true, callback: () => {
+            if (!enemy.active) { enemy.fireBlinkTimer.remove(); return; }
+            fireBlinkOn = !fireBlinkOn;
+            if (fireBlinkOn) this.addStatusTint(enemy, 'fire', 0xff8800);
+            else this.removeStatusTint(enemy, 'fire');
+        } });
+
+        // Small shrinking orange squares "sweating" off the enemy while it burns.
+        enemy.fireParticleTimer = this.time.addEvent({ delay: 180, loop: true, callback: () => {
+            if (!enemy.active) { enemy.fireParticleTimer.remove(); return; }
+            const size = Phaser.Math.Between(6, 10);
+            const ox = enemy.x + Phaser.Math.Between(-16, 16);
+            const oy = enemy.y + Phaser.Math.Between(-16, 16);
+            const p = this.add.rectangle(ox, oy, size, size, 0xff8800, 0.9).setDepth(enemy.depth + 1);
+            this.tweens.add({ targets: p, scaleX: 0, scaleY: 0, y: oy - 20, alpha: 0, duration: 450, ease: 'Quad.Out', onComplete: () => p.destroy() });
+        } });
+
         const ticks = Math.ceil(duration / 300);
         let done = 0;
         const bt = this.time.addEvent({ delay: 300, loop: true, callback: () => {
@@ -267,7 +293,15 @@ export const EvolutionMethods = {
             this.damageDealt += 6; enemy.health -= 6; done++;
             this.playEnemyHurtSfx();
             if (enemy.health <= 0) { this.killEnemy(enemy); bt.remove(); return; }
-            if (done >= ticks) { bt.remove(); if (enemy.active) { enemy.burned = false; this.removeStatusTint(enemy, 'fire'); } }
+            if (done >= ticks) {
+                bt.remove();
+                if (enemy.active) {
+                    enemy.burned = false;
+                    enemy.fireBlinkTimer?.remove();    enemy.fireBlinkTimer = null;
+                    enemy.fireParticleTimer?.remove(); enemy.fireParticleTimer = null;
+                    this.removeStatusTint(enemy, 'fire');
+                }
+            }
         } });
     },
 
@@ -770,6 +804,11 @@ export const EvolutionMethods = {
     },
 
     // ─── Evolved weapon: Lucky Thrash ─────────────────────────────────────────
+    // Drop-chance boosting moved to the base weapon (Lucky Scratch's own tier 3 now
+    // matches this evolution's old +25%/+8% Foodbox/Fullbox numbers directly — see
+    // doLuckyScratch()), freeing this evolution up to hit every enemy caught in its
+    // wide scatter of marks with a random ailment (poison/fire/slow/immobilize)
+    // instead, on top of the damage it already dealt.
     doLuckyThrash() {
         if (this.isPaused || this.isCountdown) return;
         const px = this.player.x, py = this.player.y;
@@ -786,9 +825,7 @@ export const EvolutionMethods = {
                     this.damageDealt += dmg; enemy.health -= dmg;
                     this.playEnemyHurtSfx();
                     this.tweens.add({ targets: enemy, alpha: 0.2, duration: 80, yoyo: true });
-                    enemy._scratchFoodbox  = (enemy._scratchFoodbox  ?? 0) + 0.25;
-                    enemy._scratchTreasure = (enemy._scratchTreasure ?? 0) + 0.15;
-                    enemy._scratchFullbox  = (enemy._scratchFullbox  ?? 0) + 0.08;
+                    this.inflictRandomAilment(enemy, 2000, 4000);
                     if (enemy.health <= 0) this.killEnemy(enemy);
                 }
             });

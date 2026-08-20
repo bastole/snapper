@@ -278,7 +278,7 @@ export const LevelUpMethods = {
             },
             {
                 name: this.weaponCardLabel('scratch', 'Lucky Scratch'),
-                desc: ['Scratch mark near you — damaged enemies have a higher Foodbox drop chance', 'Damaged enemies also have a higher Treasure drop chance', 'Bigger scratch, larger area'][this.scratchLevel] ?? 'Lucky Scratch',
+                desc: ['Scratch mark near you — damaged enemies have a higher Foodbox drop chance', 'Damaged enemies also have a higher Fullbox drop chance', 'Bigger scratch, larger area — Foodbox/Fullbox drop chance boosted further'][this.scratchLevel] ?? 'Lucky Scratch',
                 type: 'weapon',
                 weaponKey: 'scratch', available: () => this.scratchLevel < 3,
                 effect: () => {
@@ -378,7 +378,7 @@ export const LevelUpMethods = {
                     if (!first) this.venomDuration += 500;
                 },
             },
-            { name: this.boostCardLabel('Vitamin Supplements'), boostName: 'Vitamin Supplements', desc: 'Higher chance of Foodbox and Treasure drops', available: () => this.ownedPassives.filter(p => p === 'Vitamin Supplements').length < 4, effect: () => { this.ownedPassives.push('Vitamin Supplements'); this.vitaminBonus += 0.01; } },
+            { name: this.boostCardLabel('Vitamin Supplements'), boostName: 'Vitamin Supplements', desc: 'Higher chance of Foodbox drops', available: () => this.ownedPassives.filter(p => p === 'Vitamin Supplements').length < 4, effect: () => { this.ownedPassives.push('Vitamin Supplements'); this.vitaminBonus += 0.01; } },
             {
                 name: this.boostCardLabel('Big Fangs'),
                 boostName: 'Big Fangs',
@@ -535,8 +535,14 @@ export const LevelUpMethods = {
 
                 this.isCountdown = true;
 
+                // Guarded against double-firing: this.skipCountdown (the U debug key, see
+                // GameScene.js) can call resume() early, but the setTimeout below is still
+                // scheduled and would otherwise also call it again once its own delay elapses.
+                let resumed = false;
                 const resume = () => {
-                    if (!isActive()) return;
+                    if (resumed || !isActive()) return;
+                    resumed = true;
+                    this.skipCountdown = null;
                     countLabel.destroy();
                     this.physics.resume();
                     this.time.paused = false;
@@ -549,6 +555,7 @@ export const LevelUpMethods = {
                         this.fastUpgrade = false;
                     }
                 };
+                this.skipCountdown = resume;
 
                 if (!this.fastUpgrade) {
                     setTimeout(() => { if (isActive() && countLabel.active) countLabel.setText('2'); }, 500);
