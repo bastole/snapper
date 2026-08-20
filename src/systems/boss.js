@@ -28,7 +28,9 @@ export const BossMethods = {
         const H = this.cameras.main.height;
 
         const bossCfg = this.level === 5
-            ? { key: 'yun_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 3.2 }
+            // Visual scale halved per request; hitboxScale keeps the hitbox at its
+            // original (pre-halving) size — see the body.setSize call below.
+            ? { key: 'yun_hand',        label: 'THE HAND',        health: 12500, damage: 30, scale: 1.6, hitboxScale: 3.2 }
             : this.level === 4
             ? { key: 'mulberry_mantis', label: 'MULBERRY MANTIS', health: 4000, damage: Phaser.Math.Between(5, 15), scale: 1.8 }
             : this.level === 3
@@ -64,7 +66,11 @@ export const BossMethods = {
             this.boss = this.physics.add.sprite(bossX, bossY, bossCfg.key);
             recordEnemySeen(bossCfg.key);
             this.boss.setScale(bossCfg.scale);
-            this.boss.body.setSize(this.boss.body.width * 0.5625, this.boss.body.height * 0.5625);
+            // Derived from the sprite's own raw (unscaled) frame size rather than
+            // this.boss.body.width, so hitboxScale can diverge from the visual scale
+            // (The Hand) without the hitbox shrinking along with the smaller texture.
+            const hitboxScale = bossCfg.hitboxScale ?? bossCfg.scale;
+            this.boss.body.setSize(this.boss.width * hitboxScale * 0.5625, this.boss.height * hitboxScale * 0.5625);
             this.boss.setCollideWorldBounds(true);
             this.boss.setDepth(8);
             this.boss.health      = bossCfg.health;
@@ -88,14 +94,8 @@ export const BossMethods = {
                 this.anims.create({ key: attackKey, frames: this.anims.generateFrameNumbers(bossCfg.key, { start: 2, end: 3 }), frameRate: 8, repeat: -1 });
             this.boss.play(idleKey);
 
-            // Boss health bar (world-space)
-            this.bossHpBarBg = this.add.rectangle(bossX, bossY + 60, 160, 20, 0x222222).setDepth(9);
-            this.bossHpBar   = this.add.rectangle(bossX - 80, bossY + 60, 160, 16, 0xff2222).setDepth(10).setOrigin(0, 0.5);
-            this.bossHpLabel = this.add.text(bossX, bossY - 96, bossCfg.label, {
-                fontSize: '22px', fontFamily: 'Arial Black, Arial', color: '#ff4444',
-            }).setDepth(10).setOrigin(0.5);
-
-            // Top-bar boss health bar — replaces XP bar
+            // Top-bar boss health bar — replaces XP bar, and is the only HP indicator
+            // now that each boss's own little world-space bar/nametag has been removed.
             const W = this.cameras.main.width;
             this.xpBar.setVisible(false);
             this.xpBarBg.setVisible(false);
@@ -141,6 +141,7 @@ export const BossMethods = {
                 this.boss.mantisVanishing      = false;
                 this.boss.mantisResting        = false;
                 this.boss.mantisChasing        = false;
+                this.boss.mantisStriking       = false;
                 this.boss.mantisVanishCycles   = 0;
                 this.boss.mantisChaseThreshold = Phaser.Math.Between(5, 25);
                 this.scheduleMantisVanish();
@@ -210,9 +211,6 @@ export const BossMethods = {
     },
 
     createBossPhaseLines(boundaries) {
-        this.bossPhaseLines = boundaries.map(() =>
-            this.add.rectangle(this.boss.x, this.boss.y + 60, 4, 24, 0xbb66ff, 0.9).setDepth(11)
-        );
         const W = this.cameras.main.width;
         this.topBossPhaseLines = boundaries.map(() =>
             this.add.rectangle(W / 2, 24, 4, 32, 0xbb66ff, 0.9).setScrollFactor(0).setDepth(103)
@@ -220,24 +218,12 @@ export const BossMethods = {
     },
 
     updateBossHealthBar() {
-        if (!this.boss || !this.bossHpBar) return;
+        if (!this.boss) return;
         const pct = Math.max(0, this.boss.health / this.boss.maxHealth);
-        this.bossHpBar.width    = 160 * pct;
-        this.bossHpBarBg.x      = this.boss.x;
-        this.bossHpBarBg.y      = this.boss.y + 60;
-        this.bossHpBar.x        = this.boss.x - 80;
-        this.bossHpBar.y        = this.boss.y + 60;
-        this.bossHpLabel.x      = this.boss.x;
-        this.bossHpLabel.y      = this.boss.y - 96;
         if (this.topBossHpBar) {
             const W = this.cameras.main.width;
             this.topBossHpBar.width = (W - 80) * pct;
         }
-        this.bossPhaseLines.forEach((line, i) => {
-            const f = this.boss.phaseBoundaries[i] / this.boss.maxHealth;
-            line.x = this.boss.x - 80 + f * 160;
-            line.y = this.boss.y + 60;
-        });
         if (this.topBossPhaseLines.length) {
             const W = this.cameras.main.width;
             this.topBossPhaseLines.forEach((line, i) => {
@@ -601,7 +587,7 @@ export const BossMethods = {
 
     updateMulberryMantisAI() {
         const boss = this.boss;
-        if (!boss?.active || boss.mantisVanishing || boss.mantisResting) return;
+        if (!boss?.active || boss.mantisVanishing || boss.mantisResting || boss.mantisStriking) return;
         if (boss.bugCaught) { boss.setVelocity(0, 0); return; }
         if (boss.mantisPhase === 1 || boss.mantisChasing) {
             this.physics.moveToObject(boss, this.player, 420 * (boss.slowFactor ?? 1));
@@ -639,12 +625,6 @@ export const BossMethods = {
             boss.setActive(false).setVisible(false);
             boss.body.enable = false;
 
-            // Hide the world-space health bar label while vanished
-            this.bossHpBarBg?.setVisible(false);
-            this.bossHpBar?.setVisible(false);
-            this.bossHpLabel?.setVisible(false);
-            this.bossPhaseLines.forEach(l => l.setVisible(false));
-
             // Wait 3–5s then reappear next to player
             const hideDuration = Phaser.Math.Between(3000, 5000);
             this.time.delayedCall(hideDuration, () => {
@@ -669,11 +649,6 @@ export const BossMethods = {
         boss.body.enable = true;
         boss.mantisVanishing = false;
 
-        this.bossHpBarBg?.setVisible(true);
-        this.bossHpBar?.setVisible(true);
-        this.bossHpLabel?.setVisible(true);
-        this.bossPhaseLines.forEach(l => l.setVisible(true));
-
         // Flash in
         this.tweens.add({ targets: boss, alpha: 1, duration: 150, onComplete: () => {
             if (!this.boss) return;
@@ -689,6 +664,13 @@ export const BossMethods = {
         const boss = this.boss;
         if (!boss?.active) return;
         if (this.player.reviveInvincible) {
+            // Strike is blocked, so setFrame(3) below never runs — but the boss is
+            // still sitting on mantisVanish()'s static frame 2 (wind-up) from the
+            // reappear, and nothing else ever resumes the idle/walk loop for it.
+            // Left as-is, it would visibly glide around frozen on that single frame
+            // for the rest of the fight. Resume idle here too, same as the real
+            // strike path does once its own attack-frame window ends.
+            boss.play('mulberry_mantis_idle');
             // Still schedule next cycle even if strike was blocked
             boss.mantisResting = true;
             const restTime = boss.mantisPhase === 2 ? 2000 : 0;
@@ -700,12 +682,37 @@ export const BossMethods = {
             return;
         }
 
+        // In phase 2, whether this strike's rest period ends in another vanish or in a
+        // chase run is already decided by values fixed right now (mantisVanishCycles is
+        // about to be incremented below; mantisChaseThreshold doesn't change during the
+        // rest) — precomputed here so the post-strike frame choice below can use it.
+        const entersPhase2VanishRest = boss.mantisPhase === 2 && (boss.mantisVanishCycles + 1) < boss.mantisChaseThreshold;
+
         // Red flash warning
         this.tweens.add({ targets: boss, alpha: { from: 1, to: 0.2 }, duration: 80, yoyo: true, repeat: 1 });
-        // Hold the 4th frame (attack) for the strike, then return to idle.
+        // Hold the 4th frame (attack) for the strike, then return to idle. Phase 1's
+        // updateMulberryMantisAI() would otherwise keep chasing the player during this
+        // window (nothing previously blocked it), sliding the boss around while frozen
+        // on its static lunge pose — mantisStriking holds it in place for the duration.
         boss.anims.stop();
         boss.setFrame(3);
-        this.time.delayedCall(400, () => { if (this.boss?.active) this.boss.play('mulberry_mantis_idle'); });
+        boss.setVelocity(0, 0);
+        boss.mantisStriking = true;
+        this.time.delayedCall(400, () => {
+            if (!this.boss) return;
+            this.boss.mantisStriking = false;
+            if (!this.boss.active) return;
+            if (entersPhase2VanishRest) {
+                // About to rest stationary then vanish again — hold the same 3rd-frame
+                // wind-up pose mantisVanish() itself uses for the whole rest, instead of
+                // popping into the idle loop for 2s only to freeze right back onto this
+                // same frame the moment it actually vanishes.
+                this.boss.anims.stop();
+                this.boss.setFrame(2);
+            } else {
+                this.boss.play('mulberry_mantis_idle');
+            }
+        });
 
         // Deal 25 damage if player is still nearby
         const dist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
@@ -892,10 +899,6 @@ export const BossMethods = {
             b.destroy();
         });
         this.handMiniBossArray = [];
-        this.bossHpBar?.destroy();
-        this.bossHpBarBg?.destroy();
-        this.bossHpLabel?.destroy();
-        this.bossPhaseLines.forEach(l => l.destroy());    this.bossPhaseLines    = [];
         this.topBossPhaseLines.forEach(l => l.destroy()); this.topBossPhaseLines = [];
         if (this.topBossHpBar)   { this.topBossHpBar.width = 0; }
         if (this.topBossLabel)   { this.topBossLabel.setText('BOSS DEFEATED'); }

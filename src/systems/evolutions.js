@@ -321,11 +321,12 @@ export const EvolutionMethods = {
         const now = this.time.now;
         const doTick = now >= (this._roarNextTick ?? 0);
         if (doTick) this._roarNextTick = now + 500;
+        const roarRange = this.hissRange * 2; // Raging Roar's cone reaches twice as far as base Hiss's range stat
 
         this.enemies.getChildren().forEach(enemy => {
             if (!this.canDamageEnemy(enemy)) return;
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
-            if (dist > this.hissRange) return;
+            if (dist > roarRange) return;
             const toEnemy = Math.atan2(enemy.y - this.player.y, enemy.x - this.player.x);
             if (!doTick) return;
             if (Math.abs(Phaser.Math.Angle.Wrap(toEnemy - this._roarAngle)) <= arc / 2) {
@@ -356,7 +357,7 @@ export const EvolutionMethods = {
         if (doTick && this.boss?.active) {
             const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y);
             const toB  = Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x);
-            if (dist <= this.hissRange && Math.abs(Phaser.Math.Angle.Wrap(toB - this._roarAngle)) <= arc / 2) {
+            if (dist <= roarRange && Math.abs(Phaser.Math.Angle.Wrap(toB - this._roarAngle)) <= arc / 2) {
                 this.damageBoss(dmg);
                 this.maybeVenomBoss();
                 this.slowBoss(2000, 0.5, 0x88ddff);
@@ -366,7 +367,7 @@ export const EvolutionMethods = {
         if (!this._roarGraphics) this._roarGraphics = this.add.graphics().setDepth(5);
         this._roarGraphics.clear();
         this._roarGraphics.fillStyle(0xff8844, 0.12);
-        this._roarGraphics.slice(this.player.x, this.player.y, this.hissRange, this._roarAngle - arc / 2, this._roarAngle + arc / 2, false);
+        this._roarGraphics.slice(this.player.x, this.player.y, roarRange, this._roarAngle - arc / 2, this._roarAngle + arc / 2, false);
         this._roarGraphics.fillPath();
         this._roarGraphics.lineStyle(4, 0xff8844, 0.4);
         this._roarGraphics.strokePath();

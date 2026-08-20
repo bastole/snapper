@@ -1790,3 +1790,71 @@ Per request. `levelUp.js`'s `pickWeighted()` already weighted already-owned weap
 Verified live against a real `GameScene`: flagged the "Angry" boost, opened a real `showLevelUp()`, and fired 10,000 real reroll `pointerdown` events (refilling `this.rerolls` before each one so `doReroll()` never silently no-ops), tallying which card titles actually got drawn each time via the real rendered text. Angry appeared at **1.124×** the average rate of every other unflagged/unowned card (target 1.10×, within sampling noise), while the pre-existing owned-weapon bonus (Bite, already at level 2) stayed unaffected at exactly **1.150×** — confirming the two bonuses compose correctly and neither broke the other. `node --check` on the touched file.
 
 **`sw.js`** — `CACHE_VERSION` bumped `v37` → `v38`.
+
+---
+
+## Session 56 — 2026-08-20
+
+A long grab-bag session: several evolution/UI polish requests, five new debug keys, a Mulberry Mantis animation audit that turned up (and fixed) three real stuck-frame/sliding bugs on both the main boss and its Hand mini-boss reprise, and a closing batch of boss/enemy visual-scale requests.
+
+### Raging Roar's cone reaches twice as far
+
+`evolutions.js`'s `updateRagingRoar()` read `this.hissRange` directly for its hit-detection radius and cone graphics — the same stat pre-evolution Hiss and Hunter Instinct both use. Introduced a local `roarRange = this.hissRange * 2` and swapped all three uses (enemy check, boss check, cone draw) to it, leaving `hissRange` itself untouched so nothing else is affected. Hunter Instinct's bonus still applies underneath, just doubled along with everything else.
+
+### Evolutions menu: description moved directly below Requirements/EVOLVED
+
+The zoomed single-evolution view (`evolutionUI.js`'s `buildZoom()`) had the description rendered *above* the requirements/EVOLVED status line — reordered so requirements (or the single EVOLVED line) render right under the name, with the description following underneath; its Y position is computed after the requirements block since an acquired card has one status line and an available one has two. The grid view's cards were already ordered name → requirements → description and needed no change.
+
+### Oregano Skunk mirrored, in both the INDEX and gameplay
+
+Rather than touching flip-logic code, mirrored the source sprite sheet itself (`enemy_oregano_skunk.png`), each of its 2 idle frames flipped independently within its own 128px column so frame order/timing is untouched. Verified pixel-perfect (0 byte differences) against an independently-computed mirror. Since `crickets.js`'s existing `flipInverted` correction for this enemy (added to counter the *old* backwards-facing art) is still applied on top of the now-mirrored source, every on-screen orientation ends up mirrored from before, in both the INDEX preview and gameplay — flagged to the user that this also means the enemy now visually faces away from its direction of travel, mirroring the very issue that correction originally fixed.
+
+### INDEX/Evolutions menu: title (and INDEX's section tabs) now scroll with the grid
+
+Previously only the cards scrolled while the title (and, in the INDEX menu, the WEAPONS/BOOSTS/EVOLUTIONS/ENEMIES tabs) stayed fixed — since cards sit at an equal-or-higher render depth, scrolling cards would draw over the title as they passed through its position. Added the title (and INDEX's tabs) to the same `scrollables` list the cards already use, so everything moves by an identical delta and nothing can pass over anything else. Both are reset back to their resting position at the top of each `buildZoom()`, since they're normally persistent across grid↔zoom mode switches and would otherwise stay wherever the grid scroll left them. CLOSE and the gamepad-hint footer stay fixed, unchanged. Right-stick scroll and its gamepad hint already existed in both menus and needed no new work.
+
+### Five new debug keys
+
+- **`E`** — tops up Angry to its 5-stack max (+30 speed per new stack) and sets `player.reviveInvincible = true`. That flag turned out to be a dead leftover from the since-removed REVIVE feature — every damage source in the game already gates on it, so setting it is a complete, ready-made god-mode switch with no other wiring.
+- **`1`–`9` / `0`** — deal that many tenths of the active boss's max HP (`0` = a full kill). Calls the existing `damageBoss()` with `maxHealth × (N/10) × 2`, the `×2` cancelling out its built-in "bosses take half damage" halving so the real HP loss lands exactly on the requested fraction.
+- **`N`** — skips 60 seconds of game time. Enemy introductions pick this up for free (`enemySpawn.js`'s `elapsed = 600 - gameTime`), but the spawn-rate/live-enemy-cap ramp runs on its own independent real-clock 10s timer, so its per-tick logic was extracted into a shared `rampSpawnDifficultyTick()` (also now used by the normal timer) and fast-forwarded 6 steps to stay in sync. Crossing zero triggers the boss exactly like the timer running out naturally.
+- **`M`** — toggles XP freeze: insects/treasures are still collected (treasures still score) but grant no XP, no level, and open no upgrade screen.
+- All five gated by the same `isBlocked()` check as the pre-existing `U`/`F` keys, and documented in `DEBUG.md`.
+
+### Mulberry Mantis: three real animation bugs found and fixed (main boss + Hand mini-boss reprise)
+
+Requested as an audit ("make sure it's using its frames appropriately"), which turned up three genuine bugs in `mantisStrike()` (`boss.js`) — all three also existed, separately, in the Hand mini-boss's `miniMantisStrike()` (`handMiniBoss.js`), so each fix was applied to both:
+
+1. **Frozen forever under invincibility.** The `if (player.reviveInvincible) { ...; return; }` branch returned before ever resuming the idle/walk animation, leaving the boss stuck on `mantisVanish()`'s static wind-up frame while still sliding around chasing — invisible until testing with the new `E` key made it permanent (invincibility never turns back off). Fixed by resuming idle/walk in that branch too.
+2. **Sliding while frozen on its own attack pose.** Nothing blocked `updateMulberryMantisAI()` during the 400ms the boss holds its static lunge frame after a real strike, so phase 1 (or a phase-2 chase run) could keep dragging it toward the player mid-pose. Added a `mantisStriking` flag, set alongside an explicit `setVelocity(0, 0)` for the duration, checked by the AI update.
+3. **Phase-2 rest popped into idle only to freeze right back.** During the ~2s stationary rest before another vanish, the boss resumed its idle loop for the full 2 seconds and then froze back onto the wind-up frame the instant it actually vanished. Since whether this rest ends in another vanish or a chase run is already decided by values fixed *before* the rest begins, that outcome is now precomputed and the boss holds the wind-up frame for the whole rest when heading into another vanish (idle still plays normally when heading into a chase run).
+
+### Hand mini-boss audit: Rocket Spider's leg slam could also slide mid-animation
+
+Same investigation, different boss — `miniSpiderLegSlam()` never set any charging/immobilise flag or zeroed velocity at all (unlike the main boss's `bossLegSlamWindup`/`bossLegSlam`, which do both), and `updateMiniSpiderAI()` had no gate to block movement during it. Fixed to match the main boss exactly: `isCharging` set for the whole windup+slam, explicit velocity zeroing at both frame changes, and `updateMiniSpiderAI()` now returns early while charging.
+
+### The Hand: visual size halved, hitbox left untouched
+
+`boss.js`'s `bossCfg` block gained a `hitboxScale` field (only set for `yun_hand`, `3.2`, its old value) alongside a halved `scale: 1.6`. The hitbox line was rewritten to derive from the sprite's own raw unscaled frame size (`this.boss.width`/`.height`) times `hitboxScale ?? scale` instead of `this.boss.body.width` (which reflects whatever the *current* display scale happens to be) — so every other boss (no `hitboxScale` override) computes an identical hitbox to before, while The Hand's stays pinned to its pre-halving size regardless of how small its texture gets.
+
+### Removed each boss's little world-space HP bar and nametag
+
+Per request, so the top bar is the only HP indicator. Removed `bossHpBarBg`/`bossHpBar`/`bossHpLabel` and the world-space `bossPhaseLines` divider ticks entirely — their creation, per-frame position update, the Mulberry Mantis vanish/reappear visibility toggles, and their `killBoss()` cleanup. `topBossHpBar`/`topBossLabel`/`topBossPhaseLines` (the actual top-of-screen bar) are completely untouched. Scoped to the 5 main bosses only — Hand mini-bosses keep their own small bars (`mb.hpBarBg` etc.), since minis have no top-bar equivalent to fall back on.
+
+### Enemy/Hand projectile textures halved; oregano projectile rotation made consistent
+
+- **Oregano-family** (`projectile_oregano_ghost`, shared by Oregano Fan's shot and Oregano Phantom's live shot + death burst): `projScale` 2.24 → 1.12 for Oregano Fan (both level-2 and level-5 pool entries), and Phantom's two direct `setScale(1.12)` sites → `0.56`.
+- **The Hand's projectiles** (`handBoss.js`): calcium ring 2.88 → 1.44; vitamin (phase-3 rings) 2.88 → 1.44; vitamin (phase-4 heavier volley) 3.20 → 1.60.
+- **Mulberry Snake**: `projScale` 2.08 → 1.04 (both level-4 and level-5 pool entries).
+- Along the way, noticed Oregano Phantom's live shot had no rotation at all (unlike its own death burst and Oregano Fan's shot, both at 0.5–1.5 rotations/sec) — added the same rotation so all three oregano projectile sources are now consistent. Verified live by tagging the phantom's exact scheduled shot timer (via a temporary `Phaser.Math.Between` interception, since several unrelated enemy timers share overlapping random-delay ranges) and firing it for real.
+- Also gave Mulberry Snake's own projectile a distinct faster spin (2–4 rotations/sec, up from the shared 0.5–1.5 default) per an earlier request this session.
+
+### Level 5's 7 exclusive enemies doubled in size
+
+`enemySpawn.js`'s level-5 pool already had these 7 marked off by their own comment ("Level 5 exclusives") as the only entries in that pool not reused from an earlier level's: Lettuce Trap, Basil Bomb, Rocket Buster Sword, Oregano Phantom, Coriander Carrot, Spinach Tempest, Mulberry Monstrosity. Doubled each one's `scale`; their hitboxes grow proportionally along with it via the existing shared scale-derived body sizing (no per-type override existed for any of the 7). `upgradeContent.js`'s INDEX preview scales were deliberately left untouched, matching the established Session 40 precedent that those are frozen historical reference values, not meant to track later in-game size changes.
+
+### Verification
+
+Same real-`GameScene` workaround used throughout this project (stubbed `sound.add`/`.play`, manually stepped `game.loop` to push the loader past its stuck point when a level's assets — e.g. Mulberry Mantis's or The Hand's — weren't yet decoded). Notably verified live rather than by inspection alone: Raging Roar's doubled hit radius via a real enemy placed just inside/outside the new boundary; the evolutions-menu reorder and the INDEX/Evolutions scroll fix by reading back real rendered text positions and driving a mocked gamepad through the actual `scrollUpdateHandler`; the Oregano Skunk mirror via an exact independently-computed pixel comparison; all five debug keys by emitting their real `keydown-*` events against a live scene and reading back real state deltas; all three Mantis bugs (main boss and mini) by forcing the exact stuck/sliding conditions and confirming the real fix; The Hand's decoupled scale/hitbox via `scaleX`/`body.width` on a real spawned boss; the per-boss HP bar removal by confirming `bossHpBar` etc. are `undefined` while `topBossHpBar` still exists; a level-5-exclusive enemy's doubled scale via a real `spawnEnemy()` draw.
+
+**`sw.js`** — `CACHE_VERSION` bumped `v38` → `v50` across the session's cumulative changes.

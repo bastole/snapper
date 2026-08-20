@@ -237,7 +237,7 @@ export const EnemyDeathMethods = {
             for (let i = 0; i < 3; i++) {
                 const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
                 const proj  = this.physics.add.image(enemy.x, enemy.y, 'projectile_oregano_ghost');
-                proj.setScale(1.12).setDepth(7).setTint(0x44ff44); // half of 2.24 — enemy projectiles are half size, double damage
+                proj.setScale(0.56).setDepth(7).setTint(0x44ff44); // half of the already-halved 1.12 oregano projectile size
                 proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
                 proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
                 proj.damage = enemy.damage * 2;

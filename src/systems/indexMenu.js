@@ -67,7 +67,9 @@ export const IndexMenuMethods = {
         };
 
         const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.9).setScrollFactor(0).setDepth(depth).setInteractive();
-        const title = this.add.text(W / 2, 36, 'INDEX', {
+        const titleBaseY = 36;
+        const tabBaseY = 96;
+        const title = this.add.text(W / 2, titleBaseY, 'INDEX', {
             fontSize: '44px', fontFamily: 'Arial Black, Arial', color: '#ffff00',
             stroke: '#000000', strokeThickness: 10,
         }).setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5);
@@ -154,7 +156,12 @@ export const IndexMenuMethods = {
         const buildGrid = () => {
             mode = 'grid';
             destroyModeItems();
-            scrollY = 0; thumb = null; scrollables = []; cardRefs = [];
+            // Title and the section tabs scroll along with the grid (so cards can never
+            // scroll over/cover them — see the zoom-mode reset below), while CLOSE/the
+            // gamepad hint stay fixed at the bottom, outside this scrollables list entirely.
+            scrollY = 0; thumb = null;
+            scrollables = [{ obj: title, baseY: titleBaseY }, ...tabBtns.map(b => ({ obj: b, baseY: tabBaseY }))];
+            cardRefs = [];
             const entries = entriesFor(section);
             const cardH = section === 'enemy' ? 140 : 124;
             currentCardH = cardH;
@@ -271,6 +278,10 @@ export const IndexMenuMethods = {
         const buildZoom = () => {
             mode = 'zoom';
             destroyModeItems();
+            // Grid scroll may have moved these; zoom always shows them at rest (they stay
+            // visible/clickable in zoom mode too, unlike the grid-only scrollbar/cards).
+            title.y = titleBaseY;
+            tabBtns.forEach(b => { b.y = tabBaseY; });
             const entries = entriesFor(section);
             const entry = entries[zoomIdx];
             const known = entry.gotten > 0;
@@ -465,7 +476,7 @@ export const IndexMenuMethods = {
         const backToGrid = () => { selectedIdx = zoomIdx; buildGrid(); };
         const tabBtns = sections.map(([key, label], i) => {
             const tx = W / 2 - 510 + i * 340;
-            const btn = this.add.text(tx, 96, label, {
+            const btn = this.add.text(tx, tabBaseY, label, {
                 fontSize: '24px', fontFamily: 'Arial Black, Arial',
                 color: section === key ? '#ffff00' : '#888888',
                 backgroundColor: '#222222', padding: { x: 24, y: 10 },

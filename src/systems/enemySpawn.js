@@ -83,7 +83,7 @@ export const EnemySpawnMethods = {
                 { key: 'oregano_skunk', health: 40,  damage: 10, speed: 100, scale: 1.12, minTime: 0,   emitsGas: true },
                 { key: 'rocket_knife',  health: 10,  damage: 15, speed: 300, scale: 1.00, minTime: 120 },
                 { key: 'oregano_ghost', health: 80,  damage: 12, speed: 70,  scale: 1.20, minTime: 300 },
-                { key: 'oregano_fan',   health: 60,  damage: 8,  speed: 100, scale: 1.00, minTime: 300, fanAI: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 2.24, poisonous: true },
+                { key: 'oregano_fan',   health: 60,  damage: 8,  speed: 100, scale: 1.00, minTime: 300, fanAI: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 1.12, poisonous: true },
                 { key: 'rocket_sword',  health: 50,  damage: 18, speed: 310, scale: 1.00, minTime: 480 },
             ],
             3: [
@@ -98,7 +98,7 @@ export const EnemySpawnMethods = {
                 { key: 'spinach_medium',  health: 35,  damage: 11, speed: 136, scale: 1.00, minTime: 0   },
                 { key: 'spinach_small',   health: 18,  damage: 5,  speed: 220, scale: 0.88, minTime: 0   },
                 { key: 'mulberry_bat',    health: 50,  damage: 13, speed: 280, scale: 1.08, minTime: 150 },
-                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 96,  scale: 1.12, minTime: 300, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 2.08, snakeWhip: true },
+                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 96,  scale: 1.12, minTime: 300, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 1.04, snakeWhip: true },
                 { key: 'spinach_cyclone', health: 200, damage: 20, speed: 70,  scale: 1.20, minTime: 420, rare: true, spawnsEnemy: 'spinach_small', spawnsEnemyStats: { health: 18, damage: 9, speed: 220, scale: 0.88 } },
             ],
             5: [
@@ -119,23 +119,24 @@ export const EnemySpawnMethods = {
                 // 3:30 — mealworm droppers
                 { key: 'lettuce_shooter', health: 90,  damage: 6,  speed: 0,   scale: 1.00, minTime: 210, shoots: true },
                 { key: 'oregano_ghost',   health: 150, damage: 12, speed: 70,  scale: 1.20, minTime: 210, emitsGas: true },
-                { key: 'oregano_fan',     health: 80,  damage: 10, speed: 100, scale: 1.00, minTime: 210, fanAI: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 2.24, poisonous: true },
+                { key: 'oregano_fan',     health: 80,  damage: 10, speed: 100, scale: 1.00, minTime: 210, fanAI: true, projKey: 'projectile_oregano_ghost', projTint: 0x44ff44, projScale: 1.12, poisonous: true },
                 { key: 'coriander_hydra', health: 220, damage: 13, speed: 76,  scale: 2.40, minTime: 210, hydra: true },
                 { key: 'carrot_wheel',    health: 22,  damage: 9,  speed: 260, scale: 0.72, minTime: 210 },
-                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 96,  scale: 1.12, minTime: 210, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 2.08, snakeWhip: true },
+                { key: 'mulberry_snake',  health: 95,  damage: 15, speed: 96,  scale: 1.12, minTime: 210, shoots: true, projKey: 'projectile_mulberry_snake', projScale: 1.04, snakeWhip: true },
                 // 5:00 — dragonfly droppers
                 { key: 'basil_propeller', health: 120, damage: 10, speed: 360, scale: 1.00, minTime: 300 },
                 { key: 'rocket_sword',    health: 200, damage: 18, speed: 180, scale: 1.40, minTime: 300 },
                 { key: 'carrot_dart',     health: 40,  damage: 17, speed: 290, scale: 1.00, minTime: 300, splitsInto: 'carrot_wheel', scaleMin: 0.72, scaleMax: 1.40 },
                 { key: 'spinach_cyclone', health: 200, damage: 20, speed: 70,  scale: 1.20, minTime: 300, rare: true, spawnsEnemy: 'spinach_small', spawnsEnemyStats: { health: 18, damage: 9, speed: 220, scale: 0.88 } },
-                // 7:00 — Level 5 exclusives
-                { key: 'lettuce_trap',         health: 180, damage: 10, snapDamage: 18, speed: 140, scale: 1.12, minTime: 420, trap: true },
-                { key: 'basil_bomb',           health: 80,  damage: 0,  explodeDamage: 30, speed: 380, scale: 1.00, minTime: 420, bomb: true },
-                { key: 'rocket_bustersword',   health: 90,  damage: 22, speed: 400, scale: 1.40, minTime: 420, sweeps: true },
-                { key: 'oregano_phantom',      health: 250, damage: 25, speed: 100, scale: 1.40, minTime: 420, phantom: true },
-                { key: 'coriander_carrot',     health: 500, damage: 30, speed: 40,  scale: 1.20, minTime: 420, spawnsCarrotCori: true },
-                { key: 'spinach_tempest',      health: 500, damage: 25, speed: 320, scale: 1.60, minTime: 420, rare: true, spawnsAnySpinach: true },
-                { key: 'mulberry_monstrosity', health: 350, damage: 15, speed: 280, scale: 1.60, minTime: 420, vineWhip: true, spawnsMinion: 'mulberry_bat' },
+                // 7:00 — Level 5 exclusives (scale doubled per request — these 7 are the
+                // only enemies in this pool that don't also appear in an earlier level's)
+                { key: 'lettuce_trap',         health: 180, damage: 10, snapDamage: 18, speed: 140, scale: 2.24, minTime: 420, trap: true },
+                { key: 'basil_bomb',           health: 80,  damage: 0,  explodeDamage: 30, speed: 380, scale: 2.00, minTime: 420, bomb: true },
+                { key: 'rocket_bustersword',   health: 90,  damage: 22, speed: 400, scale: 2.80, minTime: 420, sweeps: true },
+                { key: 'oregano_phantom',      health: 250, damage: 25, speed: 100, scale: 2.80, minTime: 420, phantom: true },
+                { key: 'coriander_carrot',     health: 500, damage: 30, speed: 40,  scale: 2.40, minTime: 420, spawnsCarrotCori: true },
+                { key: 'spinach_tempest',      health: 500, damage: 25, speed: 320, scale: 3.20, minTime: 420, rare: true, spawnsAnySpinach: true },
+                { key: 'mulberry_monstrosity', health: 350, damage: 15, speed: 280, scale: 3.20, minTime: 420, vineWhip: true, spawnsMinion: 'mulberry_bat' },
             ],
         };
         let typePool = (pools[this.level] ?? pools[1]).filter(t => elapsed >= t.minTime && (!t.rare || Math.random() < 0.2));
@@ -523,8 +524,12 @@ export const EnemySpawnMethods = {
                     if (!enemy.active) return;
                     const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
                     const proj  = this.physics.add.image(enemy.x, enemy.y, 'projectile_oregano_ghost');
-                    proj.setScale(1.12).setDepth(7); // half of 2.24 — enemy projectiles are half size, double damage
+                    proj.setScale(0.56).setDepth(7); // half of the already-halved 1.12 oregano projectile size
                     proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
+                    // Same rotation speed as every other oregano-family projectile (Oregano
+                    // Fan's shot via fireEnemyShotIfInView, and this phantom's own death burst
+                    // below) — all three fire the same projectile_oregano_ghost asset.
+                    proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
                     proj.damage = enemy.damage * 2;
                     this.physics.add.overlap(proj, this.player, () => {
                         if (!proj.active || proj.deflected) return;
@@ -758,7 +763,11 @@ export const EnemySpawnMethods = {
         proj.setScale((def.projScale ?? 0.96) * 0.5).setDepth(7);
         if (def.projTint) proj.setTint(def.projTint);
         proj.setVelocity(Math.cos(angle) * 320, Math.sin(angle) * 320);
-        if (def.key !== 'mulberry_snake') proj.setAngularVelocity(Phaser.Math.FloatBetween(0.5, 1.5) * 360);
+        // Mulberry Snake's projectile spins noticeably faster (2–4 rotations/sec) than
+        // every other shooter's slow tumble (0.5–1.5 rotations/sec).
+        proj.setAngularVelocity(def.key === 'mulberry_snake'
+            ? Phaser.Math.FloatBetween(2, 4) * 360
+            : Phaser.Math.FloatBetween(0.5, 1.5) * 360);
         proj.damage = enemy.damage * 2;
         this.physics.add.overlap(proj, this.player, () => {
             if (!proj.active || proj.deflected) return;

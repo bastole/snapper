@@ -180,18 +180,26 @@ export const CricketMethods = {
         }
         if (cricket.specialType === 'treasure') {
             cricket.destroy();
-            this.playerLevel++;
             this.treasuresCollected++;
             this.updateScore();
             playSfx(this, 'sfx_levelup');
-            this.updateXPBar();
-            this.showLevelUp();
+            // M-key debug freeze: treasure is still consumed and scored, but grants
+            // no instant level and opens no upgrade screen.
+            if (!this.xpFrozen) {
+                this.playerLevel++;
+                this.updateXPBar();
+                this.showLevelUp();
+            }
             return;
         }
 
-        this.xp += cricket.xpValue ?? 1;
         cricket.destroy();
         playSfx(this, 'sfx_item_collect');
+        // M-key debug freeze: insects are still collected, but the XP bar doesn't
+        // move and can't trigger a level-up.
+        if (this.xpFrozen) return;
+
+        this.xp += cricket.xpValue ?? 1;
         this.updateXPBar();
 
         if (this.xp >= this.xpToNext) {

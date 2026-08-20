@@ -58,6 +58,10 @@ export const HandMiniBossMethods = {
             this.triggerMiniSpiderPhase2(mb);
         }
 
+        // Matches the main boss's updateRocketSpiderAI — holds still for the whole
+        // leg-slam windup+slam (miniSpiderLegSlam sets isCharging for that duration).
+        if (mb.isCharging) { mb.setVelocity(0, 0); return; }
+
         const now   = this.time.now;
         const speed = mb.aiSpeed ?? mb.speed ?? 190;
 
@@ -100,14 +104,21 @@ export const HandMiniBossMethods = {
 
     miniSpiderLegSlam(mb) {
         if (!mb?.active) return;
+        // Matches the main boss's bossLegSlamWindup/bossLegSlam: isCharging (checked by
+        // updateMiniSpiderAI below) plus an explicit velocity zero holds the mini in
+        // place for the whole windup+slam — previously nothing blocked its AI, so it
+        // could keep circling/wandering/chasing while frozen on these static frames.
+        mb.isCharging = true;
+        mb.setVelocity(0, 0);
         mb.anims.stop();
         mb.setFrame(2);
         this.time.delayedCall(300, () => {
             if (!mb.active) return;
+            mb.setVelocity(0, 0);
             mb.anims.stop();
             mb.setFrame(3);
             this.tweens.add({ targets: mb, alpha: 0.3, duration: 100, yoyo: true });
-            this.time.delayedCall(800, () => { if (mb.active) mb.play('rocket_spider_walk'); });
+            this.time.delayedCall(800, () => { if (mb.active) { mb.isCharging = false; mb.play('rocket_spider_walk'); } });
             for (let i = 0; i < 3; i++) {
             const ox = this.player.x + Phaser.Math.Between(-260, 260);
             const oy = this.player.y + Phaser.Math.Between(-260, 260);
@@ -321,7 +332,7 @@ export const HandMiniBossMethods = {
             this.spawnMiniMantisPhase2Ring(mb);
         }
 
-        if (!mb.active || mb.mantisVanishing || mb.mantisResting) return;
+        if (!mb.active || mb.mantisVanishing || mb.mantisResting || mb.mantisStriking) return;
         if (mb.mantisPhase === 1 || mb.mantisChasing) {
             this.physics.moveToObject(mb, this.player, 420);
         }
@@ -392,6 +403,12 @@ export const HandMiniBossMethods = {
     miniMantisStrike(mb) {
         if (!mb?.active) return;
         if (this.player.reviveInvincible) {
+            // Strike is blocked, so setFrame(3) below never runs — but the mini is
+            // still sitting on miniMantisVanish()'s static frame 2 (wind-up) from the
+            // reappear. Resume the walk loop here too, same as the real strike path
+            // does once its own attack-frame window ends (see main boss's mantisStrike
+            // for the identical fix).
+            mb.play('mulberry_mantis_walk');
             mb.mantisResting = true;
             const restTime = mb.mantisPhase === 2 ? 2000 : 0;
             this.time.delayedCall(restTime, () => {
@@ -402,9 +419,27 @@ export const HandMiniBossMethods = {
             return;
         }
 
+        // In phase 2, whether this strike's rest ends in another vanish or a chase run
+        // is already decided by values fixed right now — precomputed so the post-strike
+        // frame choice below can use it (mirrors the main boss's mantisStrike).
+        const entersPhase2VanishRest = mb.mantisPhase === 2 && (mb.mantisVanishCycles + 1) < mb.mantisChaseThreshold;
+
         mb.anims.stop();
         mb.setFrame(3);
-        this.time.delayedCall(400, () => { if (mb.active) mb.play('mulberry_mantis_walk'); });
+        mb.setVelocity(0, 0);
+        mb.mantisStriking = true;
+        this.time.delayedCall(400, () => {
+            mb.mantisStriking = false;
+            if (!mb.active) return;
+            if (entersPhase2VanishRest) {
+                // About to rest stationary then vanish again — hold the same 3rd-frame
+                // wind-up pose miniMantisVanish() itself uses for the whole rest.
+                mb.anims.stop();
+                mb.setFrame(2);
+            } else {
+                mb.play('mulberry_mantis_walk');
+            }
+        });
         this.tweens.add({ targets: mb, alpha: 0.2, duration: 80, yoyo: true, repeat: 1 });
 
         const dist = Phaser.Math.Distance.Between(mb.x, mb.y, this.player.x, this.player.y);

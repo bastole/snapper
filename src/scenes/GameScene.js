@@ -126,6 +126,62 @@ export default class GameScene extends Phaser.Scene {
             this.showLevelUp();
         });
 
+        // E — top up Angry to max (5 stacks) and grant permanent invulnerability.
+        // reviveInvincible is the same flag every damage source in the game already
+        // gates on (originally for the since-removed REVIVE feature's 3s grace period —
+        // see Session 52 in DEVLOG.md), so setting it true here is a complete, ready-made
+        // god-mode switch with no other wiring needed.
+        this.input.keyboard.on('keydown-E', () => {
+            if (isBlocked()) return;
+            const angryStacks = this.ownedPassives.filter(p => p === 'Angry').length;
+            for (let i = angryStacks; i < 5; i++) {
+                this.ownedPassives.push('Angry');
+                this.playerSpeed += 30;
+            }
+            this.player.reviveInvincible = true;
+        });
+
+        // N — skip 60 seconds of game time. Enemy-intro gating (enemySpawn.js's
+        // `elapsed = 600 - this.gameTime`) picks this up automatically just by moving
+        // gameTime, but the spawn-rate/live-enemy-cap ramp runs on its own real-clock
+        // 10s timer independent of gameTime — so it's fast-forwarded in step (6 ticks,
+        // matching 60s / 10s-per-tick) rather than silently falling behind wherever a
+        // real 60s advance would have left it.
+        this.input.keyboard.on('keydown-N', () => {
+            if (isBlocked()) return;
+            if (this.bossSpawned) return; // no timer/regular spawning left to skip
+            this.gameTime = Math.max(0, this.gameTime - 60);
+            const mins = Math.floor(this.gameTime / 60);
+            const secs = this.gameTime % 60;
+            this.timerText.setText(`${mins}:${secs.toString().padStart(2, '0')}`);
+            for (let i = 0; i < 6; i++) this.rampSpawnDifficultyTick();
+            if (this.gameTime <= 0) {
+                this.gameTimerEvent.remove();
+                this.spawnBoss();
+            }
+        });
+
+        // M — toggle XP freeze: insects/treasures are still collected (and treasures
+        // still score), but neither can add XP, grant a level, or open an upgrade
+        // screen. All the actual gating lives in crickets.js's collectCricket().
+        this.input.keyboard.on('keydown-M', () => {
+            if (isBlocked()) return;
+            this.xpFrozen = !this.xpFrozen;
+        });
+
+        // 1–9 and 0 — deal N/10ths of the boss's max HP (0 = 10/10, i.e. a kill).
+        // damageBoss() halves whatever amount it's given ("bosses take half damage"),
+        // so passing fraction × maxHealth × 2 makes the actual HP loss come out to
+        // exactly fraction × maxHealth, independent of that halving.
+        const bossFractionKeys = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6, SEVEN: 7, EIGHT: 8, NINE: 9, ZERO: 10 };
+        Object.entries(bossFractionKeys).forEach(([keyName, tenth]) => {
+            this.input.keyboard.on(`keydown-${keyName}`, () => {
+                if (isBlocked()) return;
+                if (!this.boss || !this.boss.active) return;
+                this.damageBoss(this.boss.maxHealth * (tenth / 10) * 2);
+            });
+        });
+
         // Gamepad: Start (9) = pause (pauseBtn stored as this.pauseBtn after UI is built)
         this.input.gamepad.on('down', (pad, button) => {
             if (button.index === 9 && !this.isLevelingUp && !this.isCountdown && !this.isLevelClear && !this.isGameOver && !this._evoMenuOpen) this.togglePause(this.pauseBtn);
@@ -170,6 +226,7 @@ export default class GameScene extends Phaser.Scene {
         this.xp             = 0;
         this.xpToNext       = 5;
         this.playerLevel    = 1;
+        this.xpFrozen       = false; // M debug key — see keydown-M below
         this.magnetRange    = 64;
         this.isLevelingUp   = false;
         this.isCountdown    = false;
@@ -199,7 +256,6 @@ export default class GameScene extends Phaser.Scene {
         this.topBossHpBar    = null;
         this.topBossHpBarBg  = null;
         this.topBossLabel    = null;
-        this.bossPhaseLines    = [];
         this.topBossPhaseLines = [];
         this.handFireZones   = [];
         this.handMiniBossArray = [];
@@ -376,15 +432,8 @@ export default class GameScene extends Phaser.Scene {
         this.spawnRampTimer = this.time.addEvent({
             delay: 10000,
             loop: true,
-            callback: () => {
-                if (this.spawnDelay > this.spawnMinDelay) {
-                    this.spawnDelay = Math.max(this.spawnMinDelay, Math.floor(this.spawnDelay * 0.5));
-                    this.spawnTimer.reset({ delay: this.spawnDelay, callback: this.spawnTick, callbackScope: this, loop: true });
-                }
-                if (this.maxEnemies < this.maxEnemiesCap) {
-                    this.maxEnemies = Math.min(this.maxEnemiesCap, this.maxEnemies + this.maxEnemiesStep);
-                }
-            },
+            callback: this.rampSpawnDifficultyTick,
+            callbackScope: this,
         });
         this.biteTimer     = this.time.addEvent({ delay: this.biteRate, callback: this.doBite, callbackScope: this, loop: true });
         this.gameTimerEvent = this.time.addEvent({ delay: 1000, callback: this.tickTimer,  callbackScope: this, loop: true });
@@ -399,6 +448,19 @@ export default class GameScene extends Phaser.Scene {
         this.updateScore();
 
         playBgm(this, `bgm_lv${this.level}`);
+    }
+
+    // One step of the spawn-rate/live-enemy-cap ramp — normally fires every 10s via
+    // spawnRampTimer, and also called several times in a row by the N debug key below
+    // to fast-forward the ramp in step with a skipped chunk of game time.
+    rampSpawnDifficultyTick() {
+        if (this.spawnDelay > this.spawnMinDelay) {
+            this.spawnDelay = Math.max(this.spawnMinDelay, Math.floor(this.spawnDelay * 0.5));
+            this.spawnTimer.reset({ delay: this.spawnDelay, callback: this.spawnTick, callbackScope: this, loop: true });
+        }
+        if (this.maxEnemies < this.maxEnemiesCap) {
+            this.maxEnemies = Math.min(this.maxEnemiesCap, this.maxEnemies + this.maxEnemiesStep);
+        }
     }
 
     // ─── Background grid ────────────────────────────────────────────────────────

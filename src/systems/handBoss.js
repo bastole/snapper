@@ -193,7 +193,7 @@ export const HandBossMethods = {
         for (let i = 0; i < COUNT; i++) {
             const a    = (i / COUNT) * Math.PI * 2;
             const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_calcium');
-            proj.setScale(2.88).setDepth(7);
+            proj.setScale(1.44).setDepth(7);
             proj.setVelocity(Math.cos(a) * 440, Math.sin(a) * 440);
             proj.damage = 15;
             this.physics.add.overlap(proj, this.player, () => {
@@ -524,6 +524,7 @@ export const HandBossMethods = {
                 mb.mantisPhase          = 1;
                 mb.mantisResting        = false;
                 mb.mantisChasing        = false;
+                mb.mantisStriking       = false;
                 mb.mantisVanishCycles   = 0;
                 mb.mantisChaseThreshold = Phaser.Math.Between(5, 25);
                 this.scheduleMiniMantisVanish(mb);
@@ -590,7 +591,7 @@ export const HandBossMethods = {
                 for (let i = 0; i < 30; i++) {
                     const a    = (i / 30) * Math.PI * 2;
                     const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
-                    proj.setScale(2.88).setDepth(7);
+                    proj.setScale(1.44).setDepth(7);
                     proj.setVelocity(Math.cos(a) * 500, Math.sin(a) * 500);
                     proj.damage = 15;
                     this.physics.add.overlap(proj, this.player, () => {
@@ -633,7 +634,7 @@ export const HandBossMethods = {
             for (let i = 0; i < 30; i++) {
                 const a    = (i / 30) * Math.PI * 2;
                 const proj = this.physics.add.image(boss.x, boss.y, 'projectile_yun_hand_vitamin');
-                proj.setScale(3.20).setDepth(7);
+                proj.setScale(1.60).setDepth(7);
                 proj.setVelocity(Math.cos(a) * 400, Math.sin(a) * 400);
                 this.physics.add.overlap(proj, this.player, () => {
                     if (!proj.active || this.player.reviveInvincible) return;

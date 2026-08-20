@@ -118,7 +118,8 @@ export const EvolutionUIMethods = {
         const evos = this.evolutionDefs;
 
         const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setScrollFactor(0).setDepth(depth).setInteractive();
-        const title = this.add.text(W / 2, 60, 'EVOLUTIONS', {
+        const titleBaseY = 60;
+        const title = this.add.text(W / 2, titleBaseY, 'EVOLUTIONS', {
             fontSize: '56px', fontFamily: 'Arial Black, Arial', color: '#ffff00',
             stroke: '#000000', strokeThickness: 10,
         }).setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5);
@@ -233,7 +234,10 @@ export const EvolutionUIMethods = {
         const buildGrid = () => {
             mode = 'grid';
             destroyModeItems();
-            scrollY = 0; thumb = null; scrollables = []; cardRefs = [];
+            // The title scrolls along with the grid (so it never sits underneath cards
+            // passing over it — see the zoom-mode reset below), while CLOSE/the gamepad
+            // hint stay fixed at the bottom, outside this scrollables list entirely.
+            scrollY = 0; thumb = null; scrollables = [{ obj: title, baseY: titleBaseY }]; cardRefs = [];
             const available = this.getAvailableEvolutions();
 
             evos.forEach((ev, i) => {
@@ -371,6 +375,7 @@ export const EvolutionUIMethods = {
             mode = 'zoom';
             destroyModeItems();
             currentUnlockTrigger = null;
+            title.y = titleBaseY; // grid scroll may have moved it; zoom always shows it at rest
             const ev = evos[zoomIdx];
             const isAcquired = this.appliedEvolutions.has(ev.id);
             const isAvail = !isAcquired && this.getAvailableEvolutions().includes(ev);
@@ -383,37 +388,48 @@ export const EvolutionUIMethods = {
                 .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5);
             const border = this.add.rectangle(zoomCx, zoomCy, zoomCardW, zoomCardH)
                 .setScrollFactor(0).setDepth(depth + 1).setOrigin(0.5).setStrokeStyle(3, borderColor);
-            // Name and description stay hidden (as "???") only for an evolution never
-            // acquired in any past playthrough — colours here were already readable in
-            // every state, so revealing the text needs no colour changes, unlike the grid.
+            // Name stays hidden (as "???") only for an evolution never acquired in any
+            // past playthrough — colours here were already readable in every state, so
+            // revealing the text needs no colour changes, unlike the grid.
             const nameText = this.add.text(zoomCx, zoomCy - 156, everAcquired ? ev.evolvedName : '???', {
                 fontSize: '40px', fontFamily: 'Arial Black, Arial', color: isAcquired ? '#000000' : '#ffff44',
             }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
-            const descText = this.add.text(zoomCx, zoomCy - 60, everAcquired ? ev.desc : '???', {
-                fontSize: '24px', fontFamily: everAcquired ? 'Arial' : 'Arial Black, Arial', color: textColor,
-                wordWrap: { width: zoomCardW - 120 }, align: 'center',
-            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
-            modeItems.push(bg, border, nameText, descText);
+            modeItems.push(bg, border, nameText);
 
             // The "box" that shakes on unlock — bg/border/name/desc plus whichever
-            // status line(s) sit below them.
-            const shakeTargets = [bg, border, nameText, descText];
+            // status line(s) sit above the description.
+            const shakeTargets = [bg, border, nameText];
 
+            // Requirements/EVOLVED status sits right below the name; the description
+            // follows directly under that, so its vertical start depends on how many
+            // status lines came before it (one for EVOLVED, two for weapon/boost).
+            let descY;
             if (isAcquired) {
-                modeItems.push(this.add.text(zoomCx, zoomCy + 100, '✓ EVOLVED', {
+                const evolvedText = this.add.text(zoomCx, zoomCy - 60, '✓ EVOLVED', {
                     fontSize: '26px', fontFamily: 'Arial Black, Arial', color: '#008800',
-                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5));
+                }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
+                modeItems.push(evolvedText);
+                shakeTargets.push(evolvedText);
+                descY = zoomCy + 20;
             } else {
                 const { weaponLine, boostLine } = this._getEvoReqLines(ev);
-                const weaponText = this.add.text(zoomCx, zoomCy + 80, weaponLine, {
+                const weaponText = this.add.text(zoomCx, zoomCy - 80, weaponLine, {
                     fontSize: '22px', fontFamily: 'Arial', color: weaponLine.startsWith('✓') ? '#88ff88' : '#ff8888',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
-                const boostText = this.add.text(zoomCx, zoomCy + 120, boostLine, {
+                const boostText = this.add.text(zoomCx, zoomCy - 40, boostLine, {
                     fontSize: '22px', fontFamily: 'Arial', color: boostLine.startsWith('✓') ? '#88ff88' : '#ff8888',
                 }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
                 modeItems.push(weaponText, boostText);
                 shakeTargets.push(weaponText, boostText);
+                descY = zoomCy + 40;
             }
+
+            const descText = this.add.text(zoomCx, descY, everAcquired ? ev.desc : '???', {
+                fontSize: '24px', fontFamily: everAcquired ? 'Arial' : 'Arial Black, Arial', color: textColor,
+                wordWrap: { width: zoomCardW - 120 }, align: 'center',
+            }).setScrollFactor(0).setDepth(depth + 2).setOrigin(0.5);
+            modeItems.push(descText);
+            shakeTargets.push(descText);
 
             // Prev/next arrows — cycle through every evolution, wrapping at the ends
             const arrowLeft = this.add.text(zoomCx - zoomCardW / 2 - 60, zoomCy, '◀', {

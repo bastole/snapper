@@ -21,6 +21,33 @@ game-over overlay.
 Use this to build a maxed loadout fast and test evolutions and end-game
 weapon interactions. Blocked in the same states as U.
 
+### E key — max Angry + invulnerability (in-game)
+Tops up the Angry boost to its max 5 stacks (each stack's +30 movement speed
+is applied for any stacks not already owned) and grants permanent
+invulnerability (sets the same `reviveInvincible` flag every damage source in
+the game already checks). Blocked in the same states as U/F. Not a toggle —
+invulnerability stays on for the rest of the run once granted.
+
+### M key — toggle XP freeze (in-game)
+Toggles a mode where insects and treasures are still collected (and
+treasures still score) but can't add XP, grant a level, or open an upgrade
+screen — the XP bar stays put no matter what you pick up. Press again to
+unfreeze. Blocked in the same states as U/F.
+
+### N key — skip 60 seconds of game time (in-game)
+Advances the level timer forward by a full minute (clamped at 0, which
+triggers the boss the same way naturally running out does). Enemy
+introductions ramp automatically since they're gated off elapsed time
+derived from the timer; the spawn-rate/live-enemy-cap ramp (a separate
+real-clock 10s timer) is fast-forwarded 6 steps to match. No-ops once the
+boss has already spawned. Blocked in the same states as U/F.
+
+### 1–9 / 0 keys — deal a fraction of the boss's max HP (in-game)
+While a boss is active, pressing a number key deals that many tenths of the
+boss's max HP as damage — e.g. `3` deals 3/10 of max HP, `0` deals 10/10 (a
+kill). No-ops if no boss is currently active/spawned. Blocked in the same
+states as U/F.
+
 ### 🧪 ALL LEVELS — Level Select screen
 A button on the Level Select screen that unlocks all 5 levels for the
 current session regardless of save progress. Click once to enable (turns
@@ -38,4 +65,4 @@ Listed here in case history is useful.
 |---|---|---|
 | U / F | Session 27 | Re-added Session 49 |
 | REVIVE button (death overlay) | Session 27, re-added Session 49 | Removed again per request — no longer restored |
-| E key (max Bite + Hungry Forager) | Session 31 | Added and removed same session — not restored |
+| E key (max Bite + Hungry Forager) | Session 31 | Added and removed same session; E reused for max Angry + invulnerability |
